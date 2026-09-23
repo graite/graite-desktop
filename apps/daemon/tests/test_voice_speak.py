@@ -44,7 +44,8 @@ def _session(timeline: list[str]) -> VoiceSession:
             timeline.append(f"send-end {current['text']}")
 
     async def send_bytes(data: bytes) -> None:
-        await asyncio.sleep(0.02)  # playback is slower than synthesis
+        # Playback is much slower than synthesis, with margin for Windows' ~16 ms timer.
+        await asyncio.sleep(0.05)
 
     session.send_json = send_json  # type: ignore[assignment]
     session.send_bytes = send_bytes  # type: ignore[assignment]

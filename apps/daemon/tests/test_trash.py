@@ -99,7 +99,7 @@ def test_restore_without_origin_file_uses_activities(
 def test_restore_unknown_origin_needs_target(client: TestClient, settings: Settings) -> None:
     trash_dir = settings.vault / ".graite" / "trash" / "1700000000000-Orphan"
     trash_dir.mkdir(parents=True)
-    (trash_dir / "page.md").write_text("---\ntitle: Orphan\n---\n\nhi\n")
+    (trash_dir / "page.md").write_text("---\ntitle: Orphan\n---\n\nhi\n", newline="\n")
     entries = client.get("/api/v1/trash").json()
     assert entries[0] == {
         "trash_id": "1700000000000-Orphan",

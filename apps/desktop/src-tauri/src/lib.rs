@@ -23,6 +23,7 @@ fn renderer_crash_loop() -> bool {
     crashes.len() >= 3
 }
 
+#[cfg(any(target_os = "linux", test))] // only WebKitGTK asks for media permission
 fn is_local_media_url(uri: &str) -> bool {
     let Ok(url) = tauri::Url::parse(uri) else {
         return false;

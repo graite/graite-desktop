@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { components } from "@graite/api-types";
 import { request } from "@/lib/api";
 import {
@@ -72,21 +72,31 @@ export function useModelOptions(version = 0) {
   const [catalog, setCatalog] = useState<CatalogModel[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  // A request can finish after the component is gone (closing a panel, a test tearing down);
+  // setting state then is at best wasted and at worst throws once the DOM is torn down.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const refresh = useCallback(async () => {
     try {
       const [models, list] = await Promise.all([
         request<CatalogModel[]>("/api/v1/ai/catalog"),
         connections.list(),
       ]);
+      if (!mounted.current) return;
       setCatalog(Array.isArray(models) ? models : []);
       setGroups(
         groupModels(Array.isArray(models) ? models : [], list ?? { connections: [], models: [] }),
       );
       setError("");
     } catch (e) {
-      setError((e as Error).message);
+      if (mounted.current) setError((e as Error).message);
     } finally {
-      setLoading(false);
+      if (mounted.current) setLoading(false);
     }
   }, []);
   useEffect(() => {

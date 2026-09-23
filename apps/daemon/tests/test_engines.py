@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import sys
 import tarfile
 import zipfile
 from pathlib import Path
@@ -16,6 +17,10 @@ from graite.models.engines import Archive, Engine, EngineInstaller, Variant, ext
 from graite.models.hardware import Hardware
 
 REAL_CLIENT = httpx.AsyncClient
+POSIX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32", reason="the fake engines are POSIX shell scripts with symlinks"
+)
+
 SCRIPT = b"#!/bin/sh\necho fake-engine 1.0\nexit 0\n"
 BROKEN = b"#!/bin/sh\nexit 3\n"
 
@@ -108,6 +113,7 @@ def test_every_catalog_entry_is_pinned_with_a_checksum() -> None:
                 )
 
 
+@POSIX_ONLY
 async def test_install_verifies_tries_and_points_current_at_the_new_version(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -149,6 +155,7 @@ async def test_install_verifies_tries_and_points_current_at_the_new_version(
     assert installer.installed("crispasr") is None
 
 
+@POSIX_ONLY
 async def test_a_bad_download_or_a_build_that_does_not_start_changes_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -208,6 +215,7 @@ def test_zip_archives_are_unpacked_without_their_top_folder(tmp_path: Path) -> N
         extract(evil, tmp_path / "out2")
 
 
+@POSIX_ONLY
 def test_api_lists_engines_installs_in_the_scratch_app_dir_and_feeds_chat(
     client: TestClient, settings: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -243,6 +251,7 @@ def test_api_lists_engines_installs_in_the_scratch_app_dir_and_feeds_chat(
     assert client.delete("/api/v1/engines/crispasr").json()["installed_version"] is None
 
 
+@POSIX_ONLY
 def test_a_build_made_on_this_computer_wins_until_the_user_picks_another(tmp_path: Path) -> None:
     installer = EngineInstaller(tmp_path / "app")
     engine = fake_engine("v1", b"x")

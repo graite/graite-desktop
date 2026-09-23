@@ -14,6 +14,9 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  # uv's own Python builds: runner/Homebrew Pythons may lack sqlite3 extension loading,
+  # which sqlite-vec needs (and the macOS sidecar would ship).
+  UV_PYTHON_PREFERENCE: only-managed
 
 jobs:
   bundle:

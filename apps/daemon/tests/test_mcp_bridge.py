@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import stat
+import sys
 from pathlib import Path
 
 import httpx
@@ -18,7 +19,8 @@ def _announce(app_dir: Path, url: str = "http://127.0.0.1:1", token: str = "tok"
 def test_runtime_file_is_private_and_only_cleared_by_its_owner(tmp_path: Path) -> None:
     _announce(tmp_path)
     target = runtime.runtime_file(tmp_path)
-    assert stat.S_IMODE(target.stat().st_mode) == 0o600
+    if sys.platform != "win32":  # no POSIX modes; the per-user profile folder is private
+        assert stat.S_IMODE(target.stat().st_mode) == 0o600
     data = runtime.read(tmp_path)
     assert data is not None
     assert (data["url"], data["token"], data["pid"]) == ("http://127.0.0.1:1", "tok", os.getpid())

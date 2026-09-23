@@ -153,9 +153,10 @@ async def add_voice(
     suffix = Path(filename).suffix.lower() or ".wav"
 
     def prepare() -> tuple[bytes, float]:
-        with tempfile.NamedTemporaryFile(suffix=suffix) as handle:
+        # Closed before decoding: Windows cannot reopen a temporary file that is still open.
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete_on_close=False) as handle:
             handle.write(data)
-            handle.flush()
+            handle.close()
             wav = audio_wav(Path(handle.name), rate=24000, max_seconds=REFERENCE_MAX_SECONDS)
         with wave.open(io.BytesIO(wav)) as parsed:
             return wav, parsed.getnframes() / parsed.getframerate()
