@@ -27,7 +27,7 @@ jobs:
           - os: ubuntu-22.04
             bundles: appimage,deb
           - os: macos-latest # Apple silicon runner (aarch64-apple-darwin)
-            bundles: dmg
+            bundles: app,dmg # `app` keeps Graite.app in bundle/macos for the in-bundle smoke test
           - os: windows-latest
             bundles: nsis # msi later: WiX's 260-char source-path limit vs the deep PyInstaller onedir (docs/development.md, Releasing)
     runs-on: ${{ matrix.os }}
