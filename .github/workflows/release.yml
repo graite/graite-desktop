@@ -30,7 +30,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # ---- Python sidecar: built on each OS, smoke-tested, placed into src-tauri/resources/daemon ----
       - uses: astral-sh/setup-uv@v5
