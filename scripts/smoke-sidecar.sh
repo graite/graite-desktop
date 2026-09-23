@@ -16,8 +16,19 @@ exe="${1:-$root/apps/daemon/dist/graite-daemon/graite-daemon}"
 work="$(mktemp -d)"
 pid=""
 cleanup() {
-  [ -n "$pid" ] && kill "$pid" 2>/dev/null || true
-  rm -rf "$work"
+  if [ -n "$pid" ]; then
+    kill "$pid" 2>/dev/null || true
+    # On Windows (Git Bash) `kill` returns before the native process has let go of its
+    # files; stop it by its own pid from the handshake and wait until it is gone.
+    daemon_pid="$(sed -n 's/.*"pid": *\([0-9]*\).*/\1/p' "$work/out.txt" 2>/dev/null | head -n 1)"
+    if [ -n "$daemon_pid" ] && command -v taskkill >/dev/null 2>&1; then
+      taskkill //F //T //PID "$daemon_pid" >/dev/null 2>&1 || true
+    fi
+    for _ in $(seq 1 50); do kill -0 "$pid" 2>/dev/null || break; sleep 0.2; done
+  fi
+  # Cleanup must never turn a passing smoke test into a failure.
+  for _ in 1 2 3 4 5; do rm -rf "$work" 2>/dev/null && break; sleep 1; done
+  return 0
 }
 trap cleanup EXIT
 fail() {
