@@ -108,6 +108,15 @@ def connect(client: TestClient, conversation_id: str, extra: str = "") -> Any:
     )
 
 
+def hang_up(ws: Any) -> None:
+    """End the session like the client does and wait for the server's close, which it sends only
+    after saving the turn. Leaving the `with` block earlier lets the test client cancel the
+    server mid-shutdown, a race that only shows on slow machines."""
+    ws.send_text(json.dumps({"type": "end"}))
+    while ws.receive()["type"] != "websocket.close":
+        pass
+
+
 @pytest.fixture
 def ada(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     config(client)
@@ -178,7 +187,7 @@ def test_a_spoken_turn_is_heard_answered_aloud_and_saved(
         assert final.startswith("Je hebt drie notities over Atlas") and "vrijdag" in final
         ws.send_text(json.dumps({"type": "played", "ms": end["ms"], "done": True}))
         until(ws, "state", state="listening")
-        ws.send_text(json.dumps({"type": "end"}))
+        hang_up(ws)
     assert [t for t, _ in tts.spoken] == [
         "Hi there.",
         "Je hebt drie notities over Atlas.",
@@ -226,7 +235,7 @@ def test_interrupting_keeps_only_what_was_heard(
         ws.send_text(json.dumps({"type": "interrupt", "ms": 1400 + 500}))
         until(ws, "interrupted")
         until(ws, "state", state="listening")
-        ws.send_text(json.dumps({"type": "end"}))
+        hang_up(ws)
     saved = client.get(f"/api/v1/ai/conversations/{ada['id']}").json()["messages"]
     assert saved[-1]["cut_short"] is True and saved[-1]["role"] == "assistant"
     assert saved[-1]["content"].startswith("Atlas has three open notes right now. The deadline")
@@ -275,7 +284,7 @@ def test_speaking_over_the_assistant_ducks_checks_the_words_and_interrupts(
         say(ws, 0.6, 0.5)  # …and finishes the sentence
         transcript, _, _ = until(ws, "transcript")
         assert transcript["text"] == "Wait, that is not what I meant"
-        ws.send_text(json.dumps({"type": "end"}))
+        hang_up(ws)
     # The new turn's audio starts with what was said while interrupting (pre-roll included).
     assert len(stt.audio) == 3 and stt.audio[2] > stt.audio[1]
     saved = client.get(f"/api/v1/ai/conversations/{ada['id']}").json()["messages"]
@@ -315,7 +324,7 @@ def test_sounds_that_are_not_the_user_taking_the_floor_leave_the_answer_running(
         ws.send_text(json.dumps({"type": "played", "ms": 5000, "done": True}))
         _, seen, _ = until(ws, "state", state="listening")
         assert not [e for e in seen if e["type"] == "interrupted"]
-        ws.send_text(json.dumps({"type": "end"}))
+        hang_up(ws)
     saved = client.get(f"/api/v1/ai/conversations/{ada['id']}").json()["messages"]
     assert saved[-1]["cut_short"] is False and saved[-1]["content"].endswith("seventeen.")
 
@@ -333,7 +342,7 @@ def test_with_voice_interruption_off_the_microphone_is_ignored_while_speaking(
         playing(ws, 2.0, speech=True)
         _, seen, _ = until(ws, "speech_end")
         assert not [e for e in seen if e["type"] in ("duck", "barge_in", "interrupted")]
-        ws.send_text(json.dumps({"type": "end"}))
+        hang_up(ws)
     assert len(stt.audio) == 1
 
 
@@ -349,7 +358,7 @@ def test_noise_and_silence_do_not_reach_the_model(
         say(ws)
         until(ws, "state", state="transcribing")
         until(ws, "state", state="listening")
-        ws.send_text(json.dumps({"type": "end"}))
+        hang_up(ws)
     assert called == []
 
 
@@ -361,7 +370,7 @@ def test_one_voice_conversation_at_a_time(client: TestClient, ada: dict[str, Any
             error = json.loads(second.receive()["text"])
             assert error["type"] == "error" and "already running" in error["text"]
             assert second.receive()["code"] == 4409
-        ws.send_text(json.dumps({"type": "end"}))
+        hang_up(ws)
 
 
 def test_missing_engines_are_explained(client: TestClient, ada: dict[str, Any]) -> None:
@@ -384,13 +393,13 @@ def test_the_assistant_greets_by_name_and_the_greeting_is_not_a_message(
     with connect(client, conversation["id"]) as ws:
         seen = begin(ws)
         assert next(e for e in seen if e["type"] == "audio_start")["text"] == "Hoi Sam."
-        ws.send_text(json.dumps({"type": "end"}))
+        hang_up(ws)
     assert client.get(f"/api/v1/ai/conversations/{conversation['id']}").json()["messages"] == []
     # Synthesized once: the next conversation plays it from the cache.
     assert list((settings.app_dir / "cache" / "voice").glob("greeting-*.pcm"))
     with connect(client, conversation["id"]) as ws:
         begin(ws)
-        ws.send_text(json.dumps({"type": "end"}))
+        hang_up(ws)
     assert [t for t, _ in tts.spoken] == ["Hoi Sam."]
 
 
@@ -441,7 +450,7 @@ def test_a_tool_wait_is_filled_with_speech_and_the_phase_follows_it(
         end, seen, _ = until(ws, "speech_end")
         ws.send_text(json.dumps({"type": "played", "ms": end["ms"], "done": True}))
         until(ws, "state", state="listening")
-        ws.send_text(json.dumps({"type": "end"}))
+        hang_up(ws)
     spoken = [e["text"] for e in seen if e["type"] == "audio_start"]
     assert len(spoken) == 3, spoken
     assert spoken[0] in FILLERS["en"]["search"]  # one filler for the first tool only
@@ -487,7 +496,7 @@ def test_voice_preserves_the_tool_budget_and_requests_brief_speech(
         begin(ws)
         say(ws)
         until(ws, "speech_end")
-        ws.send_text(json.dumps({"type": "end"}))
+        hang_up(ws)
     # Room to finish a sentence; brevity is the prompt's job, not a hard cut that truncates
     # mid-thought or leaves a reasoning model with nothing to say.
     assert (
@@ -526,7 +535,7 @@ def test_the_test_bench_shows_levels_turn_taking_and_the_transcript(client: Test
         assert heard["text"] == "I was thinking about lunch" and heard["confidence"] == -0.1
         assert heard["audio_seconds"] > 1.5
         until(ws, "state", state="listening")  # and it listens again, nothing else happens
-        ws.send_text(json.dumps({"type": "end"}))
+        hang_up(ws)
     assert stt.running is False and client.app.state.voice.session is None
     assert not client.app.state.models.pinned and not client.app.state.foreground.active
 
@@ -546,12 +555,12 @@ def test_a_dead_microphone_is_reported(client: TestClient, monkeypatch: pytest.M
         assert any(e["type"] == "input" and e["frames"] > 0 and e["level"] == 0 for e in seen)
         say(ws, 1.2, 0.0)
         until(ws, "input_ok")
-        ws.send_text(json.dumps({"type": "end"}))
+        hang_up(ws)
     with client.websocket_connect("/api/v1/voice/session?token=test-token&mode=test") as ws:
         until(ws, "ready")
         silent, _, _ = until(ws, "input_silent")  # nothing sent at all
         assert silent["reason"] == "no_audio"
-        ws.send_text(json.dumps({"type": "end"}))
+        hang_up(ws)
 
 
 def test_a_pause_is_not_a_broken_microphone(
@@ -574,4 +583,4 @@ def test_a_pause_is_not_a_broken_microphone(
             ws.send_bytes(SILENCE)
         _, seen, _ = until(ws, "input", frames=0)
         assert not [e for e in seen if e["type"] == "input_silent"]
-        ws.send_text(json.dumps({"type": "end"}))
+        hang_up(ws)

@@ -54,7 +54,10 @@ jobs:
       - name: smoke-test the sidecar
         shell: bash
         # selftest + a real start that must answer on the API (scripts/smoke-sidecar.sh)
-        run: ../../scripts/smoke-sidecar.sh dist/graite-daemon/graite-daemon
+        run: ../../scripts/smoke-sidecar.sh dist/graite-daemon/graite-daemon 2>&1 | tee smoke.log
+      - if: failure()
+        shell: bash
+        run: ../../.github/scripts/annotate-failure.sh smoke.log "sidecar smoke ${{ matrix.os }}"
       - uses: actions/upload-artifact@v4
         with:
           name: graite-daemon-${{ matrix.os }}
