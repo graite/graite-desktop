@@ -1,0 +1,23 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      npm-minor: { update-types: [minor, patch] }
+    ignore:
+      # BlockNote is pinned on purpose (CLAUDE.md, ROADMAP risks): bump it deliberately.
+      - dependency-name: "@blocknote/*"
+  - package-ecosystem: uv
+    directory: /apps/daemon
+    schedule: { interval: weekly }
+    groups:
+      python-minor: { update-types: [minor, patch] }
+  - package-ecosystem: cargo
+    directory: /apps/desktop/src-tauri
+    schedule: { interval: weekly }
+    groups:
+      cargo-minor: { update-types: [minor, patch] }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }

@@ -1,0 +1,37 @@
+name: Bug report
+description: Something in Graite does not work as documented.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Graite version
+      description: Settings → About, or the release you downloaded.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [Linux, macOS, Windows]
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Daemon log
+      description: The last lines of `~/.graite/logs/daemon.log` (or `$GRAITE_APP_DIR/logs/daemon.log`). Remove anything private.
+      render: text
+  - type: textarea
+    id: models
+    attributes:
+      label: Models and engines
+      description: Which chat/embedding/voice models and engine builds were installed, if relevant.

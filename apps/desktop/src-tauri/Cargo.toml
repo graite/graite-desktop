@@ -1,0 +1,33 @@
+[package]
+name = "graite-desktop"
+version = "0.1.0"
+description = "Graite desktop shell"
+authors = ["Graite contributors"]
+license = "Apache-2.0"
+repository = "https://github.com/graite/graite-desktop"
+edition = "2021"
+
+[lib]
+name = "graite_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri-plugin-dialog = "2"
+rand = "0.8"
+hex = "0.4"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = { version = "=2.0.2", features = ["v2_40"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

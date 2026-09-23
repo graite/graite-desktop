@@ -1,0 +1,296 @@
+/* Settings owns its layout; editor tabs and shared model styles stay independent. */
+.ai-settings {
+  --settings-surface: var(--background);
+  --settings-inset: color-mix(in srgb, var(--muted) 55%, var(--background));
+  scrollbar-gutter: stable;
+}
+
+.ai-settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 26px 0 28px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--settings-inset);
+}
+
+.ai-settings-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 8px 15px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ai-settings-tabs button:hover {
+  color: var(--foreground);
+  background: var(--settings-surface);
+}
+
+.ai-settings-tabs button[aria-selected="true"] {
+  color: var(--foreground);
+  border-color: var(--border);
+  background: var(--settings-surface);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 5%);
+}
+
+.ai-settings-tabs button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.settings-panel {
+  min-width: 0;
+}
+
+/* Keep the three Chat connection choices intact. Use one surface treatment for
+   the setup, engine, model, search and voice cards surrounding them. */
+.ai-settings
+  :is(
+    .ai-setup-card,
+    .ai-engine,
+    .ai-engine-note,
+    .ai-library-model,
+    .ai-index-card,
+    .settings-voices,
+    .ai-vault-card
+  ) {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--settings-surface);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 2%);
+}
+
+.ai-settings :is(.ai-setup-card, .ai-index-card, .settings-voices) {
+  padding: 24px;
+}
+
+.ai-settings :is(.ai-engine, .ai-engine-note, .ai-library-model, .ai-vault-card) {
+  padding: 18px 20px;
+}
+
+.ai-settings .ai-section-heading {
+  margin: 0 0 14px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.ai-settings .ai-section-heading h2 {
+  font-size: 15px;
+}
+
+.ai-settings .ai-section-heading > span {
+  display: block;
+  line-height: 1.5;
+}
+
+.ai-settings .ai-library-intro {
+  font-size: 13px;
+  line-height: 1.7;
+  margin: 0 0 20px;
+}
+
+.ai-settings .ai-index-card,
+.ai-settings .ai-utilities {
+  margin: 0;
+}
+
+/* These sections already have card edges. Extra rules create floating dividers. */
+.ai-settings .ai-utilities {
+  padding: 0;
+  border: 0;
+}
+
+.ai-settings .ai-library {
+  padding-top: 0;
+}
+
+.ai-settings .ai-model-card-list {
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.ai-settings .ai-hardware {
+  border: 0;
+  padding-bottom: 6px;
+}
+
+.ai-settings .ai-setup-card :is(.ai-engine, .ai-library-model, .ai-source-panel, .ai-connection) {
+  background: var(--settings-inset);
+  box-shadow: none;
+  border-radius: 12px;
+}
+
+.ai-settings .ai-advanced {
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--settings-inset);
+}
+
+.ai-settings .ai-advanced summary {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.ai-settings .ai-engine .ai-advanced {
+  padding: 10px 0 0;
+  background: transparent;
+}
+
+.ai-settings .ai-utility-test {
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--settings-inset);
+}
+
+.ai-settings .ai-library-model strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ai-settings .ai-library-model p {
+  line-height: 1.65;
+}
+
+.ai-settings .ai-library-buttons {
+  flex-wrap: wrap;
+}
+
+.ai-settings-content > .ai-actions {
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.ai-settings .ai-footnote {
+  border: 0;
+  padding-top: 0;
+  margin-top: 24px;
+}
+
+.settings-voices {
+  margin-top: 24px;
+}
+
+.settings-voice-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+}
+
+/* Dividers belong between voices, never below the final row. */
+.settings-voice-row + .settings-voice-row {
+  border-top: 1px solid var(--border);
+}
+
+.settings-voice-row > svg {
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}
+
+.settings-voice-row > div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+
+.settings-voice-row strong {
+  font-size: 13px;
+}
+.settings-voice-row small {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.settings-custom-voice {
+  margin-top: 16px;
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--settings-inset, var(--muted));
+}
+
+.settings-custom-voice h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.settings-custom-voice .ai-library-intro {
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+.settings-consent {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 12px 0;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.settings-consent input {
+  margin-top: 4px;
+  flex-shrink: 0;
+  accent-color: var(--foreground);
+}
+.settings-voice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 0;
+}
+
+@media (max-width: 700px) {
+  .ai-settings-tabs {
+    width: 100%;
+    gap: 4px;
+  }
+  .ai-settings-tabs button {
+    flex: 1 0 auto;
+    padding-inline: 10px;
+  }
+  .ai-settings
+    :is(
+      .ai-setup-card,
+      .ai-index-card,
+      .settings-voices,
+      .ai-engine,
+      .ai-engine-note,
+      .ai-library-model,
+      .ai-vault-card
+    ) {
+    padding: 16px;
+    border-radius: 12px;
+  }
+  .ai-settings :is(.ai-engine-main, .ai-engine-note, .ai-vault-card) {
+    flex-wrap: wrap;
+  }
+  .ai-settings .ai-vault-card-actions {
+    flex-basis: 100%;
+  }
+  .settings-custom-voice {
+    padding: 14px;
+  }
+  .settings-voice-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .settings-voice-row > div {
+    flex-basis: calc(100% - 32px);
+  }
+}

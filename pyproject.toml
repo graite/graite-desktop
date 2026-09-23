@@ -1,0 +1,15 @@
+[tool.uv.workspace]
+members = ["apps/daemon"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "TID"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"tauri".msg = "The daemon never imports Tauri (CLAUDE.md rule 7)."
+
+[tool.ruff.lint.isort]
+known-first-party = ["graite", "tests"]

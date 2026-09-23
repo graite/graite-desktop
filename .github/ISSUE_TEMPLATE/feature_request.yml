@@ -1,0 +1,21 @@
+name: Feature request
+description: Propose a change or an addition.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like Graite to do?
+    validations:
+      required: true
+  - type: textarea
+    id: principles
+    attributes:
+      label: How does it fit the principles?
+      description: Files are the product; one writer; agents propose, humans dispose; no torch. See VISION.md.

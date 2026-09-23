@@ -1,0 +1,255 @@
+/* Notion look for the BlockNote editor, in one place: every rule lives here,
+   with no !important duplication. */
+
+/* Align editor text with the title / breadcrumb rows (both use paddingLeft: 40px). */
+.bn-editor {
+  padding-inline: 40px;
+}
+
+/* Side menu: center buttons with the first line of the block
+   (3px block padding-top + 24px line-height + 3px padding-bottom). */
+.bn-side-menu {
+  height: 30px;
+  align-items: center;
+  gap: 0;
+  padding-right: 6px;
+}
+.bn-side-menu[data-block-type="pageLink"] {
+  height: 26px;
+}
+.bn-editor [data-content-type="pageLink"] {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.bn-side-menu[data-block-type="heading"]:not([data-level]),
+.bn-side-menu[data-block-type="heading"][data-level="1"] {
+  height: calc(6px + 2rem);
+}
+.bn-side-menu[data-block-type="heading"][data-level="2"] {
+  height: calc(6px + 1.75rem);
+}
+.bn-side-menu[data-block-type="heading"][data-level="3"] {
+  height: calc(6px + 1.5rem);
+}
+.bn-side-menu .bn-button {
+  color: #d1d5db;
+  transition: color 0.15s;
+  padding: 0;
+  height: auto;
+  min-height: 0;
+}
+.bn-side-menu .bn-button:hover {
+  color: #9ca3af;
+  background: none;
+}
+.bn-side-menu .bn-button [data-test="dragHandleAdd"] {
+  width: 16px;
+  height: 16px;
+}
+.bn-side-menu .bn-button [data-test="dragHandle"] {
+  width: 18px;
+  height: 18px;
+}
+
+/* Notion-like heading sizes (tuned to match Notion).
+   BlockNote omits data-level for level 1 (the default), hence :not([data-level]). */
+.bn-editor [data-content-type="heading"]:not([data-level]),
+.bn-editor [data-content-type="heading"][data-level="1"] {
+  --level: 1.5rem !important;
+  font-size: 1.5rem !important;
+  line-height: 2rem !important;
+}
+.bn-editor [data-content-type="heading"][data-level="2"] {
+  --level: 1.25rem !important;
+  font-size: 1.25rem !important;
+  line-height: 1.75rem !important;
+}
+.bn-editor [data-content-type="heading"][data-level="3"] {
+  --level: 1.1rem !important;
+  font-size: 1.1rem !important;
+  line-height: 1.5rem !important;
+}
+.bn-editor [data-content-type="heading"] .bn-inline-content {
+  font-size: var(--level);
+}
+
+/* Checklist: Notion-style checkbox, muted strike-through when done. */
+.bn-block-content[data-content-type="checkListItem"] > div > input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 0 8px 0 2px;
+  border: 1.5px solid var(--muted-foreground);
+  border-radius: 4px;
+  background: var(--background);
+  display: grid;
+  place-content: center;
+  align-self: center;
+  transition:
+    background 0.1s,
+    border-color 0.1s;
+}
+.bn-block-content[data-content-type="checkListItem"] > div > input[type="checkbox"]:hover {
+  border-color: var(--foreground);
+}
+.bn-block-content[data-content-type="checkListItem"] > div > input[type="checkbox"]:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.bn-block-content[data-content-type="checkListItem"]
+  > div
+  > input[type="checkbox"]:checked::before {
+  content: "";
+  width: 9px;
+  height: 5px;
+  border-left: 2px solid var(--primary-foreground);
+  border-bottom: 2px solid var(--primary-foreground);
+  transform: translateY(-1px) rotate(-45deg);
+}
+.bn-block-content[data-content-type="checkListItem"][data-checked="true"] .bn-inline-content {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+  text-decoration-color: var(--muted-foreground);
+}
+
+/* Toggle: chevron like the sidebar, no extra gap. */
+.bn-toggle-button {
+  color: var(--muted-foreground);
+  padding: 2px;
+  margin-right: 2px;
+}
+.bn-toggle-button > svg {
+  width: 16px;
+  height: 16px;
+}
+.bn-toggle-add-block-button {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  margin-left: 24px;
+}
+
+/* Tables: full width, shaded header row, subtle borders. */
+.bn-editor [data-content-type="table"] table {
+  width: 100% !important;
+  border-collapse: collapse;
+}
+.bn-editor [data-content-type="table"] th,
+.bn-editor [data-content-type="table"] td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  min-width: 80px;
+  vertical-align: top;
+}
+.bn-editor [data-content-type="table"] th {
+  background: var(--muted);
+  font-weight: 500;
+  text-align: left;
+}
+.bn-editor [data-content-type="table"] tr:first-child td {
+  background: var(--muted);
+  font-weight: 500;
+}
+
+/* Divider and raw-markdown custom blocks */
+.bn-editor [data-content-type="divider"] hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 0.5rem 0;
+}
+.bn-editor [data-content-type="rawMarkdown"] pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+  white-space: pre-wrap;
+  background: var(--muted);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin: 0;
+}
+
+/* Nested blocks: hide BlockNote's vertical guide line beside nested lists (it reads as a stray extra line). */
+.bn-block-group .bn-block-group > .bn-block-outer::before {
+  display: none !important;
+}
+
+/* Compact slash-menu typography; keep descriptions readable without oversized labels. */
+.bn-suggestion-menu .bn-suggestion-menu-item[role="option"] {
+  padding: 5px 8px;
+  gap: 8px;
+}
+.bn-suggestion-menu .bn-suggestion-menu-item .text-base {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+.bn-suggestion-menu .bn-suggestion-menu-item .text-xs {
+  font-size: 11px;
+  line-height: 15px;
+}
+.bn-suggestion-menu .bn-suggestion-menu-item [data-position="left"] {
+  padding: 6px;
+}
+.bn-suggestion-menu .bn-suggestion-menu-label {
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--muted-foreground);
+}
+
+/* A selected block should not acquire BlockNote's bright blue bounding box. */
+.bn-editor .bn-block-content.ProseMirror-selectednode > *,
+.bn-editor .ProseMirror-selectednode > .bn-block-content > * {
+  outline: none;
+}
+
+/* Bigger list bullets; the line box stays 1.5× the text size so the glyph sits on the first line. */
+.bn-block-content[data-content-type="bulletListItem"]::before,
+.bn-block-outer[data-prev-type="bulletListItem"] > .bn-block > .bn-block-content::before {
+  font-size: 1.4em;
+  line-height: calc(1.5em / 1.4);
+}
+
+[data-page-scroll] {
+  scroll-padding-bottom: 80px;
+}
+[data-page-scroll] .bn-editor {
+  padding-bottom: 35vh;
+}
+.bn-suggestion-menu {
+  max-height: 360px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.sidebar-pages-scroll [data-slot="scroll-area-viewport"] > div {
+  display: block !important;
+}
+
+.page-topbar {
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  flex-shrink: 0;
+  padding: 8px 140px 8px 18px;
+}
+
+/* Review: blocks an open proposal would change, and the slot its card is rendered into. */
+.bn-block-outer[data-review-changed] {
+  border-radius: 4px;
+  background: rgb(0 0 0 / 3%);
+  box-shadow: -2px 0 0 #d4d4d4;
+}
+.review-inline-slot {
+  margin: 4px 0 8px;
+  white-space: normal;
+  user-select: none;
+}
+
+/* Pages with a table / board / list view use the full width next to the sidebar (the scroll
+   container supplies the side padding); view blocks scroll sideways inside themselves. */
+.page-wide {
+  width: 100%;
+  max-width: none;
+}
+.bn-block-content[data-content-type="pageView"] {
+  min-width: 0;
+  max-width: 100%;
+}

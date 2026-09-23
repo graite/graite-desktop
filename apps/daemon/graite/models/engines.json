@@ -1,0 +1,308 @@
+{
+  "version": 1,
+  "engines": [
+    {
+      "id": "llama",
+      "name": "Chat engine",
+      "binary": "llama-server",
+      "version": "b11047",
+      "repo": "ggml-org/llama.cpp",
+      "license": "MIT",
+      "purpose": "Runs your chat, search and OCR models on this computer. Graite starts it when a model is needed and stops it afterwards.",
+      "variants": [
+        {
+          "id": "macos-arm64-metal",
+          "os": "darwin",
+          "arch": "arm64",
+          "backend": "metal",
+          "label": "Apple Silicon (Metal)",
+          "archives": [
+            {
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11047/llama-b11047-bin-macos-arm64.tar.gz",
+              "sha256": "6294612861c69813f3b329cfa2674b1b2637b8d07b2062f0a2fcdc185f57e545",
+              "size": 11157631
+            }
+          ]
+        },
+        {
+          "id": "macos-x64-cpu",
+          "os": "darwin",
+          "arch": "x64",
+          "backend": "cpu",
+          "label": "Intel Mac",
+          "archives": [
+            {
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11047/llama-b11047-bin-macos-x64.tar.gz",
+              "sha256": "376285d4b56f9348d09e19aed2da277d8381dd68107c067c6cf8b96a8e94e87b",
+              "size": 11206288
+            }
+          ]
+        },
+        {
+          "id": "linux-x64-vulkan",
+          "os": "linux",
+          "arch": "x64",
+          "backend": "vulkan",
+          "label": "Graphics card (Vulkan)",
+          "archives": [
+            {
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11047/llama-b11047-bin-ubuntu-vulkan-x64.tar.gz",
+              "sha256": "82f0564237c2b336b0a50e4fd4f83c93b1cc5dc48b16087a07e1365491e4da5e",
+              "size": 30374025
+            }
+          ]
+        },
+        {
+          "id": "linux-x64-cpu",
+          "os": "linux",
+          "arch": "x64",
+          "backend": "cpu",
+          "label": "Processor only",
+          "archives": [
+            {
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11047/llama-b11047-bin-ubuntu-x64.tar.gz",
+              "sha256": "141fa81dd4a13898768880ead3806b637fcda2c30ebe1336512ba8ca6c696ec8",
+              "size": 16865412
+            }
+          ]
+        },
+        {
+          "id": "linux-x64-cuda",
+          "os": "linux",
+          "arch": "x64",
+          "backend": "cuda",
+          "label": "NVIDIA (CUDA 12)",
+          "archives": [
+            {
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11047/llama-b11047-bin-ubuntu-cuda-12.8-x64.tar.gz",
+              "sha256": "d6609a285cfd8ae8aa6301b570f9a2187590486d5eca94e77e0b98cf11bc0eee",
+              "size": 168824531
+            },
+            {
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11047/cudart-llama-b11047-bin-ubuntu-cuda-12.8-x64.tar.gz",
+              "sha256": "4bc0d7f8ac42f17ff2cc6fd0e761f3aa17b954d97d2fc528c376f8d25899a43f",
+              "size": 594373752
+            }
+          ]
+        },
+        {
+          "id": "linux-arm64-vulkan",
+          "os": "linux",
+          "arch": "arm64",
+          "backend": "vulkan",
+          "label": "Graphics card (Vulkan)",
+          "archives": [
+            {
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11047/llama-b11047-bin-ubuntu-vulkan-arm64.tar.gz",
+              "sha256": "5d25d0a980f6dfd7d14dbeb527a7c963e93e8ffd62d1378acb519fd593e0e036",
+              "size": 24328357
+            }
+          ]
+        },
+        {
+          "id": "linux-arm64-cpu",
+          "os": "linux",
+          "arch": "arm64",
+          "backend": "cpu",
+          "label": "Processor only",
+          "archives": [
+            {
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11047/llama-b11047-bin-ubuntu-arm64.tar.gz",
+              "sha256": "17aaa77338a1c257623b9ec47bb41eae47be345a9ef6cadbcd99258f7cb836c5",
+              "size": 13487463
+            }
+          ]
+        },
+        {
+          "id": "linux-arm64-cuda",
+          "os": "linux",
+          "arch": "arm64",
+          "backend": "cuda",
+          "label": "NVIDIA (CUDA 13)",
+          "archives": [
+            {
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11047/llama-b11047-bin-ubuntu-cuda-13.3-arm64.tar.gz",
+              "sha256": "70e4e9c94b1525b74a7705b05ddf9f32b290722040d07e7d6cff52714f49e689",
+              "size": 145078948
+            },
+            {
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11047/cudart-llama-b11047-bin-ubuntu-cuda-13.3-arm64.tar.gz",
+              "sha256": "33908ac0ba50ce3b1121dcc7ad2baaad21a36d26cfa8e74beeac4c82f3c99646",
+              "size": 518393023
+            }
+          ]
+        },
+        {
+          "id": "windows-x64-vulkan",
+          "os": "windows",
+          "arch": "x64",
+          "backend": "vulkan",
+          "label": "Graphics card (Vulkan)",
+          "archives": [
+            {
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11047/llama-b11047-bin-win-vulkan-x64.zip",
+              "sha256": "fa7c949c4b75871b9719ac3f401c30813aec860f8fba9c06dfb3b98318ac2155",
+              "size": 31837591
+            }
+          ]
+        },
+        {
+          "id": "windows-x64-cpu",
+          "os": "windows",
+          "arch": "x64",
+          "backend": "cpu",
+          "label": "Processor only",
+          "archives": [
+            {
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11047/llama-b11047-bin-win-cpu-x64.zip",
+              "sha256": "29f5f71d14078ce510e08473cfad77672273e514d01c2509af6b63203d90d215",
+              "size": 18453738
+            }
+          ]
+        },
+        {
+          "id": "windows-x64-cuda",
+          "os": "windows",
+          "arch": "x64",
+          "backend": "cuda",
+          "label": "NVIDIA (CUDA 12)",
+          "archives": [
+            {
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11047/llama-b11047-bin-win-cuda-12.4-x64.zip",
+              "sha256": "87ca0236efeb66deeabe88f5cbd4d86cf07e766bb37d4e8b2660e49543130312",
+              "size": 254211931
+            },
+            {
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11047/cudart-llama-bin-win-cuda-12.4-x64.zip",
+              "sha256": "8c79a9b226de4b3cacfd1f83d24f962d0773be79f1e7b75c6af4ded7e32ae1d6",
+              "size": 391443627
+            }
+          ]
+        },
+        {
+          "id": "windows-arm64-cpu",
+          "os": "windows",
+          "arch": "arm64",
+          "backend": "cpu",
+          "label": "Processor only",
+          "archives": [
+            {
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11047/llama-b11047-bin-win-cpu-arm64.zip",
+              "sha256": "c822dad67c7958ca8f8aafe533715defcf79bcd013cbf78895680d48ba55a339",
+              "size": 12002481
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "crispasr",
+      "name": "Voice engine",
+      "binary": "crispasr",
+      "version": "v0.8.33",
+      "repo": "CrispStrobe/CrispASR",
+      "license": "MIT",
+      "purpose": "Turns your assistant\u2019s written replies into speech, in the built-in voice or one you add. Graite starts it on this computer when you talk with your assistant.",
+      "variants": [
+        {
+          "id": "macos-arm64-metal",
+          "os": "darwin",
+          "arch": "arm64",
+          "backend": "metal",
+          "label": "Apple Silicon (Metal)",
+          "archives": [
+            {
+              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.33/crispasr-macos.tar.gz",
+              "sha256": "6e0c65ae72d14d3f443ee457ca720f95a7db8819977ec0a9a3a728d3d12955ee",
+              "size": 16778058
+            }
+          ]
+        },
+        {
+          "id": "linux-x64-vulkan",
+          "os": "linux",
+          "arch": "x64",
+          "backend": "vulkan",
+          "label": "Graphics card (Vulkan)",
+          "archives": [
+            {
+              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.33/crispasr-linux-x86_64-vulkan.tar.gz",
+              "sha256": "bea65eb3b3b7252ae146959e3e904ebc9632aae7aa7e289daa52d317c078ca9d",
+              "size": 73729551
+            }
+          ]
+        },
+        {
+          "id": "linux-x64-cpu",
+          "os": "linux",
+          "arch": "x64",
+          "backend": "cpu",
+          "label": "Processor only",
+          "archives": [
+            {
+              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.33/crispasr-linux-x86_64.tar.gz",
+              "sha256": "fbb06d55d98047177aec6c1d34484d17024d984f5d5e93c706242a2f51349ea4",
+              "size": 39803719
+            }
+          ]
+        },
+        {
+          "id": "linux-arm64-cpu",
+          "os": "linux",
+          "arch": "arm64",
+          "backend": "cpu",
+          "label": "Processor only",
+          "archives": [
+            {
+              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.33/crispasr-linux-arm64.tar.gz",
+              "sha256": "00a5fe0c787efec924a6f1c97080b20d6fdfd68def50eba17b2144a49cc22019",
+              "size": 33184497
+            }
+          ]
+        },
+        {
+          "id": "windows-x64-vulkan",
+          "os": "windows",
+          "arch": "x64",
+          "backend": "vulkan",
+          "label": "Graphics card (Vulkan)",
+          "archives": [
+            {
+              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.33/crispasr-windows-x86_64-vulkan.zip",
+              "sha256": "a774ff3cc205e34a87f2ddd94817f634e6379f1b72ba9e25b73f740c1b146ea1",
+              "size": 36707086
+            }
+          ]
+        },
+        {
+          "id": "windows-x64-cpu",
+          "os": "windows",
+          "arch": "x64",
+          "backend": "cpu",
+          "label": "Processor only",
+          "archives": [
+            {
+              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.33/crispasr-windows-x86_64-cpu.zip",
+              "sha256": "f50a5e4d296fa877cabe4610804aed9fd60bb221d7a01f521342b8772bf7bc8d",
+              "size": 8417135
+            }
+          ]
+        },
+        {
+          "id": "windows-x64-cuda",
+          "os": "windows",
+          "arch": "x64",
+          "backend": "cuda",
+          "label": "NVIDIA (CUDA 13)",
+          "archives": [
+            {
+              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.33/crispasr-windows-x86_64-cuda13.zip",
+              "sha256": "2a510427beb0cb4cac0258bd732c631d7ac9bd3fb83f894150a67c34cd2aba48",
+              "size": 509402706
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

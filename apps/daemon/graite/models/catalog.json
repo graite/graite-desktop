@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "id": "qwen3-4b-q4",
+      "name": "Qwen 3 \u00b7 Everyday",
+      "role": "chat",
+      "repo": "unsloth/Qwen3-4B-GGUF",
+      "revision": "22c9fc8a8c7700b76a1789366280a6a5a1ad1120",
+      "filename": "Qwen3-4B-Q4_K_M.gguf",
+      "sha256": "f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a",
+      "size": 2497281312,
+      "ctx": 8192,
+      "min_ram_gb": 8,
+      "tier": "default",
+      "notes": "Recommended for summaries, questions, and exploring your pages.",
+      "verified_llama": "b7016 (395e286bc), linux-arm64 CPU; streamed read_page, grounded subpage answer, instruction cascade"
+    },
+    {
+      "id": "embeddinggemma-300m-q8",
+      "name": "EmbeddingGemma \u00b7 Search",
+      "role": "embedding",
+      "repo": "unsloth/embeddinggemma-300m-GGUF",
+      "revision": "6661a6504c30d8304af13455cb4a5d4f5bc6011f",
+      "filename": "embeddinggemma-300M-Q8_0.gguf",
+      "sha256": "a0f7b4e13c397a6e1b32c2de75b1f65a14c92ec524d5f674d94a4290a1c4969b",
+      "size": 328577056,
+      "ctx": 2048,
+      "min_ram_gb": 2,
+      "tier": "default",
+      "notes": "A small, multilingual search model. Runs on your CPU; 768-dimensional embeddings.",
+      "verified_llama": "b7016 \u00b7 Linux ARM64 CPU \u00b7 768 dimensions and retrieval smoke check",
+      "pooling": "mean",
+      "embedding_family": "embeddinggemma"
+    },
+    {
+      "id": "whisper-large-v3-turbo-q8",
+      "name": "Whisper Turbo \u00b7 Speech",
+      "role": "speech",
+      "repo": "ggerganov/whisper.cpp",
+      "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+      "filename": "ggml-large-v3-turbo-q8_0.bin",
+      "sha256": "317eb69c11673c9de1e1f0d459b253999804ec71ac4c23c17ecf5fbe24e259a1",
+      "size": 874188075,
+      "ctx": 0,
+      "min_ram_gb": 4,
+      "tier": "default",
+      "notes": "Multilingual transcription with whisper.cpp. Loaded only while transcribing.",
+      "verified_llama": null
+    },
+    {
+      "id": "glm-ocr-q8",
+      "name": "GLM-OCR \u00b7 Documents",
+      "role": "ocr",
+      "repo": "ggml-org/GLM-OCR-GGUF",
+      "revision": "65a42de1148dbed2297e922b5dbc7d9b70c36578",
+      "filename": "GLM-OCR-Q8_0.gguf",
+      "sha256": "45bc244a6446aff850521dc41f18bc8d7105ad5f0c2c8c28af04e7cc4f4d50b1",
+      "size": 1434837056,
+      "ctx": 16384,
+      "min_ram_gb": 4,
+      "tier": "default",
+      "notes": "Read PDFs and images into Markdown on device. Requires a recent llama.cpp engine with GLM-OCR support.",
+      "verified_llama": null,
+      "files": [
+        {
+          "filename": "GLM-OCR-Q8_0.gguf",
+          "size": 950433408,
+          "sha256": "45bc244a6446aff850521dc41f18bc8d7105ad5f0c2c8c28af04e7cc4f4d50b1"
+        },
+        {
+          "filename": "mmproj-GLM-OCR-Q8_0.gguf",
+          "size": 484403648,
+          "sha256": "9c4b58e33e316ed142eb5dcb41abec3844d3e6e5dc361ffb782c3fa9d175141f"
+        }
+      ]
+    },
+    {
+      "id": "silero-vad-v5",
+      "name": "Silero VAD \u00b7 Voice activity",
+      "role": "vad",
+      "repo": "onnx-community/silero-vad",
+      "revision": "e71cae966052b992a7eca6b17738916ce0eca4ec",
+      "filename": "onnx/model.onnx",
+      "sha256": "a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808",
+      "size": 2243022,
+      "ctx": 0,
+      "min_ram_gb": 1,
+      "tier": "default",
+      "notes": "Hears when you start and stop speaking. Runs on the CPU (ONNX).",
+      "verified_llama": null
+    },
+    {
+      "id": "smart-turn-v3",
+      "name": "Smart Turn \u00b7 End of turn",
+      "role": "turn",
+      "repo": "pipecat-ai/smart-turn-v3",
+      "revision": "f766f81d3cfdf7737ac64aad813d91bbfd56bf93",
+      "filename": "smart-turn-v3.2-cpu.onnx",
+      "sha256": "2bb026316b14a660486a75b1733cd3fbab8c2fd0314dc9af7be49f8cca967e4f",
+      "size": 8679182,
+      "ctx": 0,
+      "min_ram_gb": 1,
+      "tier": "default",
+      "notes": "Tells a thinking pause from the end of your turn, in 23 languages. Runs on the CPU (ONNX).",
+      "verified_llama": null
+    },
+    {
+      "id": "chatterbox-multilingual-q8",
+      "name": "Chatterbox Multilingual \u00b7 Voice",
+      "role": "tts",
+      "repo": "cstr/chatterbox-GGUF",
+      "revision": "c45504bb8d55473a2213db17ec472ed11b69056a",
+      "filename": "chatterbox-v3-t3-q8_0.gguf",
+      "sha256": "c896a0d882aedd61083e5ea1b6764e52fa09a5734cba54b55fdcec18036e8211",
+      "size": 1003876864,
+      "ctx": 0,
+      "min_ram_gb": 4,
+      "tier": "default",
+      "notes": "Your assistant's voice in 23 languages, with voice cloning from a short clip. Needs the voice engine, and a graphics card to keep up with a conversation. Everything it says is watermarked as AI-generated.",
+      "verified_llama": null,
+      "files": [
+        {
+          "filename": "chatterbox-v3-t3-q8_0.gguf",
+          "size": 639286176,
+          "sha256": "c896a0d882aedd61083e5ea1b6764e52fa09a5734cba54b55fdcec18036e8211"
+        },
+        {
+          "filename": "chatterbox-v3-s3gen-q8_0.gguf",
+          "size": 364590688,
+          "sha256": "ad2d99210a469e7d5ee66780a1e2e8604473e2dcc2ee09cef3409dbed2015c83"
+        }
+      ]
+    }
+  ]
+}

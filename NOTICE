@@ -1,0 +1,8 @@
+Graite
+Copyright 2026 Graite contributors
+
+This product includes software developed as part of the Graite project
+(https://github.com/graite/graite-desktop), licensed under the Apache License, Version 2.0.
+
+Third-party components bundled with the packaged application, and the components it
+downloads at the user's request, are listed with their licenses in THIRD_PARTY_NOTICES.md.

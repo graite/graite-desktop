@@ -1,0 +1,230 @@
+.vault-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(ellipse at 50% 45%, #f3f4ef 0, #fafbf8 32%, #fff 70%);
+  color: #262921;
+}
+.dark .vault-picker {
+  background: var(--background);
+  color: var(--foreground);
+}
+.vault-picker-card {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+}
+.vault-picker-mark {
+  width: 64px;
+  height: 64px;
+  background: #555e47;
+}
+.vault-picker h1 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  margin-top: 8px;
+}
+.vault-picker p {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  max-width: 420px;
+  line-height: 1.55;
+}
+.vault-picker-error {
+  color: #a83d30 !important;
+  font-size: 12px;
+}
+.vault-picker-recent {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+.vault-picker-recent li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.vault-picker-vault {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--background);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.vault-picker-vault:hover:not(:disabled) {
+  background: var(--muted);
+}
+.vault-picker-vault > span {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.vault-picker-vault strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.vault-picker-vault small {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vault-picker-vault em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.vault-picker-forget {
+  color: var(--muted-foreground);
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.vault-picker-forget:hover {
+  background: var(--muted);
+}
+.vault-picker-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.vault-picker-actions button,
+.vault-picker-confirm button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: inherit;
+  border-radius: 9px;
+  padding: 9px 16px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.vault-picker-primary {
+  background: #434c35 !important;
+  color: #fff !important;
+  border-color: #434c35 !important;
+}
+.vault-picker-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.vault-picker-confirm {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  text-align: left;
+}
+.vault-picker-confirm strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.vault-picker-confirm small {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+.vault-picker-confirm > div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Sidebar vault menu */
+.vault-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 2px 6px 2px 2px;
+  cursor: pointer;
+}
+.vault-menu-trigger:hover:not(:disabled) {
+  background: var(--accent);
+}
+.vault-menu-trigger:disabled {
+  cursor: default;
+}
+.vault-menu-trigger > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vault-menu-path {
+  display: block;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+
+/* Vault card on AI & models */
+.ai-vault-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+.ai-vault-card > div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ai-vault-card strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+.ai-vault-card small {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-vault-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}

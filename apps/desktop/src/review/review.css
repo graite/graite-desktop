@@ -1,0 +1,663 @@
+.review-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 10px 0;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--background);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 3%);
+}
+.review-card[data-status="conflict"] {
+  border-color: #a3a3a3;
+}
+.review-card[data-status="accepted"],
+.review-card[data-status="auto_applied"] {
+  border-color: #d4d4d4;
+}
+.review-card[data-status="rejected"],
+.review-card[data-status="reverted"] {
+  opacity: 0.75;
+}
+.review-card > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.review-card[data-collapsed] {
+  padding: 6px 10px;
+  margin: 4px 0;
+}
+.review-card[data-collapsed]:hover {
+  background: color-mix(in srgb, var(--muted) 55%, var(--background));
+}
+.review-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+.review-toggle > svg {
+  color: var(--muted-foreground);
+}
+.review-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.review-row > .review-toggle {
+  flex: 1;
+}
+.review-quick {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.review-quick button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.review-quick button:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.review-quick button:disabled {
+  opacity: 0.4;
+  cursor: wait;
+}
+.review-path {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  max-width: 35%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
+}
+.review-kind {
+  font-size: 10px;
+  font-weight: 500;
+  color: #737373;
+  background: #f5f5f5;
+  border-radius: 5px;
+  padding: 2px 7px;
+  flex-shrink: 0;
+}
+.review-summary {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.review-status {
+  font-size: 10px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.review-target {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  flex-wrap: wrap;
+}
+.review-note {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+.review-optin {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 6px 9px;
+}
+.review-error {
+  font-size: 11px;
+  color: #525252;
+}
+.review-editor {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 12px;
+  font-family: ui-monospace, monospace;
+  resize: vertical;
+  background: transparent;
+  outline: none;
+}
+.review-card > footer {
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.review-reject {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+.review-reject input {
+  flex: 1;
+  min-width: 160px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 12px;
+  background: transparent;
+  outline: none;
+}
+.review-view {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 92px 24px 24px;
+  max-width: 860px;
+  width: 100%;
+  margin: 0 auto;
+}
+.review-view-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.review-view-head h1 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  margin-right: auto;
+}
+.review-view-head [role="tab"] {
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 7px;
+}
+.review-view-head [role="tab"][data-active] {
+  background: var(--muted);
+  font-weight: 500;
+}
+.review-empty {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  padding: 32px 0;
+  text-align: center;
+}
+.review-list {
+  display: flex;
+  flex-direction: column;
+}
+.review-list .review-card {
+  margin: 4px 0;
+}
+
+/* Page reviews blend into the document; decisions stay clear and easy to reach. */
+.review-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 4px 0 8px;
+  padding: 14px 16px 10px;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  background: #fff;
+  color: #262626;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 3%);
+  font-size: 12px;
+  line-height: 1.5;
+  cursor: default;
+}
+.review-inline[data-status="conflict"] {
+  border-color: #a3a3a3;
+}
+.review-inline > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.review-inline > header > svg {
+  color: #737373;
+  flex-shrink: 0;
+}
+.review-inline > footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 9px;
+}
+.review-inline > footer button[data-slot="button"] {
+  border-radius: 6px;
+  box-shadow: none;
+}
+.review-inline .review-reject input {
+  background: #fff;
+}
+.review-inline .review-note {
+  color: #737373;
+}
+.review-inline .review-note[role="alert"],
+.review-error {
+  color: #404040;
+  background: #f5f5f5;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.review-unanchored {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 40px 6px;
+}
+.review-bar {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  color: #737373;
+}
+.review-bar-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 400;
+  border-radius: 6px;
+  padding: 5px 7px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.review-bar-count > svg {
+  color: #737373;
+  flex-shrink: 0;
+}
+.review-bar-count > span {
+  color: #737373;
+}
+.review-bar-count:hover,
+.review-bar-menu:hover,
+.review-bar-menu[data-state="open"] {
+  background: #f5f5f5;
+  color: #262626;
+}
+.review-bar-menu {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px;
+  height: 26px;
+  font-size: 11px;
+  white-space: nowrap;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.review-bar button:focus-visible,
+.review-read-more:focus-visible {
+  outline: 2px solid #a3a3a3;
+  outline-offset: 2px;
+}
+.review-bar-menu:disabled {
+  opacity: 0.4;
+  cursor: wait;
+}
+
+/* Keep the complete diff available to decisions and to the expanded preview. */
+.review-preview {
+  min-width: 0;
+}
+.review-preview-clip {
+  overflow: hidden;
+}
+.review-preview[data-truncated] .review-preview-clip {
+  max-height: 176px;
+  mask-image: linear-gradient(#000 calc(100% - 24px), transparent);
+}
+.review-preview[data-page-preview][data-truncated] .review-preview-clip {
+  max-height: 320px;
+}
+.review-preview-body {
+  display: flow-root;
+}
+.review-read-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 3px 0;
+  border-radius: 4px;
+  color: #737373;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.review-read-more:hover {
+  color: #171717;
+}
+.review-read-more svg {
+  flex-shrink: 0;
+}
+
+/* Scoped typography also works inside the document editor's CSS reset. */
+.review-changes {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  user-select: text;
+}
+.review-version {
+  min-width: 0;
+}
+.review-version-before {
+  padding-bottom: 14px;
+  border-bottom: 1px solid #ededed;
+  color: #737373;
+}
+:is(.review-inline, .review-card) .review-version-label {
+  margin: 0 0 7px;
+  color: #737373;
+  font-size: 10px;
+  font-weight: 500;
+}
+:is(.review-inline, .review-card) .review-markdown {
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+:is(.review-inline, .review-card) .review-markdown > :first-child {
+  margin-top: 0;
+}
+:is(.review-inline, .review-card) .review-markdown > :last-child {
+  margin-bottom: 0;
+}
+:is(.review-inline, .review-card) .review-markdown p {
+  margin: 0 0 10px;
+}
+:is(.review-inline, .review-card) .review-markdown h1,
+:is(.review-inline, .review-card) .review-markdown h2,
+:is(.review-inline, .review-card) .review-markdown h3,
+:is(.review-inline, .review-card) .review-markdown h4,
+:is(.review-inline, .review-card) .review-markdown h5,
+:is(.review-inline, .review-card) .review-markdown h6 {
+  margin: 18px 0 8px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: inherit;
+}
+:is(.review-inline, .review-card) .review-markdown h1 {
+  font-size: 21px;
+}
+:is(.review-inline, .review-card) .review-markdown h2 {
+  font-size: 18px;
+}
+:is(.review-inline, .review-card) .review-markdown h3 {
+  font-size: 15px;
+}
+:is(.review-inline, .review-card) .review-markdown h4,
+:is(.review-inline, .review-card) .review-markdown h5,
+:is(.review-inline, .review-card) .review-markdown h6 {
+  font-size: 13px;
+}
+:is(.review-inline, .review-card) .review-markdown strong {
+  font-weight: 600;
+}
+:is(.review-inline, .review-card) .review-markdown em {
+  font-style: italic;
+}
+:is(.review-inline, .review-card) .review-markdown ul,
+:is(.review-inline, .review-card) .review-markdown ol {
+  margin: 8px 0 12px;
+  padding-left: 22px;
+}
+:is(.review-inline, .review-card) .review-markdown ul {
+  list-style-type: disc;
+}
+:is(.review-inline, .review-card) .review-markdown ol {
+  list-style-type: decimal;
+}
+:is(.review-inline, .review-card) .review-markdown li {
+  margin: 4px 0;
+}
+:is(.review-inline, .review-card) .review-markdown li > p {
+  margin: 0;
+}
+:is(.review-inline, .review-card) .review-markdown li > ul,
+:is(.review-inline, .review-card) .review-markdown li > ol {
+  margin: 4px 0;
+}
+:is(.review-inline, .review-card) .review-markdown .contains-task-list {
+  list-style: none;
+  padding-left: 2px;
+}
+:is(.review-inline, .review-card) .review-markdown input[type="checkbox"] {
+  margin-right: 6px;
+  accent-color: #525252;
+}
+:is(.review-inline, .review-card) .review-markdown blockquote {
+  margin: 12px 0;
+  border-left: 2px solid #d4d4d4;
+  padding-left: 12px;
+  color: #737373;
+}
+:is(.review-inline, .review-card) .review-markdown code {
+  border-radius: 4px;
+  background: #f5f5f5;
+  padding: 2px 4px;
+  font-size: 0.9em;
+  font-family: ui-monospace, monospace;
+}
+:is(.review-inline, .review-card) .review-markdown pre {
+  margin: 12px 0;
+  padding: 10px 12px;
+  background: #f5f5f5;
+  border-radius: 7px;
+  white-space: pre-wrap;
+}
+:is(.review-inline, .review-card) .review-markdown pre code {
+  padding: 0;
+}
+:is(.review-inline, .review-card) .review-markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 12px 0;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+:is(.review-inline, .review-card) .review-markdown th,
+:is(.review-inline, .review-card) .review-markdown td {
+  padding: 6px 9px;
+  border: 1px solid #e5e5e5;
+  text-align: left;
+}
+:is(.review-inline, .review-card) .review-markdown th {
+  background: #fafafa;
+  font-weight: 600;
+}
+:is(.review-inline, .review-card) .review-markdown hr {
+  margin: 16px 0;
+  border-color: #e5e5e5;
+}
+.review-link-label {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.review-image-label {
+  color: #737373;
+  font-style: italic;
+}
+.review-patch > .review-changes + .review-changes {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed #d4d4d4;
+}
+.review-patch-fallback {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+/* Review proposals use restrained change colors; the surrounding controls stay neutral. */
+:is(.review-inline, .review-card) .review-changes[data-highlight-changes] {
+  gap: 12px;
+}
+:is(.review-inline, .review-card) .review-changes[data-highlight-changes] .review-version-before {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+:is(.review-inline, .review-card)
+  .review-changes[data-highlight-changes]
+  .review-version:has([data-kind="del"]) {
+  --review-change-ink: #9a3636;
+  --review-change-bg: #fff3f2;
+  --review-change-edge: #e9b5af;
+}
+:is(.review-inline, .review-card)
+  .review-changes[data-highlight-changes]
+  .review-version:has([data-kind="add"]) {
+  --review-change-ink: #276443;
+  --review-change-bg: #f0f8f2;
+  --review-change-edge: #a9ceb3;
+}
+:is(.review-inline, .review-card) .review-changes[data-highlight-changes] .review-version-label {
+  color: var(--review-change-ink);
+}
+:is(.review-inline, .review-card)
+  .review-changes[data-highlight-changes]
+  .review-markdown[data-kind] {
+  padding: 9px 12px;
+  border-left: 2px solid var(--review-change-edge);
+  border-radius: 0 6px 6px 0;
+  background: var(--review-change-bg);
+  color: var(--review-change-ink);
+}
+:is(.review-inline, .review-card)
+  .review-changes[data-highlight-changes]
+  .review-markdown[data-kind="del"] {
+  text-decoration: line-through;
+  text-decoration-color: #c27e78;
+}
+.review-origin {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 7px;
+  line-height: 17px;
+  white-space: nowrap;
+}
+
+/* A properties proposal has no text to diff: this is the whole of what it would change. */
+.property-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+}
+.property-diff-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 140px) 1fr;
+  gap: 10px;
+  align-items: baseline;
+}
+.property-diff-row dt {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.property-diff-row dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-size: 13px;
+}
+.property-diff-row[data-state="unchanged"] {
+  opacity: 0.55;
+}
+.property-diff-was {
+  opacity: 0.6;
+  text-decoration: line-through;
+}
+.property-diff-empty {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.property-diff-badge {
+  border-radius: 4px;
+  padding: 1px 5px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+/* In a chat thread the same cards are smaller: the conversation stays the main thing. */
+.ai-message .review-card {
+  padding: 6px 10px;
+  margin: 4px 0;
+  gap: 6px;
+  font-size: 11px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+.ai-message .review-card .review-kind {
+  font-size: 10px;
+  padding: 1px 6px;
+}
+.ai-message .review-card .review-toggle {
+  gap: 6px;
+}
+.ai-message .review-card > footer {
+  padding-top: 6px;
+  gap: 4px;
+}
+.ai-message .review-card > footer button[data-slot="button"] {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+.ai-message .review-card .review-markdown {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.ai-message .property-diff {
+  gap: 2px;
+  padding: 4px 8px;
+}
+.ai-message .property-diff-row {
+  grid-template-columns: minmax(70px, 110px) 1fr;
+  gap: 8px;
+}
+.ai-message .property-diff-row dt,
+.ai-message .property-diff-row dd {
+  font-size: 11px;
+}
+.ai-message .property-diff-row dd {
+  gap: 4px;
+}

@@ -1,0 +1,68 @@
+.mcp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+.mcp-lead {
+  display: flex;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+.mcp-lead svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.mcp-lead strong {
+  color: var(--foreground);
+  font-weight: 500;
+}
+.mcp-snippet {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.mcp-snippet-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--muted);
+}
+.mcp-snippet-head > div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.mcp-snippet-head strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.mcp-snippet-head small {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.mcp-snippet pre {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 180px;
+  overflow: auto;
+  user-select: all;
+}
+.mcp-note {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}

@@ -1,0 +1,27 @@
+{
+  "_comment": "One corpus, two parsers. blocks.test.ts asserts every `valid` body becomes a pageView block and every `invalid` one falls back to rawMarkdown; apps/daemon/tests/test_blocks.py asserts check_fences() accepts and rejects exactly the same bodies. Neither side can loosen or tighten its rules without failing a test on the other.",
+  "valid": [
+    "view: table\n",
+    "view: kanban\ngroup: Status\n",
+    "view: list\nshow:\n  list: []\n",
+    "view: kanban\nfield: Status\n",
+    "view: kanban\ngroup: Status\nshow:\n  kanban:\n    - Priority\n    - Due\n",
+    "view: table\nshow:\n  - Status\n  - Due\n",
+    "view: kanban\ngroup: Status\nsettings:\n  sort:\n    field: Priority\n    direction: asc\n",
+    "view: kanban\ngroup: Status\nsettings:\n  fields:\n    - name: Status\n      type: status\n      options: [Backlog, Open, Done]\n",
+    "view: table\nsettings:\n  fields:\n    - name: Done\n      type: checkbox\n    - name: Tags\n      type: multi_select\n      options: []\n"
+  ],
+  "invalid": [
+    "view: timeline\nfield: Date\n",
+    "view: gallery\ngroup: Status\n",
+    "view: kanban\ngroupBy: Status\n",
+    "view: kanban\ngroup:\n  - Status\n",
+    "view: kanban\ngroup: Status\nshow:\n  gallery: []\n",
+    "view: kanban\ngroup: Status\nsettings:\n  - sort\n",
+    "group: Status\n",
+    "columns: Status\nview: kanban\n",
+    "view: kanban\nsettings:\n  fields: Status\n",
+    "view: kanban\nsettings:\n  fields:\n    - name: Status\n      type: invented\n",
+    "view: kanban\nsettings:\n  fields:\n    - name: Status\n      type: status\n      options: [12]\n"
+  ]
+}

@@ -1,0 +1,271 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`toBlocks / fromBlocks > matches the snapshot for fixtures/basic.md 1`] = `
+[
+  {
+    "children": [],
+    "props": {
+      "source": "---
+id: 018f3c2e-7a1b-7c3d-9e4f-0a1b2c3d4e5f
+title: Basic
+---
+",
+    },
+    "type": "rawMarkdown",
+  },
+  {
+    "children": [],
+    "content": [
+      {
+        "styles": {},
+        "text": "Basic page",
+        "type": "text",
+      },
+    ],
+    "props": {
+      "level": 1,
+    },
+    "type": "heading",
+  },
+  {
+    "children": [],
+    "content": [
+      {
+        "styles": {},
+        "text": "A paragraph with ",
+        "type": "text",
+      },
+      {
+        "styles": {
+          "italic": true,
+        },
+        "text": "emphasis",
+        "type": "text",
+      },
+      {
+        "styles": {},
+        "text": ", ",
+        "type": "text",
+      },
+      {
+        "styles": {
+          "bold": true,
+        },
+        "text": "strong",
+        "type": "text",
+      },
+      {
+        "styles": {},
+        "text": ", ",
+        "type": "text",
+      },
+      {
+        "styles": {
+          "code": true,
+        },
+        "text": "code",
+        "type": "text",
+      },
+      {
+        "styles": {},
+        "text": " and a ",
+        "type": "text",
+      },
+      {
+        "content": [
+          {
+            "styles": {},
+            "text": "link",
+            "type": "text",
+          },
+        ],
+        "href": "https://example.com",
+        "type": "link",
+      },
+      {
+        "styles": {},
+        "text": ".",
+        "type": "text",
+      },
+    ],
+    "props": {},
+    "type": "paragraph",
+  },
+  {
+    "children": [
+      {
+        "children": [],
+        "content": [
+          {
+            "styles": {},
+            "text": "nested",
+            "type": "text",
+          },
+        ],
+        "props": {},
+        "type": "bulletListItem",
+      },
+    ],
+    "content": [
+      {
+        "styles": {},
+        "text": "bullet one",
+        "type": "text",
+      },
+    ],
+    "props": {},
+    "type": "bulletListItem",
+  },
+  {
+    "children": [],
+    "content": [
+      {
+        "styles": {},
+        "text": "task",
+        "type": "text",
+      },
+    ],
+    "props": {
+      "checked": false,
+    },
+    "type": "checkListItem",
+  },
+  {
+    "children": [],
+    "content": [
+      {
+        "styles": {},
+        "text": "done",
+        "type": "text",
+      },
+    ],
+    "props": {
+      "checked": true,
+    },
+    "type": "checkListItem",
+  },
+  {
+    "children": [],
+    "content": [
+      {
+        "styles": {},
+        "text": "first",
+        "type": "text",
+      },
+    ],
+    "props": {},
+    "type": "numberedListItem",
+  },
+  {
+    "children": [],
+    "content": [
+      {
+        "styles": {},
+        "text": "second",
+        "type": "text",
+      },
+    ],
+    "props": {},
+    "type": "numberedListItem",
+  },
+  {
+    "children": [],
+    "props": {
+      "source": "> [!note] A callout
+> with a body
+",
+    },
+    "type": "rawMarkdown",
+  },
+  {
+    "children": [],
+    "content": [
+      {
+        "styles": {},
+        "text": "table: tasks",
+        "type": "text",
+      },
+    ],
+    "props": {
+      "language": "graite:dbview",
+    },
+    "type": "codeBlock",
+  },
+  {
+    "children": [],
+    "content": {
+      "headerRows": 1,
+      "rows": [
+        {
+          "cells": [
+            [
+              {
+                "styles": {},
+                "text": "col a",
+                "type": "text",
+              },
+            ],
+            [
+              {
+                "styles": {},
+                "text": "col b",
+                "type": "text",
+              },
+            ],
+          ],
+        },
+        {
+          "cells": [
+            [
+              {
+                "styles": {},
+                "text": "1",
+                "type": "text",
+              },
+            ],
+            [
+              {
+                "styles": {},
+                "text": "2",
+                "type": "text",
+              },
+            ],
+          ],
+        },
+      ],
+      "type": "tableContent",
+    },
+    "props": {},
+    "type": "table",
+  },
+  {
+    "children": [],
+    "props": {},
+    "type": "divider",
+  },
+  {
+    "children": [],
+    "content": [
+      {
+        "styles": {},
+        "text": "![[_attachments/pic.png]] and ",
+        "type": "text",
+      },
+      {
+        "props": {
+          "alias": "alias",
+          "target": "Other Page",
+        },
+        "type": "wikilink",
+      },
+      {
+        "styles": {},
+        "text": " stay verbatim for now.",
+        "type": "text",
+      },
+    ],
+    "props": {},
+    "type": "paragraph",
+  },
+]
+`;
