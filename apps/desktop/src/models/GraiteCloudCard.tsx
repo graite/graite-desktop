@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Check,
   Cloud,
@@ -39,17 +39,25 @@ export function GraiteCloudCard({
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
+  // Requests can finish after the card is gone (leaving Settings, a test ending).
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const refresh = useCallback(async () => {
     try {
       const next = await cloud.status();
+      const offered = next.signed_in ? await cloud.models() : [];
+      if (!mounted.current) return;
       setStatus(next);
-      if (next.signed_in) {
-        setWaiting(null);
-        setModels(await cloud.models());
-      } else setModels([]);
+      if (next.signed_in) setWaiting(null);
+      setModels(offered);
       setError("");
     } catch (e) {
-      setError((e as Error).message);
+      if (mounted.current) setError((e as Error).message);
     }
   }, []);
 

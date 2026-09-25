@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Cloud, Cpu, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { ai, type AIConfig, type AIStatus } from "@/lib/ai";
@@ -41,16 +41,23 @@ export function ComposerModel({
   const { groups, catalog } = useModelOptions((settingsVersion ?? 0) + version);
   // Graite Cloud, when signed in: one entry, the model it offers.
   const [cloudModel, setCloudModel] = useState<CloudModel | null>(null);
+  // The lookup can finish after the picker is gone (closing a chat, a test ending).
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const refreshCloud = useCallback(async () => {
+    let offered: CloudModel | null = null;
     try {
       const account = await cloud.status();
-      const offered = account.signed_in
-        ? ((await cloud.models()).find((m) => m.available) ?? null)
-        : null;
-      setCloudModel(offered);
+      if (account.signed_in) offered = (await cloud.models()).find((m) => m.available) ?? null;
     } catch {
-      setCloudModel(null);
+      offered = null;
     }
+    if (mounted.current) setCloudModel(offered);
   }, []);
   useEffect(() => {
     void refreshCloud();
