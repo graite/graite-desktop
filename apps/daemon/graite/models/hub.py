@@ -1,4 +1,4 @@
-"""Pinned Unsloth GGUF discovery and read-only local model discovery."""
+"""Pinned Hugging Face GGUF discovery and read-only local model discovery."""
 
 from __future__ import annotations
 
@@ -20,10 +20,11 @@ def repository(value: str) -> str:
     if value.startswith("https://"):
         parsed = urlparse(value)
         if parsed.netloc != "huggingface.co" or parsed.query or parsed.fragment:
-            raise ValueError("Use a Hugging Face link to an Unsloth GGUF repository.")
+            raise ValueError("Use a Hugging Face link to a GGUF repository.")
         value = parsed.path.strip("/")
-    if not re.fullmatch(r"unsloth/[A-Za-z0-9][A-Za-z0-9._-]*", value):
-        raise ValueError("Use an unsloth/model-name repository or its Hugging Face link.")
+    part = r"[A-Za-z0-9][A-Za-z0-9._-]*"
+    if not re.fullmatch(rf"{part}/{part}", value) or ".." in value:
+        raise ValueError("Use an owner/model-name repository or its Hugging Face link.")
     return value
 
 

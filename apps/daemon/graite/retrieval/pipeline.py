@@ -37,6 +37,7 @@ PROVIDER_LABELS = {
     "compatible": "your model server",
     "openrouter": "OpenRouter",
     "anthropic": "Claude",
+    "graite": "Graite Cloud",
 }
 
 

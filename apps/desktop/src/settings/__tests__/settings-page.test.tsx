@@ -50,9 +50,17 @@ vi.mock("@/models/ModelLibrary", () => ({
     <div>library:{roles?.join(",") ?? kind ?? "chat"}</div>
   ),
 }));
+vi.mock("@/models/StarterModels", () => ({ StarterModels: () => <div>starter-models</div> }));
 vi.mock("@/models/IndexCard", () => ({ IndexCard: () => <div>index-card</div> }));
 vi.mock("@/models/VaultCard", () => ({ VaultCard: () => <div>vault-card</div> }));
 vi.mock("@/models/ConnectionsCard", () => ({ ConnectionsCard: () => <div>connections</div> }));
+vi.mock("@/models/GraiteCloudCard", () => ({
+  GraiteCloudCard: ({ onPick }: { onPick: (model: { id: string }) => void }) => (
+    <button type="button" onClick={() => onPick({ id: "graite/fast" })}>
+      pick-graite-fast
+    </button>
+  ),
+}));
 vi.mock("@/settings/VoicesCard", () => ({ VoicesCard: () => <div>voices-card</div> }));
 
 import { ModelsPage } from "@/models/ModelsPage";
@@ -70,6 +78,7 @@ const CONFIG = {
 };
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear(); // tech mode is remembered app-wide
   aiMock.status.mockResolvedValue({
     config: CONFIG,
     hardware: { ram_gb: 32, gpu: null, binary_path: "" },
@@ -95,13 +104,16 @@ it("is called Settings, has a tab per concern, and no longer shows the MCP card"
   ]);
   expect(screen.queryByText(/Connect AI apps/i)).toBeNull();
   expect(panel("Chat").hidden).toBe(false);
-  expect(within(panel("Chat")).getByText("engine:llama")).toBeTruthy();
+  // Beginners see the starter models; engine and full library wait for tech mode.
+  expect(within(panel("Chat")).getByText("starter-models")).toBeTruthy();
+  expect(within(panel("Chat")).queryByText("engine:llama")).toBeNull();
+  expect(within(panel("Chat")).queryByText("library:chat")).toBeNull();
   expect(within(panel("Voice")).getByText("library:speech,vad,turn,tts")).toBeTruthy();
   expect(within(panel("Voice")).getByText("engine:crispasr")).toBeTruthy();
   expect(within(panel("Search")).getByText("library:embedding")).toBeTruthy();
   expect(within(panel("Documents")).getByText("library:ocr")).toBeTruthy();
   // OCR reports the chat engine rather than mounting a second, competing engine card.
-  expect(screen.getAllByText("engine:llama")).toHaveLength(1);
+  expect(screen.queryAllByText("engine:llama")).toHaveLength(0);
   expect(
     await within(panel("Documents")).findByText(/Uses the chat engine — already downloaded/),
   ).toBeTruthy();
@@ -123,6 +135,18 @@ it("opens on the requested tab without microphone settings or tests", async () =
 
 it("keeps an unsaved change when switching tabs and saves it once", async () => {
   render(<ModelsPage onClose={() => {}} initialTab="chat" />);
+  expect(screen.queryByLabelText(/GPU layers/)).toBeNull();
+  const advanced = await screen.findByRole("switch", { name: "Advanced model settings" });
+  expect(advanced.getAttribute("aria-checked")).toBe("false");
+  // The first thing in the local card, above the starter models.
+  expect(
+    advanced.compareDocumentPosition(screen.getByText("starter-models")) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  fireEvent.click(advanced);
+  expect(advanced.getAttribute("aria-checked")).toBe("true");
+  expect(within(panel("Chat")).getByText("engine:llama")).toBeTruthy();
+  expect(within(panel("Chat")).getByText("library:chat")).toBeTruthy();
   fireEvent.change(await screen.findByLabelText(/GPU layers/), { target: { value: "20" } });
   // Leave and come back: the panels stay mounted, so the draft must survive.
   fireEvent.click(screen.getByRole("tab", { name: /Voice/ }));
@@ -160,4 +184,22 @@ it("still says so when a stored path overrides the engine Graite installed", asy
   expect(within(panel("Documents")).getByText("/opt/llama-server")).toBeTruthy();
   // …and no input: it is a statement, not a setting.
   expect(screen.queryByLabelText(/executable/i)).toBeNull();
+});
+
+it("offers Graite Cloud as a chat choice and saves the picked model", async () => {
+  render(<ModelsPage onClose={() => {}} initialTab="chat" />);
+  const choice = await screen.findByRole("button", { name: /Graite Cloud/ });
+  expect(choice.hasAttribute("disabled")).toBe(false);
+  fireEvent.click(choice);
+  expect(choice.getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+  expect(await screen.findByText(/choose a Graite Cloud model first/)).toBeTruthy();
+  expect(aiMock.save).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByText("pick-graite-fast"));
+  fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+  await waitFor(() =>
+    expect(aiMock.save).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "graite", model: "graite/fast", saved_model_id: null }),
+    ),
+  );
 });

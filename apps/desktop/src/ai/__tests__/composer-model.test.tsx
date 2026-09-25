@@ -3,6 +3,11 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 const mocks = vi.hoisted(() => ({ status: vi.fn(), save: vi.fn(), request: vi.fn() }));
 vi.mock("@/lib/api", () => ({ request: mocks.request }));
 vi.mock("@/lib/ai", () => ({ ai: mocks }));
+const cloudMocks = vi.hoisted(() => ({
+  status: vi.fn(async () => ({ signed_in: false, cloud_url: "https://api.getgraite.com" })),
+  models: vi.fn(async () => [] as unknown[]),
+}));
+vi.mock("@/lib/cloud", () => ({ cloud: cloudMocks }));
 import { ComposerModel } from "../ComposerModel";
 afterEach(() => {
   cleanup();
@@ -105,4 +110,44 @@ it("switching back to a local model drops the saved-model link and keeps other s
       saved_model_id: null,
     }),
   );
+});
+
+it("offers Graite Cloud once signed in and switches the vault to it", async () => {
+  const config = {
+    provider: "local",
+    model_path: "/one.gguf",
+    context_size: 8192,
+    saved_model_id: null,
+  };
+  setup(config);
+  cloudMocks.status.mockResolvedValue({ signed_in: true, cloud_url: "https://api.getgraite.com" });
+  cloudMocks.models.mockResolvedValue([
+    { id: "graite/default", name: "Graite", context_length: null, available: true, min_plan: null },
+  ]);
+  const onModelChanged = vi.fn();
+  render(
+    <ComposerModel
+      busy={false}
+      working={false}
+      onWorking={vi.fn()}
+      value=""
+      onChange={vi.fn()}
+      onModelChanged={onModelChanged}
+    />,
+  );
+  await screen.findByText("One");
+  fireEvent.keyDown(screen.getByRole("button", { name: "Choose chat model" }), {
+    key: "ArrowDown",
+  });
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Graite Cloud" }));
+  await waitFor(() =>
+    expect(mocks.save).toHaveBeenCalledWith({
+      ...config,
+      provider: "graite",
+      model: "graite/default",
+      saved_model_id: null,
+      connection_id: null,
+    }),
+  );
+  expect(onModelChanged).toHaveBeenCalled();
 });

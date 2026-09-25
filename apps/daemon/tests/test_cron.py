@@ -96,7 +96,9 @@ def test_synced_agent_schedule_fires_through_tick(tmp_path: Path) -> None:
     row = next(r for r in cron.rows() if r["source"] == "agent:review")
     assert row["enabled"] and row["next_run_at"]
     due = datetime.fromisoformat(row["next_run_at"]) + timedelta(seconds=1)
-    assert cron.tick(due) == [row["id"]]
+    # The Journal's live note (06:00) may be due as well when this runs just before 06:00
+    # UTC; only the agent's schedule matters here.
+    assert row["id"] in cron.tick(due)
     job = queue.claim("w", {"agent_run"})
     assert job is not None
     assert job.payload == {"agent": "review", "cron_id": row["id"], "trigger": "cron"}

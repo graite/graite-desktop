@@ -17,7 +17,9 @@ from graite.models.connections import KIND_NAMES, OPENROUTER_URL, get_store
 class AIConfig(BaseModel):
     # "openrouter" is accepted for rows written before connections were unified and is
     # normalised to a model server at the OpenRouter endpoint.
-    provider: Literal["local", "compatible", "anthropic", "openrouter"] = "local"
+    # "graite" is Graite Cloud: its sign-in lives in graite/cloud, not in the keychain entries
+    # of connections, and `base_url` follows the configured cloud (see Manager.use).
+    provider: Literal["local", "compatible", "anthropic", "openrouter", "graite"] = "local"
     base_url: str = "http://127.0.0.1:1234/v1"
     model: str = ""
     # App-wide connection and saved model this vault currently uses (models/connections.py).
@@ -135,7 +137,7 @@ def delete_connection_key(connection_id: str) -> None:
 
 
 def get_key(config: AIConfig) -> str:
-    if config.provider == "local":
+    if config.provider in ("local", "graite"):  # Graite Cloud: graite/cloud/session.py
         return ""
     try:
         return _read_key(config.provider, config.base_url, config.connection_id)
@@ -157,6 +159,8 @@ def _link(config: AIConfig) -> AIConfig:
     that only names provider/endpoint/model (older rows, API clients) gets a connection and a
     saved model created for it, so the chat picker can offer it later.
     """
+    if config.provider == "graite":  # Graite Cloud is not a connection in the store
+        return config.model_copy(update={"connection_id": None, "saved_model_id": None})
     store = get_store()
     if store is None:
         return config

@@ -1,11 +1,11 @@
 import { ModelSelect } from "./ModelSelect";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
   AudioLines,
   Check,
-  Cpu,
+  Cloud,
   FileText,
   FolderOpen,
   Loader2,
@@ -28,10 +28,13 @@ import { Button } from "@/components/ui/button";
 import "./ai.css";
 import "@/settings/settings.css";
 import { ConnectionsCard } from "./ConnectionsCard";
+import { GraiteCloudCard } from "./GraiteCloudCard";
 import { IndexCard } from "./IndexCard";
 import { EngineCard } from "./EngineCard";
 import { useEngine } from "./useEngine";
 import { ModelLibrary } from "./ModelLibrary";
+import { StarterModels } from "./StarterModels";
+import { useTechMode } from "@/lib/techMode";
 import { VaultCard } from "./VaultCard";
 import { VoicesCard } from "@/settings/VoicesCard";
 
@@ -44,7 +47,7 @@ const TABS: { id: SettingsTab; label: string; icon: typeof Orbit }[] = [
   { id: "vault", label: "Vault", icon: FolderOpen },
 ];
 
-type Kind = "local" | ConnectionKind;
+type Kind = "local" | "graite" | ConnectionKind;
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
 /** Settings: one page, a tab per concern. The tabs share one draft of the model settings and
@@ -67,6 +70,7 @@ export function ModelsPage({
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [techMode, setTechMode] = useTechMode();
 
   const refreshStore = () =>
     connectionsApi
@@ -97,6 +101,11 @@ export function ModelsPage({
     setConfig((c) => c && { ...c, ...value });
     setSuccess("");
   };
+  // Stable, so the starter picker can choose a model once its first download finishes.
+  const chooseModel = useCallback((model_path: string) => {
+    setConfig((c) => c && { ...c, model_path });
+    setSuccess("");
+  }, []);
   const action = async (label: string, work: () => Promise<void>) => {
     setBusy(label);
     setError("");
@@ -111,7 +120,11 @@ export function ModelsPage({
   };
   const save = async () => {
     if (!config) return;
-    if (kind !== "local" && !config.saved_model_id) {
+    if (kind === "graite") {
+      if (config.provider !== "graite" || !config.model) {
+        throw new Error("Sign in and choose a Graite Cloud model first.");
+      }
+    } else if (kind !== "local" && !config.saved_model_id) {
       throw new Error("Choose a saved model on this connection first.");
     }
     const saved = await ai.save(config);
@@ -169,14 +182,20 @@ export function ModelsPage({
                     [
                       "local",
                       Monitor,
-                      "On device",
-                      "Private by default. Run a GGUF model locally.",
+                      "On this computer",
+                      "Private by default. Download a model and run it on your own device.",
+                    ],
+                    [
+                      "graite",
+                      Cloud,
+                      "Graite Cloud",
+                      "Hosted by Graite, nothing to set up. Free daily credits to start.",
                     ],
                     [
                       "compatible",
                       Plug,
-                      "Model server",
-                      "LM Studio or Ollama on this computer, OpenRouter, or any OpenAI-compatible address you paste.",
+                      "Your own server",
+                      "Ollama, LM Studio, vLLM, a llama.cpp server, OpenRouter or any OpenAI-compatible address.",
                     ],
                     ["anthropic", Orbit, "Claude", "Use Claude with your Anthropic API key."],
                   ] as const
@@ -205,34 +224,60 @@ export function ModelsPage({
                   </button>
                 ))}
               </div>
+              <p className="ai-choices-note">
+                Running a model on this computer is optional. Search, reading documents and voice
+                still use small on-device models.
+              </p>
               <fieldset className="ai-setup-card" disabled={!!busy}>
                 {kind === "local" ? (
                   <>
-                    <div className="ai-hardware">
-                      <Cpu size={22} />
-                      <div>
-                        <strong>
-                          {status?.hardware.ram_gb} GB memory{" "}
-                          {status?.hardware.gpu && `· ${status.hardware.gpu}`}
-                        </strong>
-                        <p>Models run privately on your device.</p>
-                      </div>
+                    <div className="ai-tech-mode">
+                      <span>
+                        <label htmlFor="ai-tech-mode-switch">
+                          <strong>Advanced model settings</strong>
+                        </label>
+                        <small id="ai-tech-mode-hint">
+                          For people who know GGUF models: add any model from Hugging Face or your
+                          disk, choose engine builds, set context size and GPU layers, or run your
+                          own llama-server.
+                        </small>
+                      </span>
+                      <button
+                        id="ai-tech-mode-switch"
+                        type="button"
+                        role="switch"
+                        className="ai-switch"
+                        aria-checked={techMode}
+                        aria-describedby="ai-tech-mode-hint"
+                        onClick={() => setTechMode(!techMode)}
+                      />
                     </div>
-                    <EngineCard
-                      engineId="llama"
-                      disabled={!!busy}
-                      onChanged={() =>
-                        void ai
-                          .status()
-                          .then(setStatus)
-                          .catch(() => undefined)
-                      }
-                    />
-                    <ModelLibrary
+                    {techMode && (
+                      <EngineCard
+                        engineId="llama"
+                        disabled={!!busy}
+                        onChanged={() =>
+                          void ai
+                            .status()
+                            .then(setStatus)
+                            .catch(() => undefined)
+                        }
+                      />
+                    )}
+                    <StarterModels
+                      hardware={status?.hardware}
                       selectedPath={config.model_path}
                       disabled={!!busy}
-                      onChoose={(model_path) => patch({ model_path })}
+                      onChoose={chooseModel}
+                      showInstalled={!techMode}
                     />
+                    {techMode && (
+                      <ModelLibrary
+                        selectedPath={config.model_path}
+                        disabled={!!busy}
+                        onChoose={chooseModel}
+                      />
+                    )}
                     <label className="ai-check">
                       <input
                         type="checkbox"
@@ -246,38 +291,64 @@ export function ModelsPage({
                         </small>
                       </span>
                     </label>
-                    <details className="ai-advanced">
-                      <summary>Advanced settings</summary>
-
-                      <div className="ai-field-row">
+                    {techMode && (
+                      <div className="ai-advanced-fields">
+                        <div className="ai-field-row">
+                          <label className="ai-field">
+                            Context size
+                            <ModelSelect
+                              label="Context size"
+                              value={config.context_size}
+                              onValueChange={(value) => patch({ context_size: Number(value) })}
+                            >
+                              {[2048, 4096, 8192, 16384, 32768].map((n) => (
+                                <option key={n} value={n}>
+                                  {n.toLocaleString()} tokens
+                                </option>
+                              ))}
+                            </ModelSelect>
+                          </label>
+                          <label className="ai-field">
+                            GPU layers
+                            <input
+                              type="number"
+                              min={-1}
+                              max={999}
+                              value={config.gpu_layers}
+                              onChange={(e) => patch({ gpu_layers: Number(e.target.value) })}
+                            />
+                            <small>−1 chooses automatically · 0 uses CPU</small>
+                          </label>
+                        </div>
                         <label className="ai-field">
-                          Context size
-                          <ModelSelect
-                            label="Context size"
-                            value={config.context_size}
-                            onValueChange={(value) => patch({ context_size: Number(value) })}
-                          >
-                            {[2048, 4096, 8192, 16384, 32768].map((n) => (
-                              <option key={n} value={n}>
-                                {n.toLocaleString()} tokens
-                              </option>
-                            ))}
-                          </ModelSelect>
-                        </label>
-                        <label className="ai-field">
-                          GPU layers
+                          Your own llama-server
                           <input
-                            type="number"
-                            min={-1}
-                            max={999}
-                            value={config.gpu_layers}
-                            onChange={(e) => patch({ gpu_layers: Number(e.target.value) })}
+                            value={config.binary_path}
+                            placeholder="Leave empty to use Graite’s build"
+                            spellCheck={false}
+                            onChange={(e) => patch({ binary_path: e.target.value.trim() })}
                           />
-                          <small>−1 chooses automatically · 0 uses CPU</small>
+                          <small>
+                            Full path to a llama-server executable you built or installed. Graite
+                            runs it instead of its own build.
+                          </small>
                         </label>
                       </div>
-                    </details>
+                    )}
                   </>
+                ) : kind === "graite" ? (
+                  <GraiteCloudCard
+                    activeModel={config.provider === "graite" ? config.model : null}
+                    disabled={!!busy}
+                    onPick={(model) =>
+                      patch({
+                        provider: "graite",
+                        model: model.id,
+                        saved_model_id: null,
+                        connection_id: null,
+                      })
+                    }
+                  />
                 ) : (
                   <>
                     <div className="ai-privacy">

@@ -1015,6 +1015,91 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/cloud/login": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Login */
+    post: operations["login_api_v1_cloud_login_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/cloud/logout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Logout */
+    post: operations["logout_api_v1_cloud_logout_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/cloud/models": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Models */
+    get: operations["models_api_v1_cloud_models_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/cloud/open-account": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Open Account */
+    post: operations["open_account_api_v1_cloud_open_account_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/cloud/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Status */
+    get: operations["status_api_v1_cloud_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/engines": {
     parameters: {
       query?: never;
@@ -1705,7 +1790,7 @@ export interface components {
        * @default local
        * @enum {string}
        */
-      provider: "local" | "compatible" | "anthropic" | "openrouter";
+      provider: "local" | "compatible" | "anthropic" | "openrouter" | "graite";
       /**
        * Resident
        * @default true
@@ -2072,8 +2157,18 @@ export interface components {
       filename: string;
       /** Files */
       files?: components["schemas"]["ModelFile"][];
+      /**
+       * Hidden
+       * @default false
+       */
+      hidden: boolean;
       /** Id */
       id: string;
+      /**
+       * Level
+       * @default
+       */
+      level: string;
       /**
        * Local Path
        * @default
@@ -2081,8 +2176,15 @@ export interface components {
       local_path: string;
       /** Min Ram Gb */
       min_ram_gb: number;
+      /** Min Vram Gb */
+      min_vram_gb?: number | null;
       /** Name */
       name: string;
+      /**
+       * Needs
+       * @default
+       */
+      needs: string;
       /** Notes */
       notes: string;
       /**
@@ -2115,6 +2217,11 @@ export interface components {
        * @default available
        */
       status: string;
+      /**
+       * Summary
+       * @default
+       */
+      summary: string;
       /** Tier */
       tier: string;
       /** Verified Llama */
@@ -2183,6 +2290,60 @@ export interface components {
       message: string;
       /** Stack */
       stack?: string | null;
+    };
+    /** CloudModel */
+    CloudModel: {
+      /**
+       * Available
+       * @default true
+       */
+      available: boolean;
+      /** Context Length */
+      context_length?: number | null;
+      /** Id */
+      id: string;
+      /** Min Plan */
+      min_plan?: string | null;
+      /** Name */
+      name: string;
+    };
+    /** CloudModels */
+    CloudModels: {
+      /** Models */
+      models: components["schemas"]["CloudModel"][];
+    };
+    /** CloudStatus */
+    CloudStatus: {
+      /** Cloud Url */
+      cloud_url: string;
+      /** Email */
+      email?: string | null;
+      /** Email Verified */
+      email_verified?: boolean | null;
+      /** Error */
+      error?: string | null;
+      /** Plan */
+      plan?: string | null;
+      /** Plan Id */
+      plan_id?: string | null;
+      /** Signed In */
+      signed_in: boolean;
+      today?: components["schemas"]["CloudUsage"] | null;
+      /** Verify By */
+      verify_by?: string | null;
+    };
+    /** CloudUsage */
+    CloudUsage: {
+      /** Limit */
+      limit: number | null;
+      /** Percent Used */
+      percent_used: number | null;
+      /** Remaining */
+      remaining: number | null;
+      /** Resets At */
+      resets_at: string;
+      /** Used */
+      used: number;
     };
     /** ConflictBody */
     ConflictBody: {
@@ -2596,6 +2757,21 @@ export interface components {
     LocalFolder: {
       /** Path */
       path: string;
+    };
+    /** LoginIn */
+    LoginIn: {
+      /**
+       * Signup
+       * @default false
+       */
+      signup: boolean;
+    };
+    /** LoginOut */
+    LoginOut: {
+      /** Opened */
+      opened: boolean;
+      /** Url */
+      url: string;
     };
     /** LoopState */
     LoopState: {
@@ -3298,7 +3474,7 @@ export interface components {
        * @default local
        * @enum {string}
        */
-      provider: "local" | "compatible" | "anthropic" | "openrouter";
+      provider: "local" | "compatible" | "anthropic" | "openrouter" | "graite";
       /**
        * Resident
        * @default true
@@ -5778,6 +5954,121 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  login_api_v1_cloud_login_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LoginIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LoginOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  logout_api_v1_cloud_logout_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: boolean;
+          };
+        };
+      };
+    };
+  };
+  models_api_v1_cloud_models_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CloudModels"];
+        };
+      };
+    };
+  };
+  open_account_api_v1_cloud_open_account_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LoginOut"];
+        };
+      };
+    };
+  };
+  status_api_v1_cloud_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CloudStatus"];
         };
       };
     };

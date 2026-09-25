@@ -69,12 +69,13 @@ All daemon settings are `GRAITE_*` (`apps/daemon/graite/config.py`); CLI flags o
 
 | Variable | Read by | Meaning |
 |---|---|---|
-| `GRAITE_VAULT` | daemon, shell, launcher | Vault root. For the shell it must be an existing absolute directory and it wins over the remembered vault. |
+| `GRAITE_VAULT` | daemon, shell, launcher | Vault root. For the shell it must be an existing absolute directory, and it is only the first-run default: a vault chosen in the app wins (D59). |
 | `GRAITE_HOST` | daemon | Bind host, default `127.0.0.1`. Anything else is refused without `--serve`. |
 | `GRAITE_PORT` | daemon, `just dev` | Port; `0` picks a free one and prints it on stdout. |
 | `GRAITE_TOKEN` | daemon, `just dev` | Bearer token required on every request. |
 | `GRAITE_APP_DIR` | daemon, scripts | App-wide state, default `~/.graite` (logs, `daemon.json`, `bin/`, `cache/`, connections). |
 | `GRAITE_MODELS_DIR` | daemon | Model files, default `~/.graite/models`. |
+| `GRAITE_CLOUD_URL` | daemon | Graite Cloud (sign-in, hosted models), default `https://api.getgraite.com`; `http://127.0.0.1:8000` for a local `graite-inference` (D63). |
 | `GRAITE_FEEDBACK_URL` | daemon | Where `POST /api/v1/feedback` forwards to; empty (default) hides the form. |
 | `GRAITE_DEV` / `GRAITE_SERVE` / `GRAITE_NO_WATCH` | daemon | Same as `--dev`, `--serve` (headless), and disabling the vault watcher. |
 | `GRAITE_DAEMON_URL` + `GRAITE_DAEMON_TOKEN` | shell | Connect to an existing daemon instead of spawning the sidecar (dev). |
@@ -95,7 +96,7 @@ attachments). Deleting it is always safe.
 uv sync --project apps/daemon --group build     # PyInstaller + patchelf (done by `just setup` too)
 ./scripts/build-app.sh                          # sidecar -> smoke test -> AppImage + deb
 ./scripts/check-appimage-media.sh               # GStreamer capture plugins load from the bundle
-./scripts/launch-app.sh                         # newest AppImage; set GRAITE_VAULT to choose a vault
+./scripts/launch-app.sh                         # newest AppImage; GRAITE_VAULT sets the first-run vault
 python3 scripts/install-local-launcher.py --vault /abs/path/to/vault   # app-menu entry
 ```
 

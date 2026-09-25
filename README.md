@@ -4,6 +4,11 @@
 
 **A local-first knowledge workspace with agents that live on your machine.**
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/chat-expanded-dark.png">
+  <img src="docs/screenshots/chat-expanded-light.png" alt="Graite reads a week of voice notes and proposes three new tasks, with sources and changes ready for review." width="100%">
+</picture>
+
 Graite is a desktop app that opens a folder of Markdown files as a vault and gives you a
 Notion-style block editor over it, local AI models that run through llama.cpp and
 whisper.cpp, and agents that can read everything you let them read but **write nothing
@@ -24,6 +29,41 @@ optional escape hatch. The product does not depend on them.
 > **Status: pre-release (0.1.0).** The source is complete and the app runs on Linux, macOS
 > and Windows. Packaged builds are unsigned previews. Read `ROADMAP.md` for what is shipped,
 > in progress and planned.
+
+## A look inside
+
+**Boards, tables and lists.** Any folder of pages can be a board, table or list. This is a
+Todos collection grouped by status. Every card is still a plain Markdown page underneath.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/board-dark.png">
+  <img src="docs/screenshots/board-light.png" alt="Graite's Todos board, with tasks grouped into Backlog, Open, In progress and Done." width="100%">
+</picture>
+
+**Notes.** A Notion-style block editor over your Markdown. A voice note keeps its properties,
+the original recording and a local Whisper transcript on the same page.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/page-dark.png">
+  <img src="docs/screenshots/page-light.png" alt="A voice note in Graite's editor, with properties, the original recording and a transcript." width="100%">
+</picture>
+
+**Review.** Agents propose, you decide. Every change an agent wants to make waits in the review
+queue as a diff you accept, edit or reject. Every applied change has a snapshot, so you can
+always go back.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/review-expanded-dark.png">
+  <img src="docs/screenshots/review-expanded-light.png" alt="Graite's review queue with a proposal expanded to show three suggested tasks and Accept, Edit and Reject controls." width="100%">
+</picture>
+
+**Local models.** Chat, embeddings and speech run on your own hardware through llama.cpp and
+whisper.cpp, with no per-token bill. Cloud providers are optional and use your own key.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/settings-dark.png">
+  <img src="docs/screenshots/settings-light.png" alt="Graite's settings with on-device AI selected, alongside model server and optional cloud provider choices." width="100%">
+</picture>
 
 ## What you get
 

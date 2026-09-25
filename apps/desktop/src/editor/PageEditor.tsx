@@ -567,6 +567,16 @@ export function PageEditor({
 
   return (
     <div className="flex h-full flex-col">
+      <header className="page-topbar">
+        <Breadcrumbs path={page.path} tree={tree} onNavigate={onNavigate} />
+        <PageReviewBar
+          proposals={reviews.open}
+          beforeAccept={reviews.flush}
+          onDecided={() => void reviews.refresh()}
+          onJump={reviews.jump}
+        />
+      </header>
+      {/* Below the top bar, so the floating Ask AI button never covers its buttons. */}
       {conflict && (
         <div className="flex items-center gap-3 border-b bg-amber-50 px-6 py-2 text-sm text-amber-900">
           <span className="flex-1">This page changed on disk while you were editing.</span>
@@ -589,15 +599,6 @@ export function PageEditor({
           </Button>
         </div>
       )}
-      <header className="page-topbar">
-        <Breadcrumbs path={page.path} tree={tree} onNavigate={onNavigate} />
-        <PageReviewBar
-          proposals={reviews.open}
-          beforeAccept={reviews.flush}
-          onDecided={() => void reviews.refresh()}
-          onJump={reviews.jump}
-        />
-      </header>
       <div
         data-page-scroll
         data-page-wide={hasView || undefined}

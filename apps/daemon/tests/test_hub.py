@@ -15,7 +15,7 @@ from graite.models.hub import browse, entry, model_groups, repository, scan
 @pytest.mark.parametrize(
     "value",
     [
-        "other/Model-GGUF",
+        "Model-GGUF",
         "https://evil.test/unsloth/model",
         "unsloth/../model",
         "https://huggingface.co/unsloth/model?token=x",
@@ -29,6 +29,7 @@ def test_rejects_unsupported_repository(value: str) -> None:
 
 def test_repository_link() -> None:
     assert repository("https://huggingface.co/unsloth/Model-GGUF/") == "unsloth/Model-GGUF"
+    assert repository("ggml-org/Model-GGUF") == "ggml-org/Model-GGUF"
 
 
 def test_groups_require_every_shard_and_ignore_projectors() -> None:

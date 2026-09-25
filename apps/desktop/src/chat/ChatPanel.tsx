@@ -1,8 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Highlighter, MessageSquare, Plus, Settings2, Orbit, X } from "lucide-react";
+import {
+  Check,
+  Highlighter,
+  History,
+  MessageSquare,
+  Plus,
+  Settings2,
+  Orbit,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { ai, toScope, type ChatMode, type Conversation } from "@/lib/ai";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { relative } from "@/lib/automation";
 import { Composer } from "@/ai/Composer";
 import { ContextBlock } from "@/ai/ContextBlock";
 import { MessageList } from "@/ai/MessageList";
@@ -151,6 +168,39 @@ export function ChatPanel({
           <Orbit size={17} /> Ask AI
         </span>
         <div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                title="Conversation history"
+                aria-label="Conversation history"
+                disabled={chat.busy || !conversations.length}
+              >
+                <History size={16} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="ai-history-menu">
+              <DropdownMenuLabel className="ai-model-group">Earlier on this page</DropdownMenuLabel>
+              {[...conversations]
+                .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+                .map((c) => (
+                  <DropdownMenuItem
+                    key={c.id}
+                    onSelect={() => {
+                      setSelected(c);
+                      setIncludeSubpages(toScope(c.scope).kind !== "page");
+                    }}
+                  >
+                    <span className="ai-history-item">
+                      <strong>{c.title}</strong>
+                      <small>{relative(c.updated_at)}</small>
+                    </span>
+                    {selected?.id === c.id && <Check size={14} />}
+                  </DropdownMenuItem>
+                ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             variant="ghost"
             size="icon"
@@ -207,26 +257,6 @@ export function ChatPanel({
           </button>
         </div>
       </div>
-      {conversations.length > 0 && (
-        <select
-          aria-label="Conversation history"
-          className="ai-history"
-          value={selected?.id ?? ""}
-          disabled={chat.busy}
-          onChange={(e) => {
-            const c = conversations.find((item) => item.id === e.target.value) ?? null;
-            setSelected(c);
-            if (c) setIncludeSubpages(toScope(c.scope).kind !== "page");
-          }}
-        >
-          <option value="">New conversation</option>
-          {conversations.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.title}
-            </option>
-          ))}
-        </select>
-      )}
       <div className="ai-chat-body">
         {loading && <p className="text-sm text-muted-foreground">Loading conversations…</p>}
         {!chat.messages.length && !loading && (

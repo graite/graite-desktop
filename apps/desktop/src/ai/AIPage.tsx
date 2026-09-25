@@ -14,6 +14,16 @@ import {
 } from "@/lib/ai";
 import { checkedFromScope, countSelected, scopeLabel } from "@/lib/scope";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Composer } from "./Composer";
 import { ContextBlock } from "./ContextBlock";
 import { ConversationList } from "./ConversationList";
@@ -78,6 +88,7 @@ export function AIPage({
   };
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selected, setSelected] = useState<Conversation | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Conversation | null>(null);
   const [scope, setScope] = useState<Scope>(ALL_PAGES);
   const [scopeOpen, setScopeOpen] = useState(false);
   const [mode, setMode] = useState<ChatMode>("ask");
@@ -208,24 +219,45 @@ export function AIPage({
         setAttachments([]);
         setScope(ALL_PAGES);
       }}
-      onDelete={async (c) => {
-        try {
-          await ai.deleteConversation(c.id);
-          setConversations((old) => old.filter((x) => x.id !== c.id));
-          if (selected?.id === c.id) {
-            setSelected(null);
-            chat.setMessages([]);
-          }
-        } catch (e) {
-          toast.error((e as Error).message);
-        }
-      }}
+      onDelete={setPendingDelete}
     />
   );
+  const confirmDelete = async (c: Conversation) => {
+    setPendingDelete(null);
+    try {
+      await ai.deleteConversation(c.id);
+      setConversations((old) => old.filter((x) => x.id !== c.id));
+      if (selected?.id === c.id) {
+        setSelected(null);
+        chat.setMessages([]);
+      }
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
   const empty = !chat.messages.length && !chat.busy;
   return (
     <main className="ai-page" aria-label="Studio">
       {sidebarHost ? createPortal(rail, sidebarHost) : rail}
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete “{pendingDelete?.title || "conversation"}”?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The conversation and its messages are removed. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => pendingDelete && void confirmDelete(pendingDelete)}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {/* Kept mounted: a voice session or a running answer must survive leaving the section. */}
       <div className="ai-agents-surface" hidden={section !== "assistant"}>
         <ErrorBoundary area="the assistant">

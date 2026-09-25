@@ -27,6 +27,10 @@ class Settings(BaseSettings):
         default="",
         description="Where 'Send feedback' posts to (GRAITE_FEEDBACK_URL); empty hides it.",
     )
+    cloud_url: str = Field(
+        default="https://api.getgraite.com",
+        description="Graite Cloud, the optional hosted account and models (GRAITE_CLOUD_URL).",
+    )
     dev: bool = False
     serve: bool = Field(default=False, description="Headless: do not exit when stdin closes.")
     no_watch: bool = Field(default=False, description="Do not watch the vault for external edits.")

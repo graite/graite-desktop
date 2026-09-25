@@ -1,15 +1,13 @@
 import { ModelSelect } from "./ModelSelect";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Download, Check, Pause, Trash2 } from "lucide-react";
-import { request, connectEvents } from "@/lib/api";
+import { request } from "@/lib/api";
 import { megabytes } from "@/lib/engines";
 import { Button } from "@/components/ui/button";
-import type { components } from "@graite/api-types";
-
 import { ModelSources } from "./ModelSources";
+import { useCatalog, type Model } from "./useCatalog";
 import { SpeechCheck } from "./SpeechCheck";
 
-type Model = components["schemas"]["CatalogModel"];
 /** Utility roles beyond speech-to-text; the three voice roles make up a voice conversation. */
 const UTILITY_ROLES: Record<string, { title: string; tag: string }> = {
   embedding: { title: "Embeddings", tag: "Search" },
@@ -44,43 +42,14 @@ export function ModelLibrary({
   /** Utilities only: show just these roles (a Settings tab shows its own models). */
   roles?: string[];
 }) {
-  const [models, setModels] = useState<Model[]>([]);
-  const [error, setError] = useState("");
+  const { models, setModels, error, setError, act: runAction, reload } = useCatalog();
   const [showSetup, setShowSetup] = useState(false);
   const [pending, setPending] = useState("");
   const [removing, setRemoving] = useState<string | null>(null);
-  useEffect(() => {
-    let live = true;
-    const refresh = () =>
-      request<Model[]>("/api/v1/ai/catalog")
-        .then((m) => {
-          if (live) setModels(m);
-        })
-        .catch((e: Error) => {
-          if (live) setError(e.message);
-        });
-    void refresh();
-    const unsubscribe = connectEvents((e) => {
-      if (e.type === "model_progress") void refresh();
-    });
-    // Reconcile after reconnect, including downloads that finished while the UI was closed.
-    const timer = setInterval(() => void refresh(), 5000);
-    return () => {
-      live = false;
-      unsubscribe();
-      clearInterval(timer);
-    };
-  }, []);
   const act = async (id: string, action: string) => {
-    setError("");
     setPending(id);
     try {
-      const updated = await request<Model>(`/api/v1/ai/catalog/${id}/${action}`, {
-        method: "POST",
-      });
-      if (action === "remove" && updated.source === "local")
-        setModels((items) => items.filter((m) => m.id !== id));
-      else setModels((items) => items.map((m) => (m.id === id ? updated : m)));
+      await runAction(id, action);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -152,10 +121,7 @@ export function ModelLibrary({
             </ModelSelect>
             <small>Choose a model, then save and check it below.</small>
           </label>
-          <ModelSources
-            disabled={disabled}
-            onChange={async () => setModels(await request<Model[]>("/api/v1/ai/catalog"))}
-          />
+          <ModelSources disabled={disabled} onChange={reload} />
         </>
       )}
       {kind === "utilities" &&
@@ -269,7 +235,7 @@ export function ModelLibrary({
         {models
           .filter((m) =>
             kind === "chat"
-              ? m.role === "chat"
+              ? m.role === "chat" && m.tier !== "starter" // starters have their own cards
               : roles
                 ? roles.includes(m.role)
                 : m.role !== "chat",
@@ -293,7 +259,7 @@ export function ModelLibrary({
                   {m.source === "local"
                     ? "Local folder"
                     : m.source === "huggingface"
-                      ? "Unsloth"
+                      ? "Hugging Face"
                       : "Recommended"}
                 </span>
                 <p>

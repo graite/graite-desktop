@@ -37,6 +37,12 @@ class CatalogModel(BaseModel):
     tier: str
     notes: str
     verified_llama: str | None
+    # Plain-language facts for the beginner model picker (starter models only).
+    level: str = ""
+    summary: str = ""
+    needs: str = ""
+    min_vram_gb: int | None = None
+    hidden: bool = False  # superseded: listed only once it is installed
     source: str = "recommended"
     files: list[ModelFile] = Field(default_factory=list)
     pooling: str = "last"

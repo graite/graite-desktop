@@ -71,7 +71,8 @@
               "local",
               "compatible",
               "anthropic",
-              "openrouter"
+              "openrouter",
+              "graite"
             ],
             "title": "Provider",
             "type": "string"
@@ -1105,8 +1106,18 @@
             "title": "Files",
             "type": "array"
           },
+          "hidden": {
+            "default": false,
+            "title": "Hidden",
+            "type": "boolean"
+          },
           "id": {
             "title": "Id",
+            "type": "string"
+          },
+          "level": {
+            "default": "",
+            "title": "Level",
             "type": "string"
           },
           "local_path": {
@@ -1118,8 +1129,24 @@
             "title": "Min Ram Gb",
             "type": "integer"
           },
+          "min_vram_gb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Vram Gb"
+          },
           "name": {
             "title": "Name",
+            "type": "string"
+          },
+          "needs": {
+            "default": "",
+            "title": "Needs",
             "type": "string"
           },
           "notes": {
@@ -1164,6 +1191,11 @@
           "status": {
             "default": "available",
             "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "default": "",
+            "title": "Summary",
             "type": "string"
           },
           "tier": {
@@ -1431,6 +1463,215 @@
           "message"
         ],
         "title": "ClientLog",
+        "type": "object"
+      },
+      "CloudModel": {
+        "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "context_length": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Length"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "min_plan": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Plan"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "CloudModel",
+        "type": "object"
+      },
+      "CloudModels": {
+        "properties": {
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/CloudModel"
+            },
+            "title": "Models",
+            "type": "array"
+          }
+        },
+        "required": [
+          "models"
+        ],
+        "title": "CloudModels",
+        "type": "object"
+      },
+      "CloudStatus": {
+        "properties": {
+          "cloud_url": {
+            "title": "Cloud Url",
+            "type": "string"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "email_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email Verified"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan"
+          },
+          "plan_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Id"
+          },
+          "signed_in": {
+            "title": "Signed In",
+            "type": "boolean"
+          },
+          "today": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CloudUsage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "verify_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verify By"
+          }
+        },
+        "required": [
+          "signed_in",
+          "cloud_url"
+        ],
+        "title": "CloudStatus",
+        "type": "object"
+      },
+      "CloudUsage": {
+        "properties": {
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "percent_used": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent Used"
+          },
+          "remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining"
+          },
+          "resets_at": {
+            "title": "Resets At",
+            "type": "string"
+          },
+          "used": {
+            "title": "Used",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "limit",
+          "used",
+          "remaining",
+          "percent_used",
+          "resets_at"
+        ],
+        "title": "CloudUsage",
         "type": "object"
       },
       "ConflictBody": {
@@ -2448,6 +2689,35 @@
           "path"
         ],
         "title": "LocalFolder",
+        "type": "object"
+      },
+      "LoginIn": {
+        "properties": {
+          "signup": {
+            "default": false,
+            "title": "Signup",
+            "type": "boolean"
+          }
+        },
+        "title": "LoginIn",
+        "type": "object"
+      },
+      "LoginOut": {
+        "properties": {
+          "opened": {
+            "title": "Opened",
+            "type": "boolean"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "opened"
+        ],
+        "title": "LoginOut",
         "type": "object"
       },
       "LoopState": {
@@ -4579,7 +4849,8 @@
               "local",
               "compatible",
               "anthropic",
-              "openrouter"
+              "openrouter",
+              "graite"
             ],
             "title": "Provider",
             "type": "string"
@@ -8407,6 +8678,135 @@
           }
         },
         "summary": "Client Log"
+      }
+    },
+    "/api/v1/cloud/login": {
+      "post": {
+        "operationId": "login_api_v1_cloud_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "cloud"
+        ]
+      }
+    },
+    "/api/v1/cloud/logout": {
+      "post": {
+        "operationId": "logout_api_v1_cloud_logout_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Logout Api V1 Cloud Logout Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Logout",
+        "tags": [
+          "cloud"
+        ]
+      }
+    },
+    "/api/v1/cloud/models": {
+      "get": {
+        "operationId": "models_api_v1_cloud_models_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudModels"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Models",
+        "tags": [
+          "cloud"
+        ]
+      }
+    },
+    "/api/v1/cloud/open-account": {
+      "post": {
+        "operationId": "open_account_api_v1_cloud_open_account_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Open Account",
+        "tags": [
+          "cloud"
+        ]
+      }
+    },
+    "/api/v1/cloud/status": {
+      "get": {
+        "operationId": "status_api_v1_cloud_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Status",
+        "tags": [
+          "cloud"
+        ]
       }
     },
     "/api/v1/engines": {

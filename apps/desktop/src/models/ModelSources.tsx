@@ -1,6 +1,6 @@
 import { ModelSelect } from "./ModelSelect";
 import { useState } from "react";
-import { Download, FolderPlus, FilePlus2, Compass } from "lucide-react";
+import { Download, FolderPlus, FilePlus2, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { request } from "@/lib/api";
 import { platform } from "@/lib/platform";
@@ -8,23 +8,18 @@ import type { components } from "@graite/api-types";
 import { megabytes } from "@/lib/engines";
 
 type Model = components["schemas"]["CatalogModel"];
-const families = {
-  google: {
-    name: "Gemma 4",
-    author: "Google",
-    models: [
-      ["E2B", "unsloth/gemma-4-E2B-it-GGUF"],
-      ["E4B", "unsloth/gemma-4-E4B-it-GGUF"],
-      ["26B · A4B", "unsloth/gemma-4-26B-A4B-it-GGUF"],
-      ["31B", "unsloth/gemma-4-31B-it-GGUF"],
-    ],
-  },
-  qwen: {
-    name: "Qwen3.8",
-    author: "Qwen",
-    models: [["27B", "unsloth/Qwen3.8-27B-GGUF"]],
-  },
-} as const;
+
+/** `owner/name` from a Hugging Face link or repository id; the daemon normalises it the same
+ * way (models/hub.py), this is only for labels before it answers. */
+export function repositoryOf(value: string): string {
+  const trimmed = value.trim().replace(/^https?:\/\/(www\.)?huggingface\.co\//i, "");
+  return trimmed.split(/[/?#]/).slice(0, 2).join("/");
+}
+
+/** "Qwen3.8-27B-GGUF" for "unsloth/Qwen3.8-27B-GGUF": what the Model dropdown shows. */
+export function modelName(repository: string): string {
+  return repository.split("/").pop() || repository;
+}
 
 export function ModelSources({
   disabled,
@@ -34,9 +29,10 @@ export function ModelSources({
   onChange: () => Promise<void>;
 }) {
   const [panel, setPanel] = useState<"discover" | "folder" | "file" | null>(null);
-  const [family, setFamily] = useState<keyof typeof families>("google");
-  const [repository, setRepository] = useState<string>(families.google.models[0][1]);
-  const [custom, setCustom] = useState("");
+  // Repositories looked up in this session, as `owner/name`; the dropdown switches between them.
+  const [repositories, setRepositories] = useState<string[]>([]);
+  const [repository, setRepository] = useState("");
+  const [link, setLink] = useState("");
   const [path, setPath] = useState("");
   const [results, setResults] = useState<Model[]>([]);
   const [selected, setSelected] = useState("");
@@ -62,6 +58,10 @@ export function ModelSources({
       method: "POST",
       body: JSON.stringify({ repository: repo }),
     });
+    const found = models[0]?.repo ?? repositoryOf(repo);
+    setRepository(found);
+    setRepositories((known) => (known.includes(found) ? known : [...known, found]));
+    if (!models.length) throw new Error("No GGUF files found in this Hugging Face repository.");
     setResults(models);
     setSelected(
       (
@@ -105,153 +105,123 @@ export function ModelSources({
           size="sm"
           disabled={locked}
           aria-expanded={panel === "discover"}
-          onClick={() => {
-            if (panel === "discover") {
-              setPanel(null);
-              return;
-            }
-            setPanel("discover");
-            if (!results.length) void action("browse", () => browse(repository));
-          }}
+          onClick={() => setPanel(panel === "discover" ? null : "discover")}
         >
-          <Compass size={14} /> Discover models
+          <Link2 size={14} /> Add from Hugging Face
         </Button>
         <Button variant="outline" size="sm" disabled={locked} onClick={() => pick("folder")}>
           <FolderPlus size={14} /> Add folder
         </Button>
         <Button variant="outline" size="sm" disabled={locked} onClick={() => pick("file")}>
-          <FilePlus2 size={14} /> Add model
+          <FilePlus2 size={14} /> Add model file
         </Button>
       </div>
+      <p className="ai-source-hint">
+        Paste a link to a GGUF model on Hugging Face, or pick a model file or a folder of models on
+        this computer.
+      </p>
       {panel === "discover" && (
         <div className="ai-source-panel">
           <div className="ai-discovery-heading">
-            <h3>Find your next model</h3>
-            <span>GGUF downloads from Unsloth</span>
+            <h3>Add a model from Hugging Face</h3>
+            <span>GGUF files, downloaded to this computer</span>
           </div>
-          <div className="ai-family-grid">
-            {Object.entries(families).map(([id, f]) => (
-              <button
-                key={id}
-                className={`ai-family ${family === id ? "selected" : ""}`}
-                aria-pressed={family === id}
-                disabled={locked}
-                onClick={() => {
-                  const key = id as keyof typeof families;
-                  setFamily(key);
-                  setRepository(f.models[0][1]);
-                  void action("browse", () => browse(f.models[0][1]));
-                }}
-              >
-                <span className="ai-family-mark" aria-hidden="true">
-                  {f.author[0]}
-                </span>
-                <div>
-                  <strong>{f.name}</strong>
-                  <span>{f.author}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-          <div className="ai-discovery-fields">
+          <form
+            className="ai-hub-link"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void action("browse", () => browse(link.trim()));
+            }}
+          >
             <label className="ai-field">
-              Model
-              <ModelSelect
-                label="Model"
-                value={repository}
+              Hugging Face link
+              <input
+                value={link}
                 disabled={locked}
-                onValueChange={(value) => {
-                  setRepository(value);
-                  void action("browse", () => browse(value));
-                }}
-              >
-                {!families[family].models.some(([, repo]) => repo === repository) && (
-                  <option value={repository}>{repository}</option>
-                )}
-                {families[family].models.map(([name, repo]) => (
-                  <option key={repo} value={repo}>
-                    {families[family].name} {name}
-                  </option>
-                ))}
-              </ModelSelect>
+                placeholder="https://huggingface.co/owner/model-GGUF"
+                spellCheck={false}
+                onChange={(e) => setLink(e.target.value)}
+              />
             </label>
-            <label className="ai-field">
-              Quantization
-              <ModelSelect
-                label="Quantization"
-                value={selected}
-                disabled={locked || !results.length}
-                onValueChange={(value) => setSelected(value)}
-              >
-                {!results.length && (
-                  <option value="">
-                    {busy === "browse" ? "Finding versions…" : "No versions loaded"}
-                  </option>
-                )}
-                {results.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.filename.match(/(?:UD-)?(?:IQ\d|Q\d|BF16|F16|F32)[A-Z0-9_]*/i)?.[0] ??
-                      m.filename}{" "}
-                    · {megabytes(m.size)}
-                  </option>
-                ))}
-              </ModelSelect>
-            </label>
-          </div>
-          <div className="ai-discovery-footer">
-            <p>
-              {chosen
-                ? `${megabytes(chosen.size)} download${(chosen.files?.length ?? 0) > 1 ? ` · ${chosen.files?.length} parts` : ""}`
-                : "Choose a model and version."}
-              <br />
-              These models need a recent llama.cpp engine.
-            </p>
-            <Button
-              size="sm"
-              disabled={locked || !chosen}
-              onClick={() =>
-                chosen &&
-                void action("download", async () => {
-                  await request("/api/v1/ai/hub/add", {
-                    method: "POST",
-                    body: JSON.stringify({
-                      repository: chosen.repo,
-                      filename: chosen.filename,
-                      revision: chosen.revision,
-                    }),
-                  });
-                  await onChange();
-                  setNotice("Added to your library. The download continues below.");
-                })
-              }
-            >
-              <Download size={14} />
-              {busy === "download" ? "Adding…" : "Download model"}
+            <Button size="sm" variant="outline" disabled={locked || !link.trim()}>
+              {busy === "browse" ? "Finding versions…" : "Find versions"}
             </Button>
-          </div>
-          <details className="ai-custom-repository">
-            <summary>Use another Unsloth repository</summary>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setRepository(custom);
-                void action("browse", () => browse(custom));
-              }}
-            >
+          </form>
+          {repositories.length > 0 && (
+            <div className="ai-discovery-fields">
               <label className="ai-field">
-                Hugging Face link or repository
-                <input
-                  value={custom}
+                Model
+                <ModelSelect
+                  label="Model"
+                  value={repository}
                   disabled={locked}
-                  placeholder="unsloth/model-name-GGUF"
-                  onChange={(e) => setCustom(e.target.value)}
-                />
+                  onValueChange={(value) => void action("browse", () => browse(value))}
+                >
+                  {repositories.map((repo) => (
+                    <option key={repo} value={repo}>
+                      {modelName(repo)}
+                    </option>
+                  ))}
+                </ModelSelect>
+                <small className="ai-field-hint">from {repository.split("/")[0]}</small>
               </label>
-              <Button size="sm" variant="outline" disabled={locked || !custom.trim()}>
-                Find versions
+              <label className="ai-field">
+                Quantization
+                <ModelSelect
+                  label="Quantization"
+                  value={selected}
+                  disabled={locked || !results.length}
+                  onValueChange={(value) => setSelected(value)}
+                >
+                  {!results.length && (
+                    <option value="">
+                      {busy === "browse" ? "Finding versions…" : "No versions loaded"}
+                    </option>
+                  )}
+                  {results.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.filename.match(/(?:UD-)?(?:IQ\d|Q\d|BF16|F16|F32)[A-Z0-9_]*/i)?.[0] ??
+                        m.filename}{" "}
+                      · {megabytes(m.size)}
+                    </option>
+                  ))}
+                </ModelSelect>
+              </label>
+            </div>
+          )}
+          {repositories.length > 0 && (
+            <div className="ai-discovery-footer">
+              <p>
+                {chosen
+                  ? `${megabytes(chosen.size)} download${(chosen.files?.length ?? 0) > 1 ? ` · ${chosen.files?.length} parts` : ""}`
+                  : "Choose a model and version."}
+                <br />
+                These models need a recent llama.cpp engine.
+              </p>
+              <Button
+                size="sm"
+                disabled={locked || !chosen}
+                onClick={() =>
+                  chosen &&
+                  void action("download", async () => {
+                    await request("/api/v1/ai/hub/add", {
+                      method: "POST",
+                      body: JSON.stringify({
+                        repository: chosen.repo,
+                        filename: chosen.filename,
+                        revision: chosen.revision,
+                      }),
+                    });
+                    await onChange();
+                    setNotice("Added to your library. The download continues below.");
+                  })
+                }
+              >
+                <Download size={14} />
+                {busy === "download" ? "Adding…" : "Download model"}
               </Button>
-            </form>
-          </details>
+            </div>
+          )}
         </div>
       )}
       {(panel === "folder" || panel === "file") && (

@@ -12,6 +12,9 @@ export interface DaemonEvent<T extends string = string, D = Record<string, unkno
 
 export type PingEvent = DaemonEvent<"ping", Record<string, never>>;
 
+/** The Graite Cloud sign-in changed (browser sign-in finished, or signed out). */
+export type CloudStatusEvent = DaemonEvent<"cloud_status", { signed_in: boolean }>;
+
 /** A run row or one of its steps changed (agent runs, chat turns, live notes). */
 export type RunUpdateEvent = DaemonEvent<
   "run_update",

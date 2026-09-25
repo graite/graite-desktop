@@ -14,6 +14,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from graite.cloud.session import get_cloud
 from graite.models.config import AIConfig, get_key, load_config
 from graite.models.llama_server import LlamaServer
 from graite.models.providers import Provider
@@ -84,6 +85,19 @@ class Manager:
         if config.provider != "local":
             if not config.model:
                 raise ValueError("Choose a model in Settings → Chat first.")
+            if config.provider == "graite":
+                cloud = get_cloud()
+                token = await cloud.access_token()
+                if not token:
+                    raise ValueError("Sign in to Graite Cloud in Settings → Chat.")
+                yield Provider(
+                    "graite",
+                    cloud.api_url,
+                    config.model,
+                    token,
+                    max_tokens=config.max_output_tokens,
+                )
+                return
             key = await asyncio.to_thread(get_key, config)
             if config.provider == "anthropic" and not key:
                 raise ValueError("Add your Anthropic API key in Settings → Chat.")
