@@ -1,0 +1,145 @@
+.cloud-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cloud-zdr {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in oklch, #6e7861 45%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in oklch, #6e7861 9%, transparent);
+}
+.cloud-zdr > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #6e7861;
+}
+.cloud-zdr strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+}
+.cloud-zdr p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+}
+.cloud-intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+.cloud-intro svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.cloud-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cloud-signin {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cloud-muted {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.cloud-waiting {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+}
+.cloud-waiting p {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+.cloud-waiting p svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.cloud-waiting strong {
+  color: var(--foreground);
+  font-weight: 500;
+}
+.cloud-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cloud-account > div:first-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cloud-account strong {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cloud-account small {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.cloud-reminder {
+  display: flex;
+  gap: 9px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.cloud-reminder svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.cloud-usage {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cloud-usage small {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.cloud-meter {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--muted);
+  overflow: hidden;
+}
+.cloud-meter span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: #6e7861;
+  transition: width 300ms;
+}
+.cloud-meter span[data-full] {
+  background: var(--destructive);
+}

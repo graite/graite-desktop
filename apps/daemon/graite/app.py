@@ -19,6 +19,7 @@ from graite.api import (
     ai,
     automation,
     clientlog,
+    cloud,
     connections,
     events,
     feedback,
@@ -34,6 +35,7 @@ from graite.api import mcp as mcp_api
 from graite.api import voice as voice_api
 from graite.api.auth import BearerAuthMiddleware
 from graite.assistant.presence import ForegroundGate
+from graite.cloud.session import CloudSession, set_cloud
 from graite.config import Settings
 from graite.events import EventBus
 from graite.index import db
@@ -93,6 +95,7 @@ def create_app(settings: Settings) -> FastAPI:
             app.state.media_jobs[job.id] = job
         app.state.media_tasks = {}
         set_store(Store(settings.app_dir / "connections.json"))
+        set_cloud(CloudSession(settings.cloud_url, settings.app_dir))
         app.state.downloads = Downloader(conn, app.state.events, settings.models_dir)
         app.state.models = Manager(conn)
         await app.state.models.start()
@@ -184,6 +187,8 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(workspace.router, prefix=API_PREFIX)
     app.include_router(ai.router, prefix=API_PREFIX)
     app.include_router(connections.router, prefix=API_PREFIX)
+    app.include_router(cloud.router, prefix=API_PREFIX)
+    cloud.hide_callback_query()
     app.include_router(review.router, prefix=API_PREFIX)
     app.include_router(automation.router, prefix=API_PREFIX)
     app.include_router(assistant_api.router, prefix=API_PREFIX)

@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 
+from graite.cloud.session import CALLBACK_PATH
 from graite.vault.request_context import REQUEST_HEADER, current_request_id
 
 
@@ -23,6 +24,10 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         if request.method == "OPTIONS":  # CORS preflight carries no credentials by design
+            return await call_next(request)
+        if request.method == "GET" and request.url.path == CALLBACK_PATH:
+            # The system browser returning from Graite Cloud sign-in cannot carry the token;
+            # the one-time `state` of that sign-in guards this route (api/cloud.py).
             return await call_next(request)
         header = request.headers.get("authorization", "")
         presented = header.removeprefix("Bearer ").strip() if header.startswith("Bearer ") else None

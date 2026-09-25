@@ -1,8 +1,9 @@
 //! Which vault folder the app opens, and the ones it opened before.
 //!
-//! Stored as `vaults.json` in the Tauri app-config directory. `GRAITE_VAULT` in the
-//! environment (the local launcher) wins over the remembered folder. Nothing here touches
-//! the vault itself: whether a folder is a vault is judged from what is already in it.
+//! Stored as `vaults.json` in the Tauri app-config directory. The remembered folder wins;
+//! `GRAITE_VAULT` in the environment (the local launcher) is only the first-run default.
+//! Nothing here touches the vault itself: whether a folder is a vault is judged from what is
+//! already in it.
 
 use std::path::{Path, PathBuf};
 

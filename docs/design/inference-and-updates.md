@@ -185,6 +185,18 @@ Still to come (M7): Graite's own signed builds and manifest as designed above (o
 catalog's URLs change), a signed remote catalog so engines can update without an app release,
 bundling a processor build for offline first runs, and `whisper-server` as a third entry.
 
+## Starter chat models (D60)
+
+Settings → Chat → On this computer shows four pinned `Q4_K_M` chat models from
+`models/catalog.json` (`tier: "starter"`), light to heavy: Gemma 4 E2B, Gemma 4 E4B,
+Gemma 4 26B-A4B and Qwen3.8 27B. Each entry carries plain-language `level`, `summary` and
+`needs`, plus `min_ram_gb` and, for the large ones, `min_vram_gb`. `lib/modelFit.ts` rates each
+model for the detected hardware (runs well / slowly / too big, allowing for reported memory
+being a little under the label; shared-memory machines count their memory as graphics memory)
+and recommends the largest that runs well. The first starter download also installs the
+recommended `llama` engine build. The "I'm a tech geek" switch brings back the full library,
+Hugging Face discovery, engine build options, context size, GPU layers and `binary_path`.
+
 ### To verify on real installs
 
 - **Windows**: a build downloaded by the app carries no Mark-of-the-Web, so no SmartScreen

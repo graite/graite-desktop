@@ -63,7 +63,7 @@ it("keeps utilities separate from chat and discovery", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Set up local utilities" }));
   expect(screen.getByText("Whisper Q8")).toBeTruthy();
   expect(screen.queryByText("My chat")).toBeNull();
-  expect(screen.queryByRole("button", { name: "Discover models" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Add from Hugging Face" })).toBeNull();
 });
 
 it("registers a native folder selection but does nothing when cancelled", async () => {
@@ -89,7 +89,7 @@ it("registers a native folder selection but does nothing when cancelled", async 
   expect(changed).toHaveBeenCalled();
 });
 
-it("discovers the requested Qwen family and selects a Q4 version", async () => {
+it("adds a model from a Hugging Face link and names it by the model, not the link", async () => {
   vi.mocked(request).mockResolvedValue([
     {
       id: "q4",
@@ -100,20 +100,35 @@ it("discovers the requested Qwen family and selects a Q4 version", async () => {
     },
   ]);
   render(<ModelSources disabled={false} onChange={async () => {}} />);
-  fireEvent.click(screen.getByRole("button", { name: "Discover models" }));
-  await waitFor(() =>
-    expect(screen.getByRole("combobox", { name: "Quantization" }).textContent).toContain(
-      "UD-Q4_K_M",
-    ),
-  );
-  fireEvent.click(screen.getByRole("button", { name: /Qwen3.8/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Add from Hugging Face" }));
+  // Links and files only: no curated brands, and nothing is fetched until a link is given.
+  expect(screen.queryByText(/Gemma|Qwen/)).toBeNull();
+  expect(request).not.toHaveBeenCalled();
+  const url = "https://huggingface.co/unsloth/Qwen3.8-27B-GGUF";
+  fireEvent.change(screen.getByLabelText("Hugging Face link"), { target: { value: url } });
+  fireEvent.click(screen.getByRole("button", { name: "Find versions" }));
   await waitFor(() =>
     expect(request).toHaveBeenLastCalledWith("/api/v1/ai/hub/browse", {
       method: "POST",
-      body: JSON.stringify({ repository: "unsloth/Qwen3.8-27B-GGUF" }),
+      body: JSON.stringify({ repository: url }),
     }),
   );
+  const model = await screen.findByRole("combobox", { name: "Model" });
+  expect(model.textContent).toContain("Qwen3.8-27B-GGUF");
+  expect(model.textContent).not.toContain("huggingface.co");
+  expect(screen.getByText("from unsloth")).toBeTruthy();
   expect(screen.getByRole("combobox", { name: "Quantization" }).textContent).toContain("UD-Q4_K_M");
+});
+
+it("says so when a repository has no GGUF files", async () => {
+  vi.mocked(request).mockResolvedValue([]);
+  render(<ModelSources disabled={false} onChange={async () => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: "Add from Hugging Face" }));
+  fireEvent.change(screen.getByLabelText("Hugging Face link"), {
+    target: { value: "someone/not-a-gguf" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Find versions" }));
+  expect(await screen.findByText(/No GGUF files found/)).toBeTruthy();
 });
 
 it("downloads VAD and turn taking together, and retries only the failed download", async () => {

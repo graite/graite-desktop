@@ -231,19 +231,52 @@ pub fn dev_mode() -> bool {
         && std::env::var_os("GRAITE_DAEMON_TOKEN").is_some()
 }
 
-/// The vault to open at launch: the launcher's `GRAITE_VAULT`, else the remembered one,
-/// else nothing (the webview shows the picker).
+/// The vault to open at launch: the remembered one while it still exists, else the
+/// launcher's `GRAITE_VAULT` as a first-run default, else nothing (the webview shows the
+/// picker). A vault chosen in the app therefore survives restarts even under a launcher.
 pub fn initial_vault(app: &AppHandle) -> Result<Option<PathBuf>, String> {
-    // A local launcher can reuse an existing vault without moving any notes or settings.
-    if let Some(value) = std::env::var_os("GRAITE_VAULT") {
-        let dir = PathBuf::from(value);
-        if !dir.is_absolute() || !dir.is_dir() {
-            return Err("GRAITE_VAULT must point to an existing absolute vault folder".into());
-        }
-        let _ = crate::vaults::remember(app, &dir);
+    let remembered = crate::vaults::load(app).current;
+    let env = std::env::var_os("GRAITE_VAULT").map(PathBuf::from);
+    let chosen = pick_initial(remembered, env)?;
+    if let Some(dir) = &chosen {
+        let _ = crate::vaults::remember(app, dir);
+    }
+    Ok(chosen)
+}
+
+fn pick_initial(
+    remembered: Option<PathBuf>,
+    env: Option<PathBuf>,
+) -> Result<Option<PathBuf>, String> {
+    if let Some(dir) = remembered.filter(|dir| dir.is_dir()) {
         return Ok(Some(dir));
     }
-    Ok(crate::vaults::load(app).current.filter(|dir| dir.is_dir()))
+    match env {
+        Some(dir) if dir.is_absolute() && dir.is_dir() => Ok(Some(dir)),
+        Some(_) => Err("GRAITE_VAULT must point to an existing absolute vault folder".into()),
+        None => Ok(None),
+    }
+}
+
+#[cfg(test)]
+mod initial_vault_tests {
+    use super::pick_initial;
+    use std::path::PathBuf;
+
+    #[test]
+    fn remembered_vault_wins_and_env_is_only_a_default() {
+        let dir = std::env::temp_dir().join(format!("graite-initial-{}", std::process::id()));
+        let (one, two) = (dir.join("one"), dir.join("two"));
+        std::fs::create_dir_all(&one).unwrap();
+        std::fs::create_dir_all(&two).unwrap();
+        let pick = |r: &PathBuf, e: &PathBuf| pick_initial(Some(r.clone()), Some(e.clone()));
+        assert_eq!(pick(&one, &two).unwrap(), Some(one.clone()));
+        // A remembered folder that vanished falls back to the launcher's default.
+        assert_eq!(pick(&dir.join("gone"), &two).unwrap(), Some(two.clone()));
+        assert_eq!(pick_initial(None, None).unwrap(), None);
+        assert!(pick_initial(None, Some(PathBuf::from("relative"))).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }
 
 pub fn start(app: &AppHandle, vault: &Path) -> Result<DaemonState, String> {

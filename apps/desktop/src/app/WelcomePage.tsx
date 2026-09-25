@@ -62,7 +62,7 @@ export function WelcomePage({
     {
       icon: Cpu,
       title: "Choose an AI model",
-      text: "Download a model that runs on this computer, or connect an online one. Nothing leaves your computer unless you choose an online model.",
+      text: "Run a model on this computer, connect your own server, or use Claude. A local model is optional; nothing leaves your computer unless you choose an online one.",
       action: "Open settings",
       onClick: onSettings,
     },

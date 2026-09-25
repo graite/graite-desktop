@@ -41,6 +41,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--token", default=None, help="Bearer token required on every request.")
     parser.add_argument("--dev", action="store_true", help="Read vault/port/token from .env.")
     parser.add_argument("--serve", action="store_true", help="Headless: ignore stdin EOF.")
+    parser.add_argument("--cloud-url", default=None, help="Graite Cloud address.")
     parser.add_argument("--log-level", default="info")
     return parser.parse_args(argv)
 
@@ -55,6 +56,7 @@ def _build_settings(args: argparse.Namespace) -> Settings:
             "token": args.token,
             "dev": args.dev or None,
             "serve": args.serve or None,
+            "cloud_url": args.cloud_url,
         }.items()
         if value is not None
     }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Check, ChevronDown, Cloud, Cpu, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { ai, type AIConfig, type AIStatus } from "@/lib/ai";
+import { cloud, type CloudModel } from "@/lib/cloud";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +39,22 @@ export function ComposerModel({
   const [saving, setSaving] = useState(false);
   const [version, setVersion] = useState(0);
   const { groups, catalog } = useModelOptions((settingsVersion ?? 0) + version);
+  // Graite Cloud, when signed in: one entry, the model it offers.
+  const [cloudModel, setCloudModel] = useState<CloudModel | null>(null);
+  const refreshCloud = useCallback(async () => {
+    try {
+      const account = await cloud.status();
+      const offered = account.signed_in
+        ? ((await cloud.models()).find((m) => m.available) ?? null)
+        : null;
+      setCloudModel(offered);
+    } catch {
+      setCloudModel(null);
+    }
+  }, []);
+  useEffect(() => {
+    void refreshCloud();
+  }, [refreshCloud, settingsVersion]);
   const refresh = useCallback(async () => {
     try {
       const fresh = await ai.status();
@@ -55,13 +72,20 @@ export function ComposerModel({
     option.kind === "local"
       ? config?.provider === "local" && config.model_path === option.model_path
       : config?.provider !== "local" && config?.saved_model_id === option.saved_model_id;
-  const choose = async (option: ModelOption) => {
+  const choose = async (option: ModelOption | CloudModel) => {
     if (!config || saving || busy || working) return;
     setSaving(true);
     try {
       const fresh = (await ai.status()).config;
-      const next: AIConfig =
-        option.kind === "local"
+      const next: AIConfig = !("kind" in option)
+        ? {
+            ...fresh,
+            provider: "graite",
+            model: option.id,
+            saved_model_id: null,
+            connection_id: null,
+          }
+        : option.kind === "local"
           ? {
               ...fresh,
               provider: "local",
@@ -86,6 +110,7 @@ export function ComposerModel({
         onOpenChange={(open) => {
           if (open) {
             void refresh();
+            void refreshCloud();
             setVersion((v) => v + 1);
           }
         }}
@@ -102,6 +127,16 @@ export function ComposerModel({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" side="top" className="min-w-60 max-w-80">
+          {cloudModel && (
+            <div>
+              <DropdownMenuLabel className="ai-model-group">Graite Cloud</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={() => void choose(cloudModel)}>
+                <Cloud size={15} />
+                <span className="flex-1 truncate">Graite Cloud</span>
+                {config?.provider === "graite" && <Check size={14} />}
+              </DropdownMenuItem>
+            </div>
+          )}
           {groups.map((group) =>
             group.options.length ? (
               <div key={group.id}>
@@ -119,8 +154,10 @@ export function ComposerModel({
               </div>
             ) : null,
           )}
-          {!groups.some((g) => g.options.length) && (
-            <DropdownMenuItem disabled>No models installed or saved yet</DropdownMenuItem>
+          {!cloudModel && !groups.some((g) => g.options.length) && (
+            <DropdownMenuItem disabled>
+              No model yet. Download one or connect a server in Settings.
+            </DropdownMenuItem>
           )}
           {onSettings && (
             <>

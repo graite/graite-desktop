@@ -20,6 +20,19 @@ OPTIONAL_HINTS = ("reasoning", "chat_template_kwargs", "reasoning_budget_tokens"
 # Endpoints that refused them, as (url, model). `ModelManager.use` builds a fresh Provider per
 # turn, so remembering here rather than on the instance keeps it to one retry per process.
 _NO_HINTS: dict[tuple[str, str], set[str]] = {}
+# Error codes of Graite Cloud whose `message` is written for the user ("You've run out of free
+# credits today…"); for these the server's own words beat a generic "HTTP 429".
+GRAITE_CODES = frozenset(
+    {
+        "quota_exceeded",
+        "quota_insufficient",
+        "email_not_verified",
+        "model_not_in_plan",
+        "concurrency_limit",
+        "rate_limited",
+        "capacity_reached",
+    }
+)
 _MINIMAL_REASONING: set[tuple[str, str]] = set()
 
 
@@ -119,6 +132,9 @@ class Provider:
         log.warning(
             "model server %s returned HTTP %s: %s", response.url, response.status_code, detail
         )
+        message = _graite_message(detail)
+        if message:
+            raise ValueError(message)
         if response.status_code in (401, 403):
             raise ValueError("The provider rejected the API key. Check it in Settings → Chat.")
         if response.status_code == 429:
@@ -364,3 +380,15 @@ class Provider:
             body.pop("reasoning", None)
             async for delta in self._once(url, body, droppable=False):
                 yield delta
+
+
+def _graite_message(detail: str) -> str | None:
+    """The user-facing message of a Graite Cloud error body, if that is what this is."""
+    try:
+        error = json.loads(detail).get("error")
+    except (ValueError, AttributeError):
+        return None
+    if not isinstance(error, dict) or error.get("code") not in GRAITE_CODES:
+        return None
+    message = error.get("message")
+    return str(message)[:300] if message else None

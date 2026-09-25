@@ -71,7 +71,14 @@ export function VaultGate({ children }: { children: (info: DaemonInfo) => ReactN
     };
   }, [phase, switchTo]);
   if (phase.kind === "checking") return <StartupLoader />;
-  if (phase.kind === "error") return <StartupLoader error={phase.error} onRetry={check} />;
+  if (phase.kind === "error")
+    return (
+      <StartupLoader
+        error={phase.error}
+        onRetry={check}
+        onChooseVault={platform.openVault ? () => setPhase({ kind: "picker" }) : undefined}
+      />
+    );
   if (phase.kind === "picker") {
     return (
       <VaultPicker

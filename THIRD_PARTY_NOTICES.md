@@ -86,6 +86,7 @@ Models, pinned by revision and checksum in `apps/daemon/graite/models/catalog.js
 | Smart Turn v3 (turn detection) | `pipecat-ai/smart-turn-v3` | BSD-2-Clause |
 | Chatterbox Multilingual (voice) | `cstr/chatterbox-GGUF` | MIT (Resemble AI Chatterbox) |
 
-The Settings → Models discovery list also names Gemma 4 and Qwen3.8 families; those models
-carry their own terms on Hugging Face. "Google" and "Qwen" are used only to name the
-families; no logos are shipped.
+The Settings → Chat model list also offers Gemma 4 and Qwen3.8 models; those models carry
+their own terms on Hugging Face. The Google and Qwen logos in `apps/desktop/public/model-brands/`
+are trademarks of their respective owners. They are shown only to identify which family a
+model belongs to, and do not imply endorsement of Graite.

@@ -19,6 +19,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+from graite.cloud.session import get_cloud
 from graite.jobs.queue import PRIORITY_INTERACTIVE
 from graite.models.config import AIConfig, SaveConfig, get_key, load_config, save_config
 from graite.models.downloader import CatalogModel
@@ -78,8 +79,12 @@ def active_model(config: AIConfig, catalog: dict[str, Any]) -> ActiveModel | Non
             model=saved.model,
         )
     return ActiveModel(
-        label=config.model,
-        connection_name=KIND_NAMES.get(config.provider, config.provider),
+        label="Graite Cloud" if config.provider == "graite" else config.model,
+        connection_name=(
+            "Graite Cloud"
+            if config.provider == "graite"
+            else KIND_NAMES.get(config.provider, config.provider)
+        ),
         kind=config.provider,
         model=config.model,
     )
@@ -132,6 +137,8 @@ async def configure(body: SaveConfig, request: Request) -> AIConfig:
     if model_busy(request.app.state):
         raise HTTPException(409, "Wait for the current answer or model check to finish.")
     previous = load_config(request.app.state.db)
+    if body.provider == "graite":  # the endpoint follows the configured Graite Cloud
+        body = body.model_copy(update={"base_url": get_cloud().api_url})
     async with manager.lock, manager.embedding_lock:
         try:
             config = await asyncio.to_thread(save_config, request.app.state.db, body)

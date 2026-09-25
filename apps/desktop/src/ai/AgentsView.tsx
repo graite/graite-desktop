@@ -45,7 +45,8 @@ export function AgentsView({
   const [deleting, setDeleting] = useState<string | null>(null);
   const refresh = useCallback(async () => {
     try {
-      setAgents(await automation.agents());
+      // The personal assistant has its own place in the rail; it is not listed with the agents.
+      setAgents((await automation.agents()).filter((a) => !a.assistant));
       setError("");
     } catch (e) {
       setError((e as Error).message);

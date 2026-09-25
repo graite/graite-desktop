@@ -102,3 +102,37 @@ it("offers the editor selection as a source only when text is selected", async (
     text: "The launch colour is amber.",
   });
 });
+
+it("keeps earlier conversations behind a history button, newest first", async () => {
+  aiMock.conversations.mockResolvedValue([
+    {
+      ...conversation("page"),
+      id: "old",
+      title: "Launch plan",
+      updated_at: "2026-09-20T10:00:00Z",
+    },
+    {
+      ...conversation("folder"),
+      id: "new",
+      title: "Budget questions",
+      updated_at: "2026-09-24T10:00:00Z",
+    },
+  ]);
+  render(<ChatPanel {...props} />);
+  expect(screen.queryByRole("combobox", { name: "Conversation history" })).toBeNull();
+  const history = await screen.findByRole("button", { name: "Conversation history" });
+  await waitFor(() => expect((history as HTMLButtonElement).disabled).toBe(false));
+  // The panel opens on the first conversation, which was about this page alone.
+  const pressed = (name: string) =>
+    screen.getByRole("button", { name }).getAttribute("aria-pressed");
+  expect(pressed("This page")).toBe("true");
+  fireEvent.keyDown(history, { key: "ArrowDown" });
+  const items = await screen.findAllByRole("menuitem");
+  expect(items.map((item) => item.textContent)).toEqual([
+    expect.stringContaining("Budget questions"),
+    expect.stringContaining("Launch plan"),
+  ]);
+  fireEvent.click(items[0]);
+  // Opening the other one restores its scope too.
+  await waitFor(() => expect(pressed("& subpages")).toBe("true"));
+});
