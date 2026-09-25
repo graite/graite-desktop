@@ -66,3 +66,30 @@
   color: var(--muted-foreground);
   overflow-wrap: anywhere;
 }
+.mcp-remote {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.mcp-remote label {
+  cursor: pointer;
+}
+.mcp-remote > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.mcp-remote strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.mcp-remote small {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}

@@ -16,7 +16,9 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Annotated, Any, NotRequired, Required
 
-from graite.vault.blocks import view_fields
+import yaml
+
+from graite.vault.blocks import check_fences, view_fields
 from graite.vault.properties import (
     PageProperty,
     board_summary,
@@ -305,11 +307,107 @@ async def list_children(
                 meta = json.loads(stored.get(child["path"]) or "{}")
             except ValueError:
                 continue
-            raw = meta.get("properties") if isinstance(meta, dict) else None
-            values = compact_values(parse_properties(raw), limit=6)
+            if not isinstance(meta, dict):
+                continue
+            values = compact_values(parse_properties(meta.get("properties")), limit=6)
             if values:
                 child["properties"] = values
+            if meta.get("instructions"):
+                child["has_instructions"] = True  # read_page returns them
     return children
+
+
+def _with_own_instructions(registry: Any, paths: list[str]) -> set[str]:
+    """The pages among `paths` whose own frontmatter sets AI instructions."""
+    rows = registry.ops.db.execute(
+        "SELECT path FROM pages WHERE json_extract(frontmatter_json, '$.instructions') "
+        "IS NOT NULL AND json_extract(frontmatter_json, '$.instructions') != ''"
+    ).fetchall()
+    wanted = set(paths)
+    return {r["path"] for r in rows if r["path"] in wanted}
+
+
+@tool(
+    "read",
+    "Show the page tree under a page, or the whole workspace for an empty path: `depth` "
+    "levels of nested pages (1-6; use 4 or more for a deep overview). Pages marked * have "
+    "their own AI instructions; read_page returns them. Collapsed branches name the call "
+    "that opens them.",
+)
+async def navigate(
+    registry: Any,
+    path: Annotated[str, "Page to start from, or an empty string for the whole workspace."] = "",
+    depth: Annotated[int, "How many levels of nested pages to show (1-6)."] = 2,
+) -> Any:
+    from graite.retrieval.navigation import render_subtree
+
+    if not isinstance(depth, int) or not 1 <= depth <= 6:
+        raise ValueError("depth must be a whole number from 1 to 6.")
+    root = registry.scoped(path) if path else ""
+    entries = registry.paths()
+    titles = {e["path"]: e["title"] for e in entries}
+    under = [
+        p for p in titles if registry.scope.contains(p) and (not root or p.startswith(root + "/"))
+    ]
+    tree, used = render_subtree(
+        [*under, *([root] if root else [])],
+        titles,
+        root,
+        depth,
+        registry.result_limit,
+        _with_own_instructions(registry, under),
+    )
+    effective = registry.scope.policy_for(root) if root else registry.scope.policy
+    result: dict[str, Any] = {
+        "path": root,
+        "title": titles.get(root, "Workspace") if root else "Workspace",
+        "pages": len(under),
+        "depth": used,
+        "tree": tree or "(no pages)",
+        "note": "Indentation is nesting: a page's path is its line joined to its parents' "
+        "with '/'. Titles that differ from the path segment are in parentheses.",
+    }
+    if effective.instructions:
+        result["ai_instructions"] = effective.instructions
+    if used < depth:
+        result["note"] += f" Shown {used} levels deep to fit; navigate a branch to go deeper."
+    return result
+
+
+@tool(
+    "read",
+    "Find which pages a name refers to, best match first. Call it when the user names a page "
+    "you have not seen the path of. When `ambiguous` is true, ask the user which one they "
+    "mean before changing anything.",
+)
+async def find_pages(
+    registry: Any,
+    name: Annotated[str, "The page name as the user said it, for example Atlas or weekly notes."],
+) -> Any:
+    from graite.retrieval.navigation import rank_pages
+
+    name = str(name).strip()
+    if not name:
+        raise ValueError("Give the page name to look for.")
+    titles = {e["path"]: e["title"] for e in registry.paths() if registry.scope.contains(e["path"])}
+    ranked = rank_pages(name[:200], titles)
+    candidates = [
+        {
+            "path": path,
+            "title": titles[path],
+            "parent": path.rpartition("/")[0],
+            "match": evidence,
+        }
+        for path, evidence in ranked
+    ]
+    exact = [c for c in candidates if c["match"] == "exact"]
+    ambiguous = len(exact) != 1 and len(candidates) > 1
+    result: dict[str, Any] = {"name": name, "candidates": candidates, "ambiguous": ambiguous}
+    if not candidates:
+        result["note"] = "No page matches. Ask the user, or look with navigate or search_vault."
+    elif ambiguous:
+        result["note"] = "Several pages could be meant. Ask the user which one."
+    return result
 
 
 @tool("search", "Search the pages in scope for passages that match a question or keywords.")
@@ -418,12 +516,16 @@ async def _propose(registry: Any, kind: str, path: str, summary: str, **fields: 
         )
     else:
         message = f"Proposal {proposal['id']} created; awaiting review."
-    return {
+    result = {
         "proposal_id": proposal["id"],
         "status": status,
         "path": proposal.get("new_path") or proposal["page_path"],
         "message": message,
     }
+    if effective.instructions:
+        # What the user asked of AI on this page (or a new page's parent) — follow it next.
+        result["ai_instructions"] = effective.instructions
+    return result
 
 
 @tool("meta", "Ask one clarification needed to continue. Pauses this turn for the user's reply.")
@@ -510,6 +612,60 @@ async def propose_properties(
     return await _propose(
         registry, "properties", str(path), str(summary), properties=list(properties or [])
     )
+
+
+@tool(
+    "propose",
+    "Propose a board (kanban), table or list view on a page: the page's child pages become "
+    "its cards or rows, and `group` names the status field the columns come from. With "
+    "`title`, a new page is proposed under `path` instead. Add the cards afterwards with "
+    "propose_create (parent_path = the returned path) and change them with "
+    "propose_properties.",
+)
+async def propose_view(
+    registry: Any,
+    path: Annotated[str, "The page to add the view to; with `title`, the new page's parent."],
+    view: Annotated[str, "kanban, table or list."],
+    summary: Annotated[str, "One line saying what the view is for."],
+    group: Annotated[str | None, "The field that makes the columns, for example Status."] = None,
+    show: Annotated[list[str] | None, "Other fields to show on each card or row."] = None,
+    fields: Annotated[
+        list[PropertyInput] | None,
+        "Field definitions (name, type, options) so the view works before its first card; "
+        "include the `group` field with its options.",
+    ] = None,
+    title: Annotated[str | None, "Title of a new page for the view, under `path`."] = None,
+) -> Any:
+    spec: dict[str, Any] = {"view": str(view).strip().lower()}
+    if group:
+        spec["group"] = str(group)
+    if show:
+        spec["show"] = [str(name) for name in show]
+    if fields:
+        spec["settings"] = {
+            "fields": [
+                {k: f[k] for k in ("name", "type", "options") if k in f}
+                for f in fields
+                if isinstance(f, dict)
+            ]
+        }
+    fence = "```graite:view\n" + yaml.safe_dump(spec, sort_keys=False, allow_unicode=True)
+    fence += "```\n"
+    problem = check_fences(fence)
+    if problem:
+        raise ValueError(problem)
+    if title:
+        return await _propose(
+            registry, "create", str(path or ""), str(summary), title=str(title), new_text=fence
+        )
+    rel = registry.scoped(path)
+    doc = await registry.ops.read_page(rel)
+    if view_fields(doc.body) or "```graite:view" in doc.body:
+        raise ValueError(
+            "This page already has a view. Change it with propose_edit, or add the view to a "
+            "new page with `title`."
+        )
+    return await _propose(registry, "append", rel, str(summary), new_text="\n" + fence)
 
 
 @tool(

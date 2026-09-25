@@ -2,7 +2,14 @@ import { useEffect, useState } from "react";
 import { Check, Copy, Plug } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { claudeCodeCommand, httpCommand, jsonConfig, mcp, type McpInfo } from "@/lib/mcp";
+import {
+  claudeCodeCommand,
+  httpCommand,
+  jsonConfig,
+  mcp,
+  type McpInfo,
+  type RemoteInfo,
+} from "@/lib/mcp";
 import { platform } from "@/lib/platform";
 import "./mcp.css";
 
@@ -35,6 +42,70 @@ function Snippet({ label, hint, text }: { label: string; hint: string; text: str
       </div>
       <pre tabIndex={0}>{text}</pre>
     </div>
+  );
+}
+
+/** Remote access: hosted clients reach this vault through Graite Cloud while Graite is open. */
+function RemoteAccess({ initial }: { initial: RemoteInfo }) {
+  const [remote, setRemote] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!remote.enabled || remote.connected) return;
+    // The relay connects in the background; look again until it has or reports why not.
+    const timer = setTimeout(() => {
+      void mcp
+        .info()
+        .then((info) => setRemote(info.remote))
+        .catch(() => {});
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [remote]);
+  const toggle = async () => {
+    setBusy(true);
+    try {
+      setRemote(await mcp.setRemote(!remote.enabled));
+    } catch {
+      toast.error("Could not change remote access. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const status = !remote.enabled
+    ? "Off"
+    : remote.connected
+      ? "Connected through Graite Cloud"
+      : remote.error || "Connecting…";
+  return (
+    <>
+      <div className="mcp-remote">
+        <span>
+          <label htmlFor="mcp-remote-switch">
+            <strong>Remote access</strong>
+          </label>
+          <small id="mcp-remote-hint">
+            Lets Claude, ChatGPT and other hosted AI apps reach this vault through your Graite Cloud
+            account. {status}.
+          </small>
+        </span>
+        <button
+          id="mcp-remote-switch"
+          type="button"
+          role="switch"
+          className="ai-switch"
+          aria-checked={remote.enabled}
+          aria-describedby="mcp-remote-hint"
+          disabled={busy}
+          onClick={() => void toggle()}
+        />
+      </div>
+      {remote.enabled ? (
+        <Snippet
+          label="Claude · ChatGPT"
+          hint="Add as a custom connector (MCP server URL), then sign in with your Graite account"
+          text={remote.url}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -108,6 +179,7 @@ export function McpCard() {
             itself, or install the .deb or .rpm package.
           </p>
         ) : null}
+        <RemoteAccess initial={info.remote} />
         <p className="mcp-note">Tools: {info.tools.join(", ")}</p>
       </div>
     </section>

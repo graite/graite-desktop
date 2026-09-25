@@ -27,13 +27,15 @@ def rpc(client: TestClient, method: str, params: dict | None = None, **headers: 
     return response.json()
 
 
-def call(client: TestClient, name: str, **arguments: Any) -> tuple[dict, bool]:
+def call(client: TestClient, name: str, /, **arguments: Any) -> tuple[dict, bool]:
     result = rpc(client, "tools/call", {"name": name, "arguments": arguments})["result"]
     return json.loads(result["content"][0]["text"]), bool(result.get("isError"))
 
 
-def page(client: TestClient, title: str, body: str = "", **ai: Any) -> dict:
-    doc = client.post("/api/v1/pages", json={"title": title}).json()
+def page(
+    client: TestClient, title: str, body: str = "", parent: str | None = None, **ai: Any
+) -> dict:
+    doc = client.post("/api/v1/pages", json={"title": title, "parent_path": parent}).json()
     if body:
         put = client.put(
             f"/api/v1/pages/{doc['path']}", json={"body": body, "base_hash": doc["hash"]}
@@ -182,6 +184,105 @@ def test_a_client_only_sees_its_own_proposals(client: TestClient) -> None:
     assert not failed
     assert "From MCP" in json.dumps(listed)
     assert "Other client" not in json.dumps(listed)
+
+
+def test_navigate_shows_the_tree_and_collapses_deep_branches(client: TestClient) -> None:
+    page(client, "Projects")
+    page(client, "Atlas", parent="Projects", instructions="Write in British English.")
+    page(client, "Launch", parent="Projects/Atlas")
+    page(client, "Notes", parent="Projects/Atlas/Launch")
+    page(client, "Diary", cloud="local-only")
+
+    shallow, failed = call(client, "navigate", depth=2)
+    assert not failed, shallow
+    assert "Projects" in shallow["tree"] and "Atlas *" in shallow["tree"]
+    assert 'more (navigate "Projects/Atlas")' in shallow["tree"]
+    assert "Diary" not in json.dumps(shallow)
+
+    deep, _ = call(client, "navigate", path="Projects", depth=6)
+    assert deep["pages"] == 3
+    assert "Notes" in deep["tree"] and "more" not in deep["tree"]
+
+    branch, _ = call(client, "navigate", path="Projects/Atlas")
+    assert "British English" in json.dumps(branch["ai_instructions"])
+    assert call(client, "navigate", depth=9)[1]
+    assert call(client, "navigate", path="Diary")[1]
+
+
+def test_find_pages_ranks_names_and_flags_ambiguity(client: TestClient) -> None:
+    page(client, "Atlas")
+    page(client, "Atlas Launch")
+    page(client, "Weekly notes")
+    page(client, "Secret Atlas", cloud="local-only")
+
+    found, failed = call(client, "find_pages", name="atlas")
+    assert not failed, found
+    assert found["candidates"][0]["path"] == "Atlas"
+    assert found["candidates"][0]["match"] == "exact"
+    assert found["ambiguous"] is False
+    assert "Secret" not in json.dumps(found)
+
+    vague, _ = call(client, "find_pages", name="notes")
+    assert vague["candidates"][0]["path"] == "Weekly notes"
+    typo, _ = call(client, "find_pages", name="Weekly notse")
+    assert typo["candidates"][0]["match"] == "similar"
+
+    page(client, "Launch", parent="Atlas")
+    one, _ = call(client, "find_pages", name="launch")
+    assert one["candidates"][0]["path"] == "Atlas/Launch" and one["ambiguous"] is False
+    page(client, "Launch", parent="Weekly notes")
+    both, _ = call(client, "find_pages", name="launch")
+    assert both["ambiguous"] is True
+    assert {c["path"] for c in both["candidates"][:2]} == {"Atlas/Launch", "Weekly notes/Launch"}
+    assert "Ask the user" in both["note"]
+
+
+def test_propose_view_files_a_checked_board(client: TestClient, settings: Settings) -> None:
+    page(client, "Todos", "Things to do.\n")
+    fields = [{"name": "Status", "type": "status", "options": ["To do", "Done"]}]
+    result, failed = call(
+        client,
+        "propose_view",
+        path="Todos",
+        view="kanban",
+        group="Status",
+        fields=fields,
+        summary="A board",
+    )
+    assert not failed, result
+    assert result["status"] == "pending" and result["path"] == "Todos"
+    proposal = client.get(f"/api/v1/ai/proposals/{result['proposal_id']}").json()
+    assert proposal["kind"] == "append"
+    assert "```graite:view" in json.dumps(proposal)
+    assert "graite:view" not in (settings.vault / "Todos" / "page.md").read_text()
+
+    bad, failed = call(client, "propose_view", path="Todos", view="gallery", summary="s")
+    assert failed and "view" in bad["error"]
+
+    new, failed = call(
+        client, "propose_view", path="Todos", view="table", title="Tracker", summary="s"
+    )
+    assert not failed, new
+    assert new["path"] == "Todos/Tracker"
+
+
+def test_proposals_carry_the_page_instructions(client: TestClient) -> None:
+    page(client, "Journal", "Start\n", instructions="Only append, dated headings.")
+    result, failed = call(client, "propose_append", path="Journal", text="x", summary="s")
+    assert not failed
+    assert "dated headings" in json.dumps(result["ai_instructions"])
+    created, _ = call(
+        client, "propose_create", title="Day", body="", parent_path="Journal", summary="s"
+    )
+    assert "dated headings" in json.dumps(created["ai_instructions"])
+    children, _ = call(client, "list_children", path="")
+    assert [c for c in children if c["path"] == "Journal"][0]["has_instructions"] is True
+
+
+def test_in_app_chat_does_not_get_the_mcp_tools() -> None:
+    from graite.skills.registry import MCP_TOOLS, chat_tools
+
+    assert not MCP_TOOLS & chat_tools("act")
 
 
 def test_schedule_and_unknown_tools_are_refused(client: TestClient) -> None:

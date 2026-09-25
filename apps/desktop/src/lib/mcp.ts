@@ -2,9 +2,16 @@ import { request } from "./api";
 import type { components } from "@graite/api-types";
 
 export type McpInfo = components["schemas"]["McpInfo"];
+export type RemoteInfo = components["schemas"]["RemoteInfo"];
 
 export const mcp = {
   info: () => request<McpInfo>("/api/v1/mcp/info"),
+  /** Remote access through Graite Cloud, for hosted clients such as claude.ai and ChatGPT. */
+  setRemote: (enabled: boolean) =>
+    request<RemoteInfo>("/api/v1/mcp/remote", {
+      method: "PUT",
+      body: JSON.stringify({ enabled }),
+    }),
 };
 
 /** A shell word, quoted only when it has to be. */

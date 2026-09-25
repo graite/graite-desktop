@@ -141,6 +141,9 @@ class CloudSession:
         except Exception as exc:
             raise ValueError(KEYCHAIN_DOWN) from exc
 
+    def install_id(self) -> str:
+        return self._install_id()
+
     def _install_id(self) -> str:
         """A random id for this installation, so the account page can tell devices apart."""
         path = self.app_dir / "cloud.json"

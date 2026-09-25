@@ -9,6 +9,9 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
+from graite.cloud.relay import enabled as relay_enabled
+from graite.cloud.relay import set_enabled as set_relay_enabled
+
 router = APIRouter(prefix="/mcp", tags=["mcp"])
 
 
@@ -22,6 +25,20 @@ class McpInfo(BaseModel):
     stdio_command: str
     stdio_args: list[str]
     tools: list[str]
+    remote: RemoteInfo
+
+
+class RemoteInfo(BaseModel):
+    # Remote access through Graite Cloud (graite/cloud/relay.py): off unless switched on here.
+    enabled: bool
+    connected: bool
+    # The URL to paste into Claude, ChatGPT or another hosted client.
+    url: str
+    error: str | None = None
+
+
+class RemoteIn(BaseModel):
+    enabled: bool
 
 
 def _appimage() -> str | None:
@@ -65,4 +82,24 @@ async def info(request: Request) -> McpInfo:
         stdio_command=command,
         stdio_args=args,
         tools=sorted(registry.allowed),
+        remote=_remote(request),
     )
+
+
+def _remote(request: Request) -> RemoteInfo:
+    state = request.app.state
+    relay = state.relay
+    return RemoteInfo(
+        enabled=relay_enabled(state.db),
+        connected=relay.connected,
+        url=relay.mcp_url,
+        error=relay.error,
+    )
+
+
+@router.put("/remote", response_model=RemoteInfo)
+async def set_remote(body: RemoteIn, request: Request) -> RemoteInfo:
+    state = request.app.state
+    set_relay_enabled(state.db, body.enabled)
+    state.relay.poke()
+    return _remote(request)

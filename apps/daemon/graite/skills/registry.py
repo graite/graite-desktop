@@ -36,6 +36,9 @@ DRAFT_TOOLS = frozenset({"propose_create"})
 ASK_TOOLS = frozenset({"propose_create", "propose_append", "propose_properties"})
 # Chat modes whose propose group is narrowed to a subset; Act is not narrowed.
 MODE_TOOLS: dict[str, frozenset[str]] = {"ask": ASK_TOOLS, "draft": DRAFT_TOOLS}
+# Tools for MCP clients, which see no page tree or page-name hints in a prompt of ours.
+# In-app turns get both already, and a small local model pays for every extra schema.
+MCP_TOOLS = frozenset({"navigate", "find_pages", "propose_view"})
 
 
 def groups_for(mode: str) -> frozenset[str]:
@@ -51,7 +54,7 @@ def chat_groups_for(mode: str) -> frozenset[str]:
 def chat_tools(mode: str) -> set[str]:
     """The tool names a chat turn in `mode` exposes (before skill/scope narrowing)."""
     groups = chat_groups_for(mode)
-    names = {t.name for t in tool_module.TOOLS.values() if t.group in groups}
+    names = {t.name for t in tool_module.TOOLS.values() if t.group in groups} - MCP_TOOLS
     narrow = MODE_TOOLS.get(mode)
     if narrow is not None:
         names = {n for n in names if tool_module.TOOLS[n].group != "propose" or n in narrow}
@@ -75,7 +78,9 @@ class Registry:
         self.scope = scope
         self.searcher = searcher or Searcher(ops.db, None)
         self.groups = set(groups)
-        self.allowed = {t.name for t in tool_module.TOOLS.values() if t.group in self.groups}
+        self.allowed = {
+            t.name for t in tool_module.TOOLS.values() if t.group in self.groups
+        } - MCP_TOOLS
         self.library: dict[str, dict[str, Any]] = {}
         self.result_limit = 6000
         # Set by the pipeline: registers a tool result as a numbered, citable source.

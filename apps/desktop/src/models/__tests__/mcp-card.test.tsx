@@ -15,6 +15,7 @@ const INFO = {
   stdio_command: "/opt/Graite/daemon/graite-daemon",
   stdio_args: ["mcp"],
   tools: ["propose_create", "read_page", "search_vault"],
+  remote: { enabled: false, connected: false, url: "https://api.getgraite.com/mcp", error: null },
 };
 const writeText = vi.fn();
 
@@ -98,4 +99,23 @@ it("warns when only the AppImage mount is known, and hides itself on old daemons
   const { container } = render(<McpCard />);
   await waitFor(() => expect(request).toHaveBeenCalledTimes(2));
   expect(container.textContent).toBe("");
+});
+
+it("switches remote access on and hands out the Graite Cloud URL", async () => {
+  request.mockImplementation((path: string) =>
+    Promise.resolve(
+      path === "/api/v1/mcp/remote" ? { ...INFO.remote, enabled: true, connected: true } : INFO,
+    ),
+  );
+  render(<McpCard />);
+  const toggle = await screen.findByRole("switch", { name: "Remote access" });
+  expect(toggle.getAttribute("aria-checked")).toBe("false");
+  expect(screen.queryByText("https://api.getgraite.com/mcp")).toBeNull();
+  fireEvent.click(toggle);
+  expect(await screen.findByText("https://api.getgraite.com/mcp")).toBeTruthy();
+  expect(request).toHaveBeenCalledWith("/api/v1/mcp/remote", {
+    method: "PUT",
+    body: JSON.stringify({ enabled: true }),
+  });
+  expect(screen.getByText(/Connected through Graite Cloud/)).toBeTruthy();
 });

@@ -2781,6 +2781,9 @@
             "title": "Http Url",
             "type": "string"
           },
+          "remote": {
+            "$ref": "#/components/schemas/RemoteInfo"
+          },
           "stdio_args": {
             "items": {
               "type": "string"
@@ -2805,7 +2808,8 @@
           "http_stable",
           "stdio_command",
           "stdio_args",
-          "tools"
+          "tools",
+          "remote"
         ],
         "title": "McpInfo",
         "type": "object"
@@ -4305,6 +4309,53 @@
           }
         },
         "title": "RejectBody",
+        "type": "object"
+      },
+      "RemoteIn": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "RemoteIn",
+        "type": "object"
+      },
+      "RemoteInfo": {
+        "properties": {
+          "connected": {
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "connected",
+          "url"
+        ],
+        "title": "RemoteInfo",
         "type": "object"
       },
       "RenameVoice": {
@@ -9119,6 +9170,47 @@
           }
         },
         "summary": "Info",
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
+    "/api/v1/mcp/remote": {
+      "put": {
+        "operationId": "set_remote_api_v1_mcp_remote_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Remote",
         "tags": [
           "mcp"
         ]

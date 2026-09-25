@@ -1,6 +1,6 @@
 # Remote MCP through Graite Cloud
 
-Status: design, not built. Decision D64. Builds on D7 (proposals by tool set), D19 (per-page
+Status: built (daemon side and Graite Cloud Phase 3). Decision D64. Builds on D7 (proposals by tool set), D19 (per-page
 AI settings), D30/D31 (local MCP server and stdio bridge) and D63 (Graite Cloud sign-in).
 The cloud half is Phase 3 of `graite-inference/PLAN.md`.
 
@@ -34,7 +34,8 @@ The fix is a relay through Graite Cloud:
   the page's effective, cascaded `ai_instructions`. For a new page these are the parent's.
   Instructions are read-only to the model; they change only through the UI
   (`PUT /pages/{p}/ai-settings`).
-- **Remote access is opt-in per vault**, and it needs a Graite Cloud sign-in.
+- **Remote access is opt-in per vault** (`meta.mcp_remote` in the vault index, so it is off
+  again after `.graite/` is deleted), and it needs a Graite Cloud sign-in.
 
 ## Daemon tools (`graite/skills/tools.py`)
 
@@ -43,12 +44,14 @@ Existing tools stay as they are:
 - `propose_create`, `propose_edit`, `propose_append`, `propose_properties`,
   `propose_move`, `propose_delete`, `list_proposals`
 
-New tools use `@tool(group, description)`, so in-app agents get them too.
+New tools use `@tool(group, description)` but are MCP-only (`registry.MCP_TOOLS`): in-app
+turns already get the page tree and page-name hints in the prompt, and a small local model
+pays for every extra schema.
 
 | Tool | Group | Does |
 |---|---|---|
 | `navigate(path="", depth=2)` | read | Returns the page tree under `path`, with `depth` 1–6 (a high depth is "deep navigation"). Branches that don't fit collapse to `— N more (navigate …)`, using `retrieval/navigation.py`'s tree rendering (new `render_subtree`). Also returns `ai_instructions` for `path` and marks the nodes that carry their own instructions. |
-| `find_pages(names)` | read | Answers "which pages are meant". Returns ranked candidates `{path, title, parent, evidence}` plus `ambiguous`, using the matching behind `navigation.page_reference` (factored into `match_names`). When the result is ambiguous, the client is told to ask the user. |
+| `find_pages(name)` | read | Answers "which pages are meant". Returns ranked candidates `{path, title, parent, evidence}` plus `ambiguous`, using the matching behind `navigation.page_reference` (`navigation.rank_pages`: exact, then whole word, then part of a word, then a close spelling). When the result is ambiguous, the client is told to ask the user. |
 | `propose_view(path, view, summary, group=None, show=None, fields=None)` | propose | Builds a `graite:view` fence and validates it with `vault/blocks.py`. It then proposes an append to an existing page, or a create for a new one. Cards stay `propose_create` with `parent_path`, following the `page-views` skill. |
 
 Other changes:
@@ -96,8 +99,11 @@ Other changes:
 
 - A lifespan task connects to `{cloud_url}/relay/v1/connect` when two conditions hold:
   - the user is signed in to Graite Cloud;
-  - `.graite/config.toml` has `[mcp] remote = true`.
+  - remote access is switched on for this vault (`PUT /api/v1/mcp/remote`).
 - It gets its token from `CloudSession.access_token()`, and reconnects with backoff.
+- Close codes from the cloud: `4001` token expired (reconnect at once with a fresh one),
+  `4401` no `relay` scope (ask the user to sign in again), `4000` replaced by another Graite
+  window (stay off until switched again, so two windows never fight over the socket).
 - Each request is replayed in-process (`httpx.ASGITransport(app)`, `POST /mcp`, daemon
   token, `X-Graite-MCP-Client: <client>`). Local and remote clients therefore share one
   code path: `McpEndpoint` → `McpService`.

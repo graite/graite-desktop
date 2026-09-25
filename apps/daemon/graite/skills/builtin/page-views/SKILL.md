@@ -48,8 +48,10 @@ settings:
 `settings` — **any other key turns the whole block into plain text**, so do not invent
 `groupBy`, `columns`, `fields` or `options`.
 
-If the page already exists, `propose_edit` or `propose_append` the fence onto it. If it does
-not, `propose_create` it. Either way, keep the `path` the tool gives back.
+When `propose_view` is available, prefer it: it writes and checks the fence for you (`view`,
+`group`, `show` and `fields` as above), on the page itself or, with `title`, on a new page.
+Otherwise, if the page already exists, `propose_edit` or `propose_append` the fence onto it;
+if it does not, `propose_create` it. Either way, keep the `path` the tool gives back.
 
 ## Step 2 — the cards
 

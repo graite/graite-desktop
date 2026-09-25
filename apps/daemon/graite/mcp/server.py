@@ -29,7 +29,7 @@ from graite.retrieval.scope import ResolvedScope, Scope
 from graite.retrieval.scope import resolve as resolve_scope
 from graite.retrieval.search import Searcher
 from graite.skills import tools as tool_module
-from graite.skills.registry import PROPOSE_GROUPS, Registry
+from graite.skills.registry import MCP_TOOLS, PROPOSE_GROUPS, Registry
 
 CLIENT_HEADER = "x-graite-mcp-client"
 # `schedule` queues a local agent run, and a local run may read `cloud: local-only` pages.
@@ -38,11 +38,16 @@ EXCLUDED = frozenset({"schedule", "search_memory"})  # memory belongs to the ass
 
 INSTRUCTIONS = (
     "Graite is the user's local knowledge workspace: pages of markdown in a folder tree. "
-    "Paths are vault-relative, for example `Projects/Atlas`. Use search_vault and read_page "
-    "to find and read pages. You cannot write directly: every propose_* tool files a proposal "
-    "that the user reviews in Graite (some pages apply proposals automatically). Tell the "
-    "user when a change is waiting for their review. Pages the user keeps local-only are "
-    "not available to you."
+    "Paths are vault-relative, for example `Projects/Atlas`. Use navigate to see the tree "
+    "(a higher depth for a deep overview), search_vault and read_page to find and read pages. "
+    "When the user names a page you have not seen the path of, call find_pages; if it is "
+    "ambiguous, ask the user which page they mean. When request_clarification is the right "
+    "step, ask the user that question yourself. Pages can carry ai_instructions from the "
+    "user: follow them when you read, write or create pages there. You cannot write "
+    "directly: every propose_* tool files a proposal that the user reviews in Graite (some "
+    "pages apply proposals automatically). Use propose_view for boards, tables and lists and "
+    "propose_properties for typed fields. Tell the user when a change is waiting for their "
+    "review. Pages the user keeps local-only are not available to you."
 )
 
 
@@ -97,6 +102,7 @@ class McpService:
             searcher=Searcher(state.db, None),  # keyword search: never evicts the chat model
             groups=PROPOSE_GROUPS,
         )
+        registry.allowed |= MCP_TOOLS
         registry.allowed -= EXCLUDED
         registry.proposals = state.proposals
         registry.state = None
