@@ -78,7 +78,8 @@ Other changes:
     `oauth_codes.redirect_uri_provided_explicitly`, and `resource` on `auth_sessions` and
     `access_tokens`.
 - **Relay scope:** desktop sign-in adds the scope `relay`. Sessions signed in before this
-  change have to sign in again to enable remote access.
+  change gain it on their next token refresh (first-party client only), so nobody has to sign
+  in again.
 - **`WS /relay/v1/connect`** (scope `relay`):
   - The daemon sends a `hello` with `{install_id, vault_name, version, tools}`.
   - Requests go down as `{id, client, body}`; responses come up as `{id, status, body}`.
