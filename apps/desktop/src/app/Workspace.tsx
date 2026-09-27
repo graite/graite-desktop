@@ -54,7 +54,13 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
    * their click event here, so anything that is not a tab name means "the first tab". */
   const openSettings = (tab?: unknown) => {
     setSettingsTab(
-      tab === "voice" || tab === "search" || tab === "documents" || tab === "vault" ? tab : "chat",
+      tab === "voice" ||
+        tab === "search" ||
+        tab === "documents" ||
+        tab === "vault" ||
+        tab === "apps"
+        ? tab
+        : "chat",
     );
     setModelsOpen(true);
   };

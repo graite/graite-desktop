@@ -35,16 +35,18 @@ import { useEngine } from "./useEngine";
 import { ModelLibrary } from "./ModelLibrary";
 import { StarterModels } from "./StarterModels";
 import { useTechMode } from "@/lib/techMode";
+import { McpCard } from "./McpCard";
 import { VaultCard } from "./VaultCard";
 import { VoicesCard } from "@/settings/VoicesCard";
 
-export type SettingsTab = "chat" | "voice" | "search" | "documents" | "vault";
+export type SettingsTab = "chat" | "voice" | "search" | "documents" | "vault" | "apps";
 const TABS: { id: SettingsTab; label: string; icon: typeof Orbit }[] = [
   { id: "chat", label: "Chat", icon: MessageSquare },
   { id: "voice", label: "Voice", icon: AudioLines },
   { id: "search", label: "Search", icon: Search },
   { id: "documents", label: "Documents", icon: FileText },
   { id: "vault", label: "Vault", icon: FolderOpen },
+  { id: "apps", label: "AI apps", icon: Plug },
 ];
 
 type Kind = "local" | "graite" | ConnectionKind;
@@ -148,7 +150,8 @@ export function ModelsPage({
         <div className="ai-eyebrow">MAKE IT YOURS</div>
         <h1>Settings</h1>
         <p className="ai-lede">
-          Your chat model, your assistant’s voice, search, documents and your vault.
+          Your chat model, your assistant’s voice, search, documents, your vault and the AI apps
+          connected to it.
         </p>
         <nav className="ai-settings-tabs" aria-label="Settings sections">
           {TABS.map(({ id, label, icon: Icon }) => (
@@ -462,7 +465,15 @@ export function ModelsPage({
             >
               <VaultCard />
             </div>
-            <div className="ai-actions" hidden={tab === "vault"}>
+            <div
+              className="settings-panel"
+              role="tabpanel"
+              aria-label="AI apps"
+              hidden={tab !== "apps"}
+            >
+              <McpCard />
+            </div>
+            <div className="ai-actions" hidden={tab === "vault" || tab === "apps"}>
               <Button
                 variant="outline"
                 disabled={!!busy}

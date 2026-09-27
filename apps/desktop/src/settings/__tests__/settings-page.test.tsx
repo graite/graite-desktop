@@ -53,6 +53,7 @@ vi.mock("@/models/ModelLibrary", () => ({
 vi.mock("@/models/StarterModels", () => ({ StarterModels: () => <div>starter-models</div> }));
 vi.mock("@/models/IndexCard", () => ({ IndexCard: () => <div>index-card</div> }));
 vi.mock("@/models/VaultCard", () => ({ VaultCard: () => <div>vault-card</div> }));
+vi.mock("@/models/McpCard", () => ({ McpCard: () => <div>mcp-card</div> }));
 vi.mock("@/models/ConnectionsCard", () => ({ ConnectionsCard: () => <div>connections</div> }));
 vi.mock("@/models/GraiteCloudCard", () => ({
   GraiteCloudCard: ({ onPick }: { onPick: (model: { id: string }) => void }) => (
@@ -92,7 +93,7 @@ afterEach(cleanup);
 const panel = (name: string) =>
   document.querySelector(`[role="tabpanel"][aria-label="${name}"]`) as HTMLElement;
 
-it("is called Settings, has a tab per concern, and no longer shows the MCP card", async () => {
+it("is called Settings, has a tab per concern, and keeps the MCP card on its own tab", async () => {
   render(<ModelsPage onClose={() => {}} />);
   expect(await screen.findByRole("heading", { level: 1, name: "Settings" })).toBeTruthy();
   expect(screen.getAllByRole("tab").map((t) => t.textContent?.trim())).toEqual([
@@ -101,8 +102,10 @@ it("is called Settings, has a tab per concern, and no longer shows the MCP card"
     "Search",
     "Documents",
     "Vault",
+    "AI apps",
   ]);
-  expect(screen.queryByText(/Connect AI apps/i)).toBeNull();
+  expect(within(panel("Chat")).queryByText("mcp-card")).toBeNull();
+  expect(within(panel("AI apps")).getByText("mcp-card")).toBeTruthy();
   expect(panel("Chat").hidden).toBe(false);
   // Beginners see the starter models; engine and full library wait for tech mode.
   expect(within(panel("Chat")).getByText("starter-models")).toBeTruthy();
