@@ -6,11 +6,13 @@ import os
 import sys
 from pathlib import Path
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from graite.cloud.relay import enabled as relay_enabled
 from graite.cloud.relay import set_enabled as set_relay_enabled
+from graite.mcp import clients
+from graite.mcp.clients import ClientStatus
 
 router = APIRouter(prefix="/mcp", tags=["mcp"])
 
@@ -26,6 +28,8 @@ class McpInfo(BaseModel):
     stdio_args: list[str]
     tools: list[str]
     remote: RemoteInfo
+    # Claude Code, Codex and Cursor on this computer: found, set up, and how to add Graite.
+    clients: list[ClientStatus]
 
 
 class RemoteInfo(BaseModel):
@@ -83,6 +87,7 @@ async def info(request: Request) -> McpInfo:
         stdio_args=args,
         tools=sorted(registry.allowed),
         remote=_remote(request),
+        clients=clients.statuses(command, args, headless=settings.serve),
     )
 
 
@@ -103,3 +108,14 @@ async def set_remote(body: RemoteIn, request: Request) -> RemoteInfo:
     set_relay_enabled(state.db, body.enabled)
     state.relay.poke()
     return _remote(request)
+
+
+@router.post("/clients/{client}", response_model=ClientStatus)
+async def add_client(client: str, request: Request) -> ClientStatus:
+    """Add Graite to one MCP app on this computer. Only ever called from a click."""
+    settings = request.app.state.settings
+    command, args = stdio_launch(settings.app_dir)
+    try:
+        return await clients.install(client, command, args, headless=settings.serve)
+    except (ValueError, OSError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

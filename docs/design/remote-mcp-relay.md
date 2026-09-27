@@ -116,7 +116,7 @@ Other changes:
 ```
 # graite-inference
 uv run alembic upgrade head && uv run graite-cloud serve --reload     # :8000
-# daemon with GRAITE_CLOUD_URL=http://127.0.0.1:8000; sign in; Settings → AI apps → Remote access
+# daemon with GRAITE_CLOUD_URL=http://127.0.0.1:8000; sign in; Settings → AI connectors → Remote access
 claude mcp add --transport http graite http://127.0.0.1:8000/mcp     # OAuth in the browser
 # claude.ai / ChatGPT need public HTTPS:
 cloudflared tunnel --url http://localhost:8000    # set PUBLIC_URL to the tunnel URL, restart

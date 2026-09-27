@@ -142,7 +142,8 @@ compiles CrispASR for the local graphics card when no suitable build is publishe
 
 With the app or `just daemon` running, an MCP client can launch `graite-daemon mcp` (from a
 dev checkout: `uv run --project apps/daemon graite-daemon mcp`; from an AppImage:
-`/path/to/Graite.AppImage mcp`). Settings → AI apps shows the exact command.
+`/path/to/Graite.AppImage mcp`). Settings → AI connectors shows the exact command, and adds
+it to Claude Code, Codex or Cursor in one click (as `graite-local`).
 
 ## Releasing
 

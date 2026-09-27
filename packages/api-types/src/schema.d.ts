@@ -1223,6 +1223,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/mcp/clients/{client}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Client
+         * @description Add Graite to one MCP app on this computer. Only ever called from a click.
+         */
+        post: operations["add_client_api_v1_mcp_clients__client__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/mcp/info": {
         parameters: {
             query?: never;
@@ -2308,6 +2328,28 @@ export interface components {
             /** Stack */
             stack?: string | null;
         };
+        /** ClientStatus */
+        ClientStatus: {
+            /** Can Install */
+            can_install: boolean;
+            /** Found */
+            found: boolean;
+            /** Id */
+            id: string;
+            /** Installed */
+            installed: boolean;
+            /** Name */
+            name: string;
+            /** Note */
+            note?: string | null;
+            /**
+             * Outdated
+             * @default false
+             */
+            outdated: boolean;
+            /** Where */
+            where: string;
+        };
         /** CloudModel */
         CloudModel: {
             /**
@@ -2805,6 +2847,8 @@ export interface components {
         };
         /** McpInfo */
         McpInfo: {
+            /** Clients */
+            clients: components["schemas"]["ClientStatus"][];
             /** Http Stable */
             http_stable: boolean;
             /** Http Url */
@@ -6318,6 +6362,37 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    add_client_api_v1_mcp_clients__client__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                client: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

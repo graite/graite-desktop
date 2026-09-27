@@ -58,7 +58,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
         tab === "search" ||
         tab === "documents" ||
         tab === "vault" ||
-        tab === "apps"
+        tab === "connectors"
         ? tab
         : "chat",
     );

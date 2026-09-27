@@ -1465,6 +1465,60 @@
         "title": "ClientLog",
         "type": "object"
       },
+      "ClientStatus": {
+        "properties": {
+          "can_install": {
+            "title": "Can Install",
+            "type": "boolean"
+          },
+          "found": {
+            "title": "Found",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "outdated": {
+            "default": false,
+            "title": "Outdated",
+            "type": "boolean"
+          },
+          "where": {
+            "title": "Where",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "found",
+          "installed",
+          "where",
+          "can_install"
+        ],
+        "title": "ClientStatus",
+        "type": "object"
+      },
       "CloudModel": {
         "properties": {
           "available": {
@@ -2773,6 +2827,13 @@
       },
       "McpInfo": {
         "properties": {
+          "clients": {
+            "items": {
+              "$ref": "#/components/schemas/ClientStatus"
+            },
+            "title": "Clients",
+            "type": "array"
+          },
           "http_stable": {
             "title": "Http Stable",
             "type": "boolean"
@@ -2809,7 +2870,8 @@
           "stdio_command",
           "stdio_args",
           "tools",
-          "remote"
+          "remote",
+          "clients"
         ],
         "title": "McpInfo",
         "type": "object"
@@ -9152,6 +9214,49 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/api/v1/mcp/clients/{client}": {
+      "post": {
+        "description": "Add Graite to one MCP app on this computer. Only ever called from a click.",
+        "operationId": "add_client_api_v1_mcp_clients__client__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "client",
+            "required": true,
+            "schema": {
+              "title": "Client",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Client",
+        "tags": [
+          "mcp"
+        ]
       }
     },
     "/api/v1/mcp/info": {
