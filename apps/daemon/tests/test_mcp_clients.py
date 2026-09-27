@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import stat
 import sys
 import tomllib
@@ -23,6 +24,7 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))  # what `~` means on Windows
     monkeypatch.delenv("CODEX_HOME", raising=False)
     monkeypatch.setenv("PATH", str(bin_dir))
     return home
@@ -31,11 +33,15 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def fake_cli(home: Path, name: str) -> Path:
     """A CLI that records its argv, one JSON list per line."""
     log = home.parent / f"{name}.log"
-    script = home.parent / "bin" / name
-    script.write_text(
-        f"#!{sys.executable}\nimport json, sys\n"
-        f"open({str(log)!r}, 'a').write(json.dumps(sys.argv[1:]) + '\\n')\n"
-    )
+    code = f"import json, sys\nopen({str(log)!r}, 'a').write(json.dumps(sys.argv[1:]) + '\\n')\n"
+    bin_dir = home.parent / "bin"
+    if os.name == "nt":
+        # Windows finds commands by extension: npm installs `claude` as `claude.cmd`.
+        (bin_dir / f"{name}.py").write_text(code)
+        (bin_dir / f"{name}.cmd").write_text(f'@"{sys.executable}" "{bin_dir / name}.py" %*\n')
+        return log
+    script = bin_dir / name
+    script.write_text(f"#!{sys.executable}\n" + code)
     script.chmod(script.stat().st_mode | stat.S_IEXEC)
     return log
 

@@ -74,7 +74,7 @@ def _which(name: str) -> str | None:
 
 def _pretty(path: Path) -> str:
     try:
-        return "~/" + str(path.relative_to(_home()))
+        return "~/" + path.relative_to(_home()).as_posix()
     except ValueError:
         return str(path)
 
