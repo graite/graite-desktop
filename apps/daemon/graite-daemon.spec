@@ -59,7 +59,8 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    [],
+    # UTF-8 mode: file and stdio text defaults to UTF-8 instead of the Windows ANSI code page.
+    [("X utf8_mode=1", None, "OPTION")],
     exclude_binaries=True,
     name="graite-daemon",
     debug=False,

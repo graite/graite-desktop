@@ -1109,7 +1109,7 @@ class FileOps:
                     rel,
                     meta,
                     current.body,
-                    old_text=page_file(self.vault, rel).read_text(),
+                    old_text=page_file(self.vault, rel).read_text(encoding="utf-8"),
                     actor=actor,
                 )
                 self._rescan()

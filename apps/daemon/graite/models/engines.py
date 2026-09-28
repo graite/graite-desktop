@@ -94,7 +94,10 @@ class EngineState(BaseModel):
 
 
 def catalog() -> list[Engine]:
-    return [Engine.model_validate(e) for e in json.loads(CATALOG_PATH.read_text())["engines"]]
+    return [
+        Engine.model_validate(e)
+        for e in json.loads(CATALOG_PATH.read_text(encoding="utf-8"))["engines"]
+    ]
 
 
 def host() -> tuple[str, str]:

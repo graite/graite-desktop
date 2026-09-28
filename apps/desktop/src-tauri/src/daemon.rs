@@ -317,6 +317,8 @@ pub fn start(app: &AppHandle, vault: &Path) -> Result<DaemonState, String> {
         command.creation_flags(CREATE_NO_WINDOW);
     }
     let mut child = command
+        // Text I/O defaults to UTF-8 on Windows too, not the ANSI code page.
+        .env("PYTHONUTF8", "1")
         .arg("--vault")
         .arg(vault)
         .arg("--port")

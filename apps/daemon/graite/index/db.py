@@ -224,7 +224,7 @@ def migrate(conn: sqlite3.Connection) -> None:
     existing = _columns(conn, "conversations")
     if existing and existing["page_id"][3]:  # notnull
         _rebuild_conversations(conn)
-    conn.executescript(SCHEMA_PATH.read_text())
+    conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
     # Additive migrations: CREATE TABLE IF NOT EXISTS does not add columns to existing tables.
     columns = _columns(conn, "pages")
     for name, definition in PAGE_COLUMNS.items():
