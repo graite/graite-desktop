@@ -16,6 +16,7 @@ import type { GraiteEditor } from "./schema";
 import { getSlashMenuItems, filterSlashItems, type SlashMenuDeps } from "./slash-menu";
 import { MediaContext } from "./media/context";
 import { BlockTypeMenuItem } from "./BlockTypeMenuItem";
+import { useBlockDrag } from "./blockDrag";
 
 const SIDEBAR_PAGE = "application/graite-sidebar-page";
 
@@ -83,69 +84,7 @@ export function EditorSurface({
       root.removeEventListener("drop", drop, true);
     };
   }, [editor, movePage]);
-  useEffect(() => {
-    if (!moveMedia) return;
-    let dragged: string | undefined;
-    let highlighted: HTMLElement | null = null;
-    const clearHighlight = () => {
-      highlighted?.removeAttribute("data-media-drop-active");
-      highlighted = null;
-    };
-    const start = (event: DragEvent) => {
-      if (!event.dataTransfer?.types.includes("blocknote/html")) {
-        dragged = undefined;
-        return;
-      }
-      const block = editor.getExtension(SideMenuExtension)?.store.state?.block;
-      dragged = block?.type === "localMedia" ? block.id : undefined;
-    };
-    const over = (event: DragEvent) => {
-      if (!dragged) return;
-      const target =
-        event.target instanceof Element
-          ? event.target.closest<HTMLElement>("[data-media-drop-page]")
-          : null;
-      if (highlighted !== target) {
-        clearHighlight();
-        highlighted = target;
-      }
-      if (!target) return;
-      event.preventDefault();
-      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-      target.setAttribute("data-media-drop-active", "");
-    };
-    const end = () => {
-      dragged = undefined;
-      clearHighlight();
-    };
-    const drop = (event: DragEvent) => {
-      const target =
-        event.target instanceof Element
-          ? event.target.closest<HTMLElement>("[data-media-drop-page]")
-          : null;
-      const path = target?.dataset.mediaDropPage;
-      if (!dragged || !path) return;
-      const block = dragged;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      editor.prosemirrorView.dragging = null;
-      const menu = editor.getExtension(SideMenuExtension);
-      menu?.blockDragEnd();
-      end();
-      void moveMedia(block, path);
-    };
-    window.addEventListener("dragstart", start);
-    window.addEventListener("dragover", over, true);
-    window.addEventListener("drop", drop, true);
-    window.addEventListener("dragend", end);
-    return () => {
-      end();
-      window.removeEventListener("dragstart", start);
-      window.removeEventListener("dragover", over, true);
-      window.removeEventListener("drop", drop, true);
-      window.removeEventListener("dragend", end);
-    };
-  }, [editor, moveMedia]);
+  useBlockDrag(editor, { moveMedia, movePage });
   useEffect(() => {
     const root = editor.prosemirrorView.dom.ownerDocument;
     let timer: ReturnType<typeof setTimeout> | undefined;
