@@ -4,9 +4,6 @@
 
 Text with inline <kbd>html</kbd> stays raw.
 
-> [!note] A callout
-> with a body line
-
 Footnote reference[^1] in a paragraph.
 
 [^1]: The footnote definition.

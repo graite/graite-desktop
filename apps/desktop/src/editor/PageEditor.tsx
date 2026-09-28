@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCreateBlockNote } from "@blocknote/react";
-import { toBlocks, fromBlocks } from "@graite/md-convert";
+import { fromBlocks, toBlocksSafe, toBlocksWithSpans } from "@graite/md-convert";
 import { FolderOpen, MoreHorizontal, Orbit, Paperclip, Trash2 } from "lucide-react";
 import { canRevealPage, revealPage } from "@/pages/revealPage";
 import { toast } from "sonner";
@@ -87,6 +87,37 @@ function collectPageLinkPaths(blocks: GraiteBlock[], out = new Set<string>()): S
  * Replace the whole document WITHOUT recording an undo step: a page load must not be
  * undoable (Ctrl+Z would otherwise revert to the empty initial document).
  */
+/**
+ * `blocks` with each block the editor refuses replaced by an editable Markdown block of its
+ * source, so one bad block no longer turns the whole page into raw text.
+ */
+export function isolateUnloadable(
+  editor: GraiteEditor,
+  blocks: GraitePartialBlock[],
+  body: string,
+): GraitePartialBlock[] {
+  const whole: GraitePartialBlock[] = [{ type: "rawMarkdown", props: { source: body } }];
+  let spans: { start: number; end: number }[];
+  try {
+    spans = toBlocksWithSpans(body).spans;
+  } catch {
+    return whole;
+  }
+  if (spans.length !== blocks.length) return whole;
+  return blocks.map((block, index) => {
+    try {
+      loadBlocks(editor, [block]);
+      return block;
+    } catch {
+      const { start, end } = spans[index]!;
+      return {
+        type: "rawMarkdown",
+        props: { source: start >= 0 ? body.slice(start, end) : "" },
+      } as GraitePartialBlock;
+    }
+  });
+}
+
 export function loadBlocks(editor: GraiteEditor, blocks: GraitePartialBlock[]): void {
   editor.transact((tr) => {
     editor.replaceBlocks(editor.document, blocks);
@@ -280,11 +311,16 @@ export function PageEditor({
     (body: string, hash: string) => {
       let blocks: GraitePartialBlock[];
       try {
-        blocks = hydratePageLinks(toBlocks(body) as GraitePartialBlock[], tree, pathRef.current);
+        // Parts the converter cannot map become editable Markdown blocks, not the whole page.
+        blocks = hydratePageLinks(
+          toBlocksSafe(body) as GraitePartialBlock[],
+          tree,
+          pathRef.current,
+        );
       } catch (e) {
         // Never show an empty editor for a page that has content: fall back to raw markdown.
         reportError(`toBlocks failed for ${pathRef.current}`, e, "applyBody");
-        toast.error("Could not render this page; showing raw markdown.");
+        toast.error("Could not render this page; showing it as Markdown you can edit.");
         blocks = [{ type: "rawMarkdown", props: { source: body } }];
       }
       if (blocks.length === 0) blocks = [{ type: "paragraph" }];
@@ -293,8 +329,8 @@ export function PageEditor({
         loadBlocks(editor, blocks);
       } catch (e) {
         reportError(`replaceBlocks failed for ${pathRef.current}`, e, "applyBody");
-        toast.error("Could not render this page; showing raw markdown.");
-        loadBlocks(editor, [{ type: "rawMarkdown", props: { source: body } }]);
+        toast.error("Part of this page could not be shown as blocks; it is shown as Markdown.");
+        loadBlocks(editor, isolateUnloadable(editor, blocks, body));
       } finally {
         syncingRef.current = false;
       }

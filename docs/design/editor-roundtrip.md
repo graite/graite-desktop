@@ -46,20 +46,26 @@ and the editor only sees the body.
 | `paragraph` | `paragraph` |
 | `list` / `listItem` (`ordered`, `checked`) | `bulletListItem` / `numberedListItem` / `checkListItem`; nested lists → `children` |
 | `blockquote` | `quote` |
-| `blockquote` matching callout syntax | custom `callout` block `{type, title, folded: null|true|false}`; `[!toggle]-` maps to the Toggle UI |
+| `blockquote` matching callout syntax | custom `callout` block `{kind, folded: ""|"-"|"+"}`, title as inline content, body as `children`; `[!toggle]` maps to `toggleListItem` |
 | `code` | `codeBlock` with `language` |
 | `code` with `lang = graite:<kind>` | custom block per kind: `dbview`, `dashboard`, `transcript`; YAML fields in `props`; unknown kind → `graiteUnknown` (labeled code) |
 | `image` (`![alt](url)`) | `image` with `url` |
 | `embed` (`![[file]]`) | `image` / `audio` / `video` / `pdf` / `file` by extension, `url = vault://<vault-id>/<path>` |
-| `table` (GFM) | `table` (cells are inline content only; block content inside cells is not supported and is flagged) |
+| `table` (GFM) | `table` (cells are inline content only). Centered and right-aligned columns set the cells' `textAlignment`; a table with an explicit left-aligned (`:---`) column stays `rawMarkdown`, because BlockNote's default alignment cannot be told apart from none |
 | `thematicBreak` | custom `divider` block |
-| `html`, `footnoteDefinition`, `math`, anything unmapped | custom `rawMarkdown` block: verbatim source, rendered monospace, editable as text |
+| `html`, `footnoteDefinition`, `math`, loose lists, list items with non-list children, multi-paragraph quotes, code fences with meta, anything unmapped | custom `rawMarkdown` block: verbatim source in a monospace text box, editable as text. When an edited source parses to native blocks only, it is replaced by them on leaving the box |
 | inline `strong`, `emphasis`, `delete`, `inlineCode`, `link` | styles / `link` |
 | inline `wikilink` | custom inline content `wikilink {target, alias, heading}` |
 | `paragraph` containing a single `wikilink` and nothing else | `pageLink` block (renders as Notion-style page row; exports as `[[Child]]` on its own line) |
 
 The `rawMarkdown` block is what makes the converter lossless: anything we cannot model
-survives byte-for-byte and can still be edited as text.
+survives byte-for-byte and can still be edited as text. If mapping a page or loading its
+blocks fails, only the top-level parts that fail become `rawMarkdown` blocks
+(`toBlocksSafe`, `isolateUnloadable`); the rest of the page stays editable blocks.
+
+Loose lists and code-fence meta would need props on BlockNote's built-in list and code
+blocks, which 0.47 cannot add, so they stay raw (but editable) rather than being tightened
+or losing their meta on save.
 
 ## 4. Tests
 

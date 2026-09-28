@@ -14,6 +14,7 @@ const blockTypes: BlockTypeOption[] = [
   { name: "Check List", type: "checkListItem" },
   { name: "Toggle", type: "toggleListItem" },
   { name: "Quote", type: "quote" },
+  { name: "Callout", type: "callout", props: { kind: "note" } },
   { name: "Code", type: "codeBlock" },
 ];
 

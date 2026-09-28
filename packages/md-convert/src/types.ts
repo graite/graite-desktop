@@ -95,11 +95,25 @@ export interface CodeBlock extends BlockBase {
   content: TextInline[];
 }
 
+/** A table cell as BlockNote stores it; `textAlignment` carries a GFM column alignment. */
+export interface TableCell {
+  type: "tableCell";
+  props?: { textAlignment?: "left" | "center" | "right" | "justify" };
+  content: InlineContent[];
+}
+
 export interface TableBlock extends BlockBase {
   type: "table";
   props: Record<string, never>;
-  /** `headerRows` is always 1 on parse: a GFM table always has a header row. */
-  content: { type: "tableContent"; headerRows?: number; rows: { cells: InlineContent[][] }[] };
+  /**
+   * `headerRows` is always 1 on parse: a GFM table always has a header row. Cells are plain
+   * inline arrays, or `tableCell`s when the column is centered or right-aligned.
+   */
+  content: {
+    type: "tableContent";
+    headerRows?: number;
+    rows: { cells: (InlineContent[] | TableCell)[] }[];
+  };
 }
 
 /**
@@ -109,6 +123,16 @@ export interface TableBlock extends BlockBase {
 export interface ToggleListItemBlock extends BlockBase {
   type: "toggleListItem";
   props: Record<string, never>;
+  content: InlineContent[];
+}
+
+/**
+ * An Obsidian callout, `> [!note] Title` + body: the inline content is the title and
+ * `children` the body. `folded` is the marker after the type: "", "-" (folded) or "+".
+ */
+export interface CalloutBlock extends BlockBase {
+  type: "callout";
+  props: { kind: string; folded: "" | "-" | "+" };
   content: InlineContent[];
 }
 
@@ -182,6 +206,7 @@ export type Block =
   | CodeBlock
   | TableBlock
   | ToggleListItemBlock
+  | CalloutBlock
   | ImageBlock
   | DividerBlock
   | PageLinkBlock

@@ -1,7 +1,15 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { canonical, fromBlocks, toBlocks, toBlocksWithSpans } from "./index";
+import {
+  canonical,
+  fromBlocks,
+  hasRawBlocks,
+  toBlocks,
+  toBlocksSafe,
+  toBlocksWithSpans,
+} from "./index";
+import type { MediaBlock, TableBlock } from "./types";
 
 const fixturesDir = join(import.meta.dirname, "..", "fixtures");
 const blocksDir = join(fixturesDir, "blocks");
@@ -65,8 +73,14 @@ describe("toBlocks / fromBlocks", () => {
       "rawMarkdown",
       "rawMarkdown",
       "rawMarkdown",
-      "rawMarkdown",
     ]);
+    expect(types(read(blocksDir, "callout.md"))).toEqual([
+      "callout",
+      "callout",
+      "callout",
+      "toggleListItem",
+    ]);
+    expect(types(read(blocksDir, "table-aligned.md"))).toEqual(["table"]);
     expect(types(read(blocksDir, "image.md"))).toEqual(["image", "image", "rawMarkdown"]);
     expect(types(read(blocksDir, "divider.md"))).toEqual(["paragraph", "divider", "paragraph"]);
   });
@@ -288,5 +302,38 @@ describe("empty-paragraph markers", () => {
       ["bulletListItem", ["bulletListItem", "paragraph"]],
       ["paragraph", []],
     ]);
+  });
+});
+
+describe("fewer raw blocks", () => {
+  it("reads graite:media values YAML parses as numbers, dates or empty as text", () => {
+    const [block] = toBlocks(
+      "```graite:media\nfile: a.wav\nname: 2024\nkind: audio\njob:\n```\n",
+    ) as MediaBlock[];
+    expect(block).toMatchObject({
+      type: "localMedia",
+      props: { file: "a.wav", name: "2024", kind: "audio", job: "" },
+    });
+  });
+
+  it("keeps nested values in a media fence raw", () => {
+    expect(toBlocks("```graite:media\nfile: [a, b]\n```\n")[0]!.type).toBe("rawMarkdown");
+  });
+
+  it("stores centered and right columns on the cells and leaves explicit left raw", () => {
+    const [table] = toBlocks("| a | b |\n| :-: | --: |\n| 1 | 2 |\n") as TableBlock[];
+    expect(table!.content.rows[0]!.cells).toMatchObject([
+      { type: "tableCell", props: { textAlignment: "center" } },
+      { type: "tableCell", props: { textAlignment: "right" } },
+    ]);
+    expect(toBlocks("| a |\n| :-- |\n| 1 |\n")[0]!.type).toBe("rawMarkdown");
+  });
+
+  it("toBlocksSafe equals toBlocks when nothing fails, and hasRawBlocks looks at every depth", () => {
+    const md = "# Title\n\nSome text.\n";
+    expect(toBlocksSafe(md).map((b) => b.type)).toEqual(["heading", "paragraph"]);
+    expect(hasRawBlocks(toBlocks("<div>x</div>\n"))).toBe(true);
+    expect(hasRawBlocks(toBlocks("> [!note] T\n> <div>x</div>\n"))).toBe(true);
+    expect(hasRawBlocks(toBlocks(md))).toBe(false);
   });
 });

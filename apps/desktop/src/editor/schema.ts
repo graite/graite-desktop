@@ -5,6 +5,7 @@ import { LocalMedia, DerivedText } from "./blocks/MediaBlock";
 import { PageLink } from "./blocks/PageLinkBlock";
 import { Wikilink } from "./blocks/WikilinkInline";
 import { RawMarkdown } from "./blocks/RawMarkdownBlock";
+import { Callout } from "./blocks/CalloutBlock";
 
 // Local audio/documents use Graite blocks with authenticated vault attachments.
 // Keep the unmapped generic file/video blocks out of the slash menu.
@@ -21,6 +22,7 @@ export const schema = BlockNoteSchema.create({
     localMedia: LocalMedia(),
     derivedText: DerivedText(),
     rawMarkdown: RawMarkdown(),
+    callout: Callout(),
   },
   inlineContentSpecs: {
     ...defaultInlineContentSpecs,
