@@ -1,6 +1,6 @@
 import { propertyTypes, type PageProperty, type PropertyKind } from "@/lib/workspace";
 import type { PageDoc } from "@/lib/api";
-import { findField } from "./collection";
+import { findField, viewKinds, type ViewKind } from "./collection";
 
 export type ViewFilter = {
   field: string;
@@ -12,6 +12,8 @@ export type ViewSettings = {
   boards?: Record<string, { order: string[]; hidden: string[] }>;
   sort?: { field: string; direction: "asc" | "desc" };
   filters?: ViewFilter[];
+  /** Properties a view kind does not show; everything else is shown. */
+  hide?: Partial<Record<ViewKind, string[]>>;
 };
 export function readSettings(raw = ""): ViewSettings {
   try {
@@ -56,6 +58,14 @@ export function readSettings(raw = ""): ViewSettings {
           typeof f.value === "string" &&
           ["contains", "equals", "not", "empty", "filled", "gt", "lt"].includes(f.op),
       );
+    if (value.hide && typeof value.hide === "object" && !Array.isArray(value.hide)) {
+      result.hide = {};
+      for (const kind of viewKinds) {
+        const names: unknown = value.hide[kind];
+        if (Array.isArray(names))
+          result.hide[kind] = names.filter((n): n is string => typeof n === "string");
+      }
+    }
     if (value.boards && typeof value.boards === "object" && !Array.isArray(value.boards)) {
       result.boards = Object.create(null);
       for (const [name, board] of Object.entries(value.boards)) {

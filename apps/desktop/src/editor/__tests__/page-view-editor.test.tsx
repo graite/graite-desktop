@@ -106,28 +106,33 @@ it("toggles a property for the active view only and keeps the menu open", async 
     </MediaContext.Provider>,
   );
   await screen.findByText("Alpha");
-  expect(screen.queryByText("High")).toBeNull();
+  // Every property shows on the cards without any setup.
+  await waitFor(() => expect(screen.getByText("High").getAttribute("data-color")).toBe("red"));
 
   fireEvent.click(screen.getByLabelText("Shown properties"));
   const box = await screen.findByRole("checkbox", { name: "Show Priority" });
+  expect(box.getAttribute("aria-checked")).toBe("true");
+  fireEvent.click(box);
+  await waitFor(() =>
+    expect(editor.document[0]!.props).toMatchObject({ show: JSON.stringify({ kanban: [] }) }),
+  );
+  expect(JSON.parse((editor.document[0]!.props as { settings: string }).settings)).toMatchObject({
+    hide: { kanban: ["Priority"] },
+  });
+  expect(screen.getByRole("checkbox", { name: "Show Priority" }).getAttribute("aria-checked")).toBe(
+    "false",
+  );
+  await waitFor(() => expect(screen.queryByText("High")).toBeNull());
+
   fireEvent.click(box);
   await waitFor(() =>
     expect(editor.document[0]!.props).toMatchObject({
       show: JSON.stringify({ kanban: ["Priority"] }),
     }),
   );
-  expect(screen.getByRole("checkbox", { name: "Show Priority" }).getAttribute("aria-checked")).toBe(
-    "true",
-  );
-  await waitFor(() => expect(screen.getByText("High").getAttribute("data-color")).toBe("red"));
-
-  fireEvent.click(box);
-  await waitFor(() =>
-    expect(editor.document[0]!.props).toMatchObject({ show: JSON.stringify({ kanban: [] }) }),
-  );
-  expect(screen.getByRole("checkbox", { name: "Show Priority" }).getAttribute("aria-checked")).toBe(
-    "false",
-  );
+  expect(JSON.parse((editor.document[0]!.props as { settings: string }).settings)).toMatchObject({
+    hide: { kanban: [] },
+  });
 
   fireEvent.click(screen.getByRole("tab", { name: "Table" }));
   await waitFor(() => expect(editor.document[0]!.props).toMatchObject({ view: "table" }));

@@ -23,7 +23,7 @@ def linked_sources(state: Any, instructions: str, scope: ResolvedScope) -> list[
         seen.add(path)
         try:
             _, body = frontmatter.split(
-                safe_file(state.settings.vault, path + "/page.md").read_text()
+                safe_file(state.settings.vault, path + "/page.md").read_text(encoding="utf-8")
             )
         except (OSError, ValueError):
             continue

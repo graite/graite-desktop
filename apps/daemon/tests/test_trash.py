@@ -186,3 +186,26 @@ def test_purge_rejects_bad_ids_and_never_follows_links(
     assert client.delete("/api/v1/trash/1700000000000-link").status_code == 200
     assert (outside / "keep.txt").read_text() == "keep"
     assert not (trash_root / "1700000000000-link").is_symlink()
+
+
+def test_deleting_with_unlink_drops_the_parent_block_and_restore_puts_it_back(client):
+    parent = client.post("/api/v1/pages", json={"title": "Home"}).json()
+    child = client.post("/api/v1/pages", json={"title": "Idea", "parent_path": "Home"}).json()
+    body = "Intro\n\n[[Idea]]\n\nSee [[Idea]] too.\n"
+    client.put("/api/v1/pages/Home", json={"body": body, "base_hash": parent["hash"]})
+    trashed = client.delete(f"/api/v1/pages/{child['path']}", params={"unlink": True})
+    assert trashed.status_code == 200
+    assert client.get("/api/v1/pages/Home").json()["body"] == "Intro\n\nSee [[Idea]] too.\n"
+    restored = client.post(f"/api/v1/trash/{trashed.json()['trash_id']}/restore", json={})
+    assert restored.status_code == 200, restored.text
+    assert client.get("/api/v1/pages/Home").json()["body"] == (
+        "Intro\n\nSee [[Idea]] too.\n\n[[Idea]]\n"
+    )
+
+
+def test_deleting_without_unlink_leaves_the_parent_alone(client):
+    parent = client.post("/api/v1/pages", json={"title": "Home"}).json()
+    child = client.post("/api/v1/pages", json={"title": "Idea", "parent_path": "Home"}).json()
+    client.put("/api/v1/pages/Home", json={"body": "[[Idea]]\n", "base_hash": parent["hash"]})
+    assert client.delete(f"/api/v1/pages/{child['path']}").status_code == 200
+    assert client.get("/api/v1/pages/Home").json()["body"] == "[[Idea]]\n"

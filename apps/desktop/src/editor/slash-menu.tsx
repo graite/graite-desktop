@@ -1,6 +1,15 @@
 import { insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { getDefaultReactSlashMenuItems, type DefaultReactSuggestionItem } from "@blocknote/react";
-import { Columns3, LayoutList, FileText, Link2, AudioLines, Mic, ScanText } from "lucide-react";
+import {
+  Columns3,
+  LayoutList,
+  FileText,
+  Link2,
+  AudioLines,
+  Mic,
+  ScanText,
+  NotebookPen,
+} from "lucide-react";
 import type { GraiteEditor } from "./schema";
 
 export interface PickedPage {
@@ -158,7 +167,23 @@ export function getSlashMenuItems(
       insertOrUpdateBlockForSlashMenu(editor, { type: "pageView", props: { view } });
     },
   }));
-  return [pageItem, linkItem, ...mediaItems, ...layouts, ...views, ...defaults];
+  const calloutItem: DefaultReactSuggestionItem = {
+    title: "Callout",
+    subtext: "Highlighted note (Obsidian callout)",
+    group: "Basic blocks",
+    icon: <NotebookPen className="size-4" />,
+    aliases: ["note", "warning", "tip", "admonition"],
+    onItemClick: () => {
+      insertOrUpdateBlockForSlashMenu(editor, { type: "callout", props: { kind: "note" } });
+    },
+  };
+  // Keep it with the other basic blocks: right after the last default of that group.
+  const basic = defaults.map((item) => item.group).lastIndexOf("Basic blocks");
+  const withCallout =
+    basic < 0
+      ? [...defaults, calloutItem]
+      : [...defaults.slice(0, basic + 1), calloutItem, ...defaults.slice(basic + 1)];
+  return [pageItem, linkItem, ...mediaItems, ...layouts, ...views, ...withCallout];
 }
 
 export function filterSlashItems(items: DefaultReactSuggestionItem[], query: string) {

@@ -54,7 +54,10 @@ class CatalogModel(BaseModel):
 
 
 def catalog() -> list[CatalogModel]:
-    return [CatalogModel.model_validate(m) for m in json.loads(CATALOG_PATH.read_text())["models"]]
+    return [
+        CatalogModel.model_validate(m)
+        for m in json.loads(CATALOG_PATH.read_text(encoding="utf-8"))["models"]
+    ]
 
 
 class Downloader:

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import io
 import json
 import sys
 from pathlib import Path
@@ -86,6 +87,10 @@ class Bridge:
 
 
 async def serve(app_dir: Path) -> None:
+    # JSON-RPC over stdio is UTF-8; Windows would otherwise use the console code page.
+    for stream in (sys.stdin, sys.stdout):
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(encoding="utf-8")
     loop = asyncio.get_running_loop()
     write_lock = asyncio.Lock()
     tasks: set[asyncio.Task[None]] = set()

@@ -3,6 +3,7 @@ import type { PageProperty } from "@/lib/workspace";
 import { NewPageInput } from "./NewPageInput";
 import { PropertyChip } from "./PropertyChip";
 import { PageTitle } from "./TableView";
+import { RowMenu } from "./RowMenu";
 import type { Collection } from "./useCollection";
 
 export function ListView({
@@ -22,7 +23,10 @@ export function ListView({
     <div className="view-list">
       {collection.rows.map((row) => (
         <div className="view-list-row" key={row.id}>
-          <PageTitle row={row} onOpen={onOpen} />
+          <div className="view-list-lead">
+            <RowMenu row={row} handle="grip" onDelete={(r) => void collection.remove(r)} />
+            <PageTitle row={row} onOpen={onOpen} />
+          </div>
           <div className="view-chips">
             {visible.map((f) => (
               <div className="view-card-property" key={f.id}>

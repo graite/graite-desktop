@@ -8,6 +8,7 @@ import { emptyValue, findField } from "./collection";
 import { NewPageInput } from "./NewPageInput";
 import { moveName, type ViewSettings } from "./settings";
 import type { Collection } from "./useCollection";
+import { RowMenu } from "./RowMenu";
 
 export function PageTitle({ row, onOpen }: { row: PageDoc; onOpen: (row: PageDoc) => void }) {
   return (
@@ -129,7 +130,10 @@ export function TableView({
           {rows.map((row) => (
             <tr key={row.id}>
               <td>
-                <PageTitle row={row} onOpen={onOpen} />
+                <div className="view-title-cell">
+                  <RowMenu row={row} handle="grip" onDelete={(r) => void collection.remove(r)} />
+                  <PageTitle row={row} onOpen={onOpen} />
+                </div>
               </td>
               {visible.map((f) => {
                 const own = findField(row, f.name);

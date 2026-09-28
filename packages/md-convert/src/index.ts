@@ -15,7 +15,7 @@ export {
   phrasingToText,
   serialize,
 } from "./markdown";
-export { fromBlocks, toBlocks, toBlocksWithSpans } from "./blocks";
+export { fromBlocks, hasRawBlocks, toBlocks, toBlocksSafe, toBlocksWithSpans } from "./blocks";
 export type { BlockSpan } from "./blocks";
 export { fromInline, toInline } from "./inline";
 export type * from "./types";

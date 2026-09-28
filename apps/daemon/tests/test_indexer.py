@@ -191,3 +191,71 @@ def test_duplicated_page_ids_do_not_break_the_scan(tmp_path: Path) -> None:
         conn.execute("SELECT count(*) FROM chunks WHERE page_path LIKE 'Parent/%'").fetchone()[0]
         == 2
     )
+
+
+def test_subtree_scan_of_a_plain_folder_finds_the_pages_inside(tmp_path: Path) -> None:
+    """`mkdir -p Notes/Idea` plus a page.md: the watcher rescans `Notes`, which has no page."""
+    vault = tmp_path / "vault"
+    write_page(vault, "Home", "Home", "")
+    conn = db.connect(vault / ".graite" / "index.sqlite")
+    indexer.scan(vault, conn)
+    write_page(vault, "Notes/Idea", "Idea", "Something.\n")
+    write_page(vault, "Notes/Idea/Detail", "Detail", "")
+    result = indexer.scan(vault, conn, paths=["Notes"])
+    assert sorted(result.added) == ["Notes/Idea", "Notes/Idea/Detail"]
+    parents = dict(conn.execute("SELECT path, parent_path FROM pages").fetchall())
+    assert parents["Notes/Idea"] is None and parents["Notes/Idea/Detail"] == "Notes/Idea"
+
+
+def test_pages_without_frontmatter_get_distinct_stable_ids(tmp_path: Path) -> None:
+    vault = tmp_path / "vault"
+    for name in ("One", "Two"):
+        (vault / name).mkdir(parents=True)
+        (vault / name / "page.md").write_text("Plain text.\n", encoding="utf-8")
+    conn = db.connect(vault / ".graite" / "index.sqlite")
+    indexer.scan(vault, conn)
+    ids = dict(conn.execute("SELECT path, id FROM pages").fetchall())
+    assert ids["One"] and ids["Two"] and ids["One"] != ids["Two"]
+    # Opening never rewrites the file; the id is derived again the same way.
+    assert (vault / "One" / "page.md").read_text(encoding="utf-8") == "Plain text.\n"
+    conn.close()  # Windows cannot delete an open database file.
+    shutil.rmtree(vault / ".graite")
+    conn = db.connect(vault / ".graite" / "index.sqlite")
+    indexer.scan(vault, conn)
+    assert dict(conn.execute("SELECT path, id FROM pages").fetchall()) == ids
+
+
+def test_a_new_page_that_cannot_be_read_still_appears_with_its_error(tmp_path: Path) -> None:
+    vault = tmp_path / "vault"
+    (vault / "Broken").mkdir(parents=True)
+    (vault / "Broken" / "page.md").write_text("---\ntitle: [unclosed\n---\nBody\n")
+    conn = db.connect(vault / ".graite" / "index.sqlite")
+    assert indexer.scan(vault, conn).added == ["Broken"]
+    row = conn.execute("SELECT title, index_error FROM pages WHERE path='Broken'").fetchone()
+    assert row["title"] == "Broken" and row["index_error"]
+    page = vault / "Broken" / "page.md"
+    page.write_text("---\ntitle: Fixed\n---\nBody\n")
+    bump_mtime(page)
+    result = indexer.scan(vault, conn)
+    assert result.changed == ["Broken"] and result.tree_changed
+    assert conn.execute("SELECT title FROM pages WHERE path='Broken'").fetchone()[0] == "Fixed"
+
+
+def test_a_byte_order_mark_does_not_hide_the_frontmatter(tmp_path: Path) -> None:
+    vault = tmp_path / "vault"
+    (vault / "Bom").mkdir(parents=True)
+    (vault / "Bom" / "page.md").write_text("﻿---\ntitle: Titled\n---\nBody\n", encoding="utf-8")
+    conn = db.connect(vault / ".graite" / "index.sqlite")
+    indexer.scan(vault, conn)
+    assert conn.execute("SELECT title FROM pages WHERE path='Bom'").fetchone()[0] == "Titled"
+
+
+def test_an_outside_title_change_counts_as_a_tree_change(tmp_path: Path) -> None:
+    vault = tmp_path / "vault"
+    page = write_page(vault, "Page", "Old", "Body.\n")
+    conn = db.connect(vault / ".graite" / "index.sqlite")
+    indexer.scan(vault, conn)
+    page.write_text(page.read_text(encoding="utf-8").replace("Old", "New"), encoding="utf-8")
+    bump_mtime(page)
+    result = indexer.scan(vault, conn, paths=["Page"])
+    assert result.relabeled == ["Page"] and not result.structure_changed

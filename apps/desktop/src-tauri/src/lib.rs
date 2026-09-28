@@ -236,11 +236,16 @@ pub fn run() {
                 window.with_webview(|webview| {
                     use webkit2gtk::{
                         glib::Cast, PermissionRequestExt, SettingsExt,
-                        UserMediaPermissionRequestExt, WebViewExt,
+                        UserMediaPermissionRequestExt, WebContextExt, WebViewExt,
                     };
                     if let Some(settings) = webview.inner().settings() {
                         settings.set_enable_media_stream(true);
                         settings.set_enable_webrtc(true);
+                    }
+                    // Notes are written in many languages; red underlines under every
+                    // non-English word are noise.
+                    if let Some(context) = webview.inner().context() {
+                        context.set_spell_checking_enabled(false);
                     }
                     // The web process can die under us (seen when the capture device fails in
                     // WebKitGTK's GStreamer pipeline). Left alone the window stays flat gray;

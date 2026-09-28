@@ -59,6 +59,7 @@ export function AgentInstructionsEditor({
     schema,
     initialContent: instructionBlocks(value, tree),
     pasteHandler,
+    domAttributes: { editor: { spellcheck: "false" } },
   });
   useSelectAllStages(editor);
   const last = useRef(value);

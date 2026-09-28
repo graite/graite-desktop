@@ -157,14 +157,88 @@
   border-top: 1px solid var(--border);
   margin: 0.5rem 0;
 }
-.bn-editor [data-content-type="rawMarkdown"] pre {
+.bn-editor .raw-markdown-label {
+  margin-bottom: 2px;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--muted-foreground);
+}
+.bn-editor .raw-markdown textarea {
+  display: block;
+  width: 100%;
+  resize: none;
+  overflow: hidden;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.8125rem;
+  line-height: 1.5;
   white-space: pre-wrap;
+  color: var(--foreground);
   background: var(--muted);
+  border: 1px solid transparent;
   border-radius: 6px;
   padding: 0.5rem 0.75rem;
   margin: 0;
+  outline: none;
+}
+.bn-editor .raw-markdown textarea:focus {
+  border-color: var(--border);
+  background: var(--background);
+}
+
+/* Callouts: the title row carries the tone; the body is the block's nested children. */
+.bn-editor .graite-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  font-weight: 500;
+}
+.bn-editor .graite-callout-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding-top: 3px;
+  color: var(--callout-fg);
+}
+.bn-editor .graite-callout-title {
+  flex: 1;
+  min-width: 0;
+}
+.bn-editor .bn-block:has(> .react-renderer > .bn-block-content[data-content-type="callout"]) {
+  --callout-fg: #2563eb;
+  --callout-bg: rgb(37 99 235 / 7%);
+  margin: 4px 0;
+  padding: 6px 10px;
+  border-left: 3px solid var(--callout-fg);
+  border-radius: 6px;
+  background: var(--callout-bg);
+}
+.bn-editor .bn-block:has(> .react-renderer .graite-callout[data-tone="teal"]) {
+  --callout-fg: #0d9488;
+  --callout-bg: rgb(13 148 136 / 8%);
+}
+.bn-editor .bn-block:has(> .react-renderer .graite-callout[data-tone="green"]) {
+  --callout-fg: #16a34a;
+  --callout-bg: rgb(22 163 74 / 8%);
+}
+.bn-editor .bn-block:has(> .react-renderer .graite-callout[data-tone="yellow"]) {
+  --callout-fg: #ca8a04;
+  --callout-bg: rgb(202 138 4 / 9%);
+}
+.bn-editor .bn-block:has(> .react-renderer .graite-callout[data-tone="orange"]) {
+  --callout-fg: #ea580c;
+  --callout-bg: rgb(234 88 12 / 8%);
+}
+.bn-editor .bn-block:has(> .react-renderer .graite-callout[data-tone="red"]) {
+  --callout-fg: #dc2626;
+  --callout-bg: rgb(220 38 38 / 7%);
+}
+.bn-editor .bn-block:has(> .react-renderer .graite-callout[data-tone="purple"]) {
+  --callout-fg: #7c3aed;
+  --callout-bg: rgb(124 58 237 / 7%);
+}
+.bn-editor .bn-block:has(> .react-renderer .graite-callout[data-tone="gray"]) {
+  --callout-fg: #737373;
+  --callout-bg: rgb(115 115 115 / 8%);
 }
 
 /* Nested blocks: hide BlockNote's vertical guide line beside nested lists (it reads as a stray extra line). */
@@ -252,4 +326,48 @@
 .bn-block-content[data-content-type="pageView"] {
   min-width: 0;
   max-width: 100%;
+}
+
+/* Block drag (blockDrag.ts): a light preview that follows the pointer and a drop line. */
+.block-dragging,
+.block-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+.block-drag-source {
+  opacity: 0.4;
+}
+.block-drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  max-width: 320px;
+  padding: 4px 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
+  color: var(--foreground);
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  will-change: transform;
+}
+.block-drop-line {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  display: none;
+  height: 3px;
+  border-radius: 2px;
+  background: #60a5fa;
+  pointer-events: none;
+  will-change: transform;
+}
+.bn-side-menu [draggable="true"] {
+  touch-action: none;
 }

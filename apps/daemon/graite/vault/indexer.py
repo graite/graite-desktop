@@ -32,11 +32,17 @@ class ScanResult:
     removed: list[str] = field(default_factory=list)
     moved: list[tuple[str, str]] = field(default_factory=list)
     chunked: list[str] = field(default_factory=list)
+    # Changed pages whose sidebar entry looks different: title, icon, order, text or view.
+    relabeled: list[str] = field(default_factory=list)
     total: int = 0
 
     @property
     def structure_changed(self) -> bool:
         return bool(self.added or self.removed or self.moved)
+
+    @property
+    def tree_changed(self) -> bool:
+        return self.structure_changed or bool(self.relabeled)
 
     @property
     def touched(self) -> list[str]:
@@ -52,9 +58,10 @@ def _row_for(vault: Path, page_dir: Path, parent_path: str | None) -> dict[str, 
     meta, body = fm.split(text)
     stat = (page_dir / PAGE_FILE).stat()
     order = meta.get("order")
+    rel = page_dir.relative_to(vault).as_posix()
     return {
-        "id": str(meta.get("id") or ""),
-        "path": page_dir.relative_to(vault).as_posix(),
+        "id": str(meta.get("id") or fm.path_id(rel)),
+        "path": rel,
         "parent_path": parent_path,
         "title": str(meta.get("title") or page_dir.name),
         "icon": meta.get("icon") or None,
@@ -69,6 +76,20 @@ def _row_for(vault: Path, page_dir: Path, parent_path: str | None) -> dict[str, 
         "has_content": int(bool(body.strip())),
         "has_view": int(bool(VIEW_FENCE.search(body))),
         "_body": body,
+    }
+
+
+TREE_COLUMNS = ("title", "icon", "order_key", "has_content", "has_view", "parent_path")
+
+
+def _unreadable_row(rel: str, directory: Path, parent: str | None, stat: Any) -> dict[str, Any]:
+    return {
+        "id": fm.path_id(rel),
+        "path": rel,
+        "parent_path": parent,
+        "title": directory.name,
+        "mtime": stat.st_mtime,
+        "size": stat.st_size,
     }
 
 
@@ -221,12 +242,17 @@ def scan(vault: Path, conn: sqlite3.Connection, *, paths: list[str] | None = Non
             if (directory / PAGE_FILE).is_file():
                 found.append((directory, rel, parent))
                 _walk(vault, directory, rel, found)
+            elif directory.is_dir() and not directory.is_symlink():
+                # A plain folder (e.g. `mkdir -p Notes/Idea` or a copied folder of pages):
+                # its pages attach to the nearest page above it.
+                _walk(vault, directory, parent, found)
             for r in conn.execute(
                 "SELECT * FROM pages WHERE path=? OR path LIKE ?", (rel, rel + "/%")
             ):
                 stored[r["path"]] = r
     seen: dict[str, tuple[Path, str | None]] = {rel: (d, parent) for d, rel, parent in found}
     has_vec = _has_vec(conn)
+    errors: dict[str, tuple[dict[str, Any], str]] = {}
     with transaction(conn):
         fresh: dict[str, dict[str, Any]] = {}
         for rel, (directory, parent) in seen.items():
@@ -251,6 +277,10 @@ def scan(vault: Path, conn: sqlite3.Connection, *, paths: list[str] | None = Non
                         "UPDATE pages SET index_error=?, mtime=?, size=? WHERE path=?",
                         (str(exc)[:500], stat.st_mtime, stat.st_size, rel),
                     )
+                else:
+                    # A new page that cannot be read still belongs in the tree, with its error,
+                    # rather than silently missing until someone fixes the file.
+                    errors[rel] = (_unreadable_row(rel, directory, parent, stat), str(exc)[:500])
                 continue
             fresh[rel] = row
         removed = [rel for rel in stored if rel not in seen]
@@ -283,12 +313,24 @@ def scan(vault: Path, conn: sqlite3.Connection, *, paths: list[str] | None = Non
             conn.execute("UPDATE links SET target_path=NULL WHERE target_path=?", (rel,))
             conn.execute("DELETE FROM pages WHERE path=?", (rel,))
             result.removed.append(rel)
+        for rel, (row, error) in errors.items():
+            conn.execute(
+                """INSERT OR IGNORE INTO pages (id, path, parent_path, title, icon,
+                   frontmatter_json, file_hash, body_hash, mtime, size, order_key, created,
+                   updated, has_content, has_view, index_error)
+                   VALUES (:id, :path, :parent_path, :title, NULL, '{}', '', NULL, :mtime,
+                   :size, NULL, NULL, NULL, 0, 0, :error)""",
+                {**row, "error": error},
+            )
+            result.added.append(rel)
         for rel, row in fresh.items():
             old = stored.get(rel)
             if old is None:
                 result.added.append(rel)
             elif rel not in {new for _, new in result.moved}:
                 result.changed.append(rel)
+                if any(old[k] != row[k] for k in TREE_COLUMNS):
+                    result.relabeled.append(rel)
             conn.execute(
                 """INSERT INTO pages (id, path, parent_path, title, icon, frontmatter_json,
                    file_hash, body_hash, mtime, size, order_key, created, updated, has_content,

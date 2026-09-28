@@ -46,7 +46,7 @@ export function PageViewBody({
   const [draft, setDraft] = useState(false);
   const groupField = groupCandidates(fields).find((f) => sameName(f.name, props.group || "Status"));
   // The board groups by the field, so its cards never repeat it; the table and list still show it.
-  const visible = visibleFields(fields, props.show, props.view).filter(
+  const visible = visibleFields(fields, props.show, props.view, settings.hide?.[props.view]).filter(
     (f) => props.view !== "kanban" || f !== groupField,
   );
   const onProps = (next: Partial<ViewProps>) =>

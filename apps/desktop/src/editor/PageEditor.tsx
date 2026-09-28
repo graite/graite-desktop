@@ -1,13 +1,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCreateBlockNote } from "@blocknote/react";
-import { toBlocks, fromBlocks } from "@graite/md-convert";
-import { FolderOpen, Orbit, Paperclip } from "lucide-react";
+import { fromBlocks, toBlocksSafe, toBlocksWithSpans } from "@graite/md-convert";
+import { FolderOpen, MoreHorizontal, Orbit, Paperclip, Trash2 } from "lucide-react";
 import { canRevealPage, revealPage } from "@/pages/revealPage";
 import { toast } from "sonner";
 import { hasBodyContent, PageIcon } from "@/components/PageIcon";
 import { EmojiPickerPanel } from "@/components/EmojiPickerPanel";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ConflictError, pages, type PageDoc, type TreeNode } from "@/lib/api";
 import { reportError } from "@/lib/clientLog";
 import { schema, type GraiteBlock, type GraiteEditor, type GraitePartialBlock } from "./schema";
@@ -22,6 +38,7 @@ import { workspace, type PageProperty } from "@/lib/workspace";
 import { media } from "@/lib/media";
 import { MediaContext } from "./media/context";
 import { EditorSurface } from "./EditorSurface";
+import { useViewSchema } from "./views/useViewSchema";
 import { editorExtensions } from "./reviewDecorations";
 import { useSelectAllStages } from "./useSelectAllStages";
 import { markdownPasteHandler } from "./paste";
@@ -44,6 +61,10 @@ export interface PageEditorProps {
   onIconChange: (icon: string | null) => void;
   /** The daemon renamed the folder (title change): old path -> new path. */
   onRenamed: (oldPath: string, newPath: string) => void;
+  /** Move a page under another one (a page dropped on a page link). */
+  onMovePage?: (sourcePath: string, targetPath: string) => Promise<void>;
+  /** Move this page to the trash. */
+  onDelete?: () => void;
   onTreeChanged: () => void;
   onSaved: (hash: string) => void;
   /** Selected text in the editor, so the chat panel can attach it. */
@@ -66,6 +87,37 @@ function collectPageLinkPaths(blocks: GraiteBlock[], out = new Set<string>()): S
  * Replace the whole document WITHOUT recording an undo step: a page load must not be
  * undoable (Ctrl+Z would otherwise revert to the empty initial document).
  */
+/**
+ * `blocks` with each block the editor refuses replaced by an editable Markdown block of its
+ * source, so one bad block no longer turns the whole page into raw text.
+ */
+export function isolateUnloadable(
+  editor: GraiteEditor,
+  blocks: GraitePartialBlock[],
+  body: string,
+): GraitePartialBlock[] {
+  const whole: GraitePartialBlock[] = [{ type: "rawMarkdown", props: { source: body } }];
+  let spans: { start: number; end: number }[];
+  try {
+    spans = toBlocksWithSpans(body).spans;
+  } catch {
+    return whole;
+  }
+  if (spans.length !== blocks.length) return whole;
+  return blocks.map((block, index) => {
+    try {
+      loadBlocks(editor, [block]);
+      return block;
+    } catch {
+      const { start, end } = spans[index]!;
+      return {
+        type: "rawMarkdown",
+        props: { source: start >= 0 ? body.slice(start, end) : "" },
+      } as GraitePartialBlock;
+    }
+  });
+}
+
 export function loadBlocks(editor: GraiteEditor, blocks: GraitePartialBlock[]): void {
   editor.transact((tr) => {
     editor.replaceBlocks(editor.document, blocks);
@@ -159,6 +211,8 @@ export function PageEditor({
   onTitleChange,
   onIconChange,
   onRenamed,
+  onMovePage,
+  onDelete,
   onTreeChanged,
   onSaved,
   onSelectionChange,
@@ -171,7 +225,12 @@ export function PageEditor({
       hydratePageLinks(blocks, linkContextRef.current.tree, linkContextRef.current.path),
     ),
   );
-  const editor = useCreateBlockNote({ schema, extensions: editorExtensions, pasteHandler });
+  const editor = useCreateBlockNote({
+    schema,
+    extensions: editorExtensions,
+    pasteHandler,
+    domAttributes: { editor: { spellcheck: "false" } },
+  });
   useSelectAllStages(editor);
 
   // Report the editor's selected text so "Ask AI" can attach it as a source.
@@ -220,6 +279,12 @@ export function PageEditor({
   const flushPendingRef = useRef<(() => Promise<void>) | null>(null);
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const [attachmentsOpen, setAttachmentsOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const viewParent = useMemo(() => {
+    const parent = page.path.includes("/") ? page.path.slice(0, page.path.lastIndexOf("/")) : null;
+    return parent ? findNode(tree, parent) : null;
+  }, [tree, page.path]);
+  const viewFields = useViewSchema(viewParent, page.hash);
   useEffect(() => {
     if (settingsRequested) {
       setAiSettingsOpen(true);
@@ -246,11 +311,16 @@ export function PageEditor({
     (body: string, hash: string) => {
       let blocks: GraitePartialBlock[];
       try {
-        blocks = hydratePageLinks(toBlocks(body) as GraitePartialBlock[], tree, pathRef.current);
+        // Parts the converter cannot map become editable Markdown blocks, not the whole page.
+        blocks = hydratePageLinks(
+          toBlocksSafe(body) as GraitePartialBlock[],
+          tree,
+          pathRef.current,
+        );
       } catch (e) {
         // Never show an empty editor for a page that has content: fall back to raw markdown.
         reportError(`toBlocks failed for ${pathRef.current}`, e, "applyBody");
-        toast.error("Could not render this page; showing raw markdown.");
+        toast.error("Could not render this page; showing it as Markdown you can edit.");
         blocks = [{ type: "rawMarkdown", props: { source: body } }];
       }
       if (blocks.length === 0) blocks = [{ type: "paragraph" }];
@@ -259,8 +329,8 @@ export function PageEditor({
         loadBlocks(editor, blocks);
       } catch (e) {
         reportError(`replaceBlocks failed for ${pathRef.current}`, e, "applyBody");
-        toast.error("Could not render this page; showing raw markdown.");
-        loadBlocks(editor, [{ type: "rawMarkdown", props: { source: body } }]);
+        toast.error("Part of this page could not be shown as blocks; it is shown as Markdown.");
+        loadBlocks(editor, isolateUnloadable(editor, blocks, body));
       } finally {
         syncingRef.current = false;
       }
@@ -715,7 +785,48 @@ export function PageEditor({
                 <FolderOpen size={15} />
               </Button>
             )}
+            {onDelete && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 shrink-0 text-muted-foreground"
+                    title="More"
+                    aria-label="More actions for this page"
+                  >
+                    <MoreHorizontal size={15} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => {
+                      // Subpages go along with it: ask first. A lone page has Undo instead.
+                      if (findNode(tree, page.path)?.children.length) setConfirmDelete(true);
+                      else onDelete();
+                    }}
+                  >
+                    <Trash2 className="mr-2 size-4 text-destructive" /> Delete page
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
+          <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Move “{page.title || "Untitled"}” to trash?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  The page and its sub-pages move to the trash and can be restored from there.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => onDelete?.()}>Move to trash</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <AiSettingsDialog
             path={page.path}
             title={page.title}
@@ -734,7 +845,9 @@ export function PageEditor({
             onOpenChange={setAttachmentsOpen}
           />
 
-          {page.path.includes("/") && <PageProperties page={page} onSave={saveProperties} />}
+          {page.path.includes("/") && (
+            <PageProperties page={page} onSave={saveProperties} schema={viewFields} />
+          )}
           {!!reviews.unanchored.length && (
             <div data-review-unanchored className="review-unanchored">
               {reviews.unanchored.map((p) => (
@@ -749,6 +862,7 @@ export function PageEditor({
               navigate: onNavigate,
               onTreeChanged,
               moveMedia,
+              movePage: onMovePage,
             }}
           >
             <EditorSurface editor={editor} slashDeps={slashDeps} onChange={handleChange} />

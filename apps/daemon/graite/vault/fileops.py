@@ -7,6 +7,7 @@ write -> index rescan -> activity row -> event. Nothing else in the daemon write
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import os
@@ -24,6 +25,7 @@ from graite.events import EventBus
 from graite.vault import frontmatter as fm
 from graite.vault import indexer
 from graite.vault.instructions import safe_file
+from graite.vault.layouts import map_markdown
 from graite.vault.models import (
     AttachmentEntry,
     AttachmentInUse,
@@ -109,6 +111,40 @@ def append_markdown(body: str, text: str) -> str:
     return "\n".join(lines) + "\n\n" + "\n".join(added) + "\n"
 
 
+def _link_line(targets: list[str]) -> re.Pattern[str]:
+    """A page-link block: `[[target]]` or `[[target|alias]]` alone on its line."""
+    names = "|".join(re.escape(t) for t in targets)
+    return re.compile(r"^[ \t]*\[\[(?:" + names + r")(?:\|[^\]\n]*)?\]\][ \t]*$", re.MULTILINE)
+
+
+def has_page_link(body: str, targets: list[str]) -> bool:
+    pattern = _link_line(targets)
+    found = False
+
+    def check(text: str) -> str:
+        nonlocal found
+        found = found or bool(pattern.search(text))
+        return text
+
+    map_markdown(body, check)
+    return found
+
+
+def drop_page_links(body: str, targets: list[str]) -> str:
+    """`body` without the page-link blocks to `targets`; links inside prose stay."""
+    pattern = _link_line(targets)
+
+    def drop(text: str) -> str:
+        kept = pattern.sub("", text)
+        return text if kept == text else re.sub(r"\n{3,}", "\n\n", kept)
+
+    new = map_markdown(body, drop)
+    if new == body:
+        return body
+    new = new.lstrip("\n")
+    return new.rstrip("\n") + "\n" if new.strip() else ""
+
+
 def _iso(timestamp: float) -> str:
     moment = datetime.fromtimestamp(timestamp, tz=UTC).replace(microsecond=0)
     return moment.isoformat().replace("+00:00", "Z")
@@ -178,7 +214,7 @@ class FileOps:
         meta, body = fm.split(text)
         return PageDoc(
             path=rel,
-            id=str(meta.get("id") or ""),
+            id=str(meta.get("id") or fm.path_id(rel)),
             title=str(meta.get("title") or rel.rsplit("/", 1)[-1]),
             icon=meta.get("icon") or None,
             frontmatter=meta,
@@ -212,6 +248,8 @@ class FileOps:
         )
 
     def _rescan(self, paths: list[str] | None = None) -> indexer.ScanResult:
+        """Index after a write. A write rescans only what it touched where it can, so pages
+        changed outside Graite in the meantime are left for the watcher, which announces them."""
         result = indexer.scan(self.vault, self.db, paths=paths)
         if self.on_indexed is not None:
             self.on_indexed(result)
@@ -229,6 +267,7 @@ class FileOps:
         self, rel: str, meta: dict[str, Any], body: str, *, old_text: str | None, actor: str
     ) -> PageDoc:
         """Write page.md for `rel`; snapshot the previous text when the body changed."""
+        meta.setdefault("id", fm.path_id(rel))
         text = fm.join(meta, body)
         if old_text is not None and old_text != text:
             _, old_body = fm.split(old_text)
@@ -607,7 +646,7 @@ class FileOps:
                     self._publish(
                         "file_changed", {"path": rel, "hash": row["file_hash"], "actor": actor}
                     )
-            if result.structure_changed:
+            if result.tree_changed:
                 self._publish("tree_changed", {"reason": actor, "path": None})
             return result
 
@@ -631,12 +670,12 @@ class FileOps:
         if body == current.body:
             return current
         meta = dict(current.frontmatter)
-        meta.setdefault("id", fm.uuid7())
+        meta.setdefault("id", fm.path_id(rel))
         meta.setdefault("title", current.title)
         meta.setdefault("created", fm.now_iso())
         meta["updated"] = fm.now_iso()
         doc = self._write_page_sync(rel, meta, body, old_text=old_text, actor=actor)
-        self._rescan()
+        self._rescan([rel])
         self._activity(actor, "page.write", rel, {"hash": doc.hash})
         self._publish("file_changed", {"path": rel, "hash": doc.hash, "actor": actor})
         if bool(current.body.strip()) != bool(body.strip()):
@@ -692,7 +731,7 @@ class FileOps:
         old_text = f.read_text(encoding="utf-8")
         current = self._doc_from_text(rel, old_text)
         meta = dict(current.frontmatter)
-        meta.setdefault("id", fm.uuid7())
+        meta.setdefault("id", fm.path_id(rel))
         changed: dict[str, Any] = {}
         old_title = current.title
         if title is not None and title.strip() and title.strip() != current.title:
@@ -746,24 +785,60 @@ class FileOps:
         self._activity(actor, "page.write", parent_rel, {"hash": doc.hash, "link_rewrite": True})
         self._publish("file_changed", {"path": parent_rel, "hash": doc.hash, "actor": actor})
 
-    async def trash_page(self, rel: str, actor: str) -> str:
+    async def trash_page(self, rel: str, actor: str, *, unlink: bool = False) -> str:
+        """Move a page to the trash. With `unlink`, also drop its [[link]] block from the parent
+        (restoring it puts the block back). The editor removes that block itself, so it
+        trashes without."""
         rel = validate_rel(rel)
-        async with self._locks[rel]:
-            return await asyncio.to_thread(self._trash_sync, rel, actor)
+        parent = parent_of(rel) if unlink else None
+        async with self._locks[parent or ""] if parent else contextlib.nullcontext():
+            async with self._locks[rel]:
+                return await asyncio.to_thread(self._trash_sync, rel, actor, unlink)
 
-    def _trash_sync(self, rel: str, actor: str) -> str:
+    def _parent_link_targets(self, rel: str) -> list[str]:
+        """How a parent may link to `rel` as a block: folder name, full path or title."""
+        targets = [rel.rsplit("/", 1)[-1], rel]
+        try:
+            title = self._read_sync(rel).title
+        except (OSError, ValueError):
+            return targets
+        return [*targets, title] if title and title not in targets else targets
+
+    def _write_parent_body(self, parent: str, change: Callable[[str], str], actor: str) -> None:
+        f = page_file(self.vault, parent)
+        if not f.is_file():
+            return
+        old_text = f.read_text(encoding="utf-8")
+        current = self._doc_from_text(parent, old_text)
+        body = change(current.body)
+        if body == current.body:
+            return
+        meta = dict(current.frontmatter)
+        meta["updated"] = fm.now_iso()
+        doc = self._write_page_sync(parent, meta, body, old_text=old_text, actor=actor)
+        self._activity(actor, "page.write", parent, {"hash": doc.hash})
+        self._publish("file_changed", {"path": parent, "hash": doc.hash, "actor": actor})
+
+    def _trash_sync(self, rel: str, actor: str, unlink: bool = False) -> str:
         current_dir = page_dir(self.vault, rel)
         if not is_page_dir(current_dir):
             raise FileNotFoundError(rel)
+        parent = parent_of(rel) if unlink else None
+        targets = self._parent_link_targets(rel) if parent else []
         trash_root = self.vault / GRAITE_DIR / "trash"
         trash_root.mkdir(parents=True, exist_ok=True)
         trash_id = f"{int(time.time() * 1000)}-{slugify(current_dir.name)}"
         dest = trash_root / trash_id
         shutil.move(str(current_dir), str(dest))
         (dest / ORIGIN_FILE).write_text(
-            json.dumps({"path": rel, "trashed_at": fm.now_iso()}, ensure_ascii=False),
+            json.dumps(
+                {"path": rel, "trashed_at": fm.now_iso(), **({"unlinked": True} if parent else {})},
+                ensure_ascii=False,
+            ),
             encoding="utf-8",
         )
+        if parent:
+            self._write_parent_body(parent, lambda b: drop_page_links(b, targets), actor)
         self._rescan()
         self._activity(actor, "page.trash", rel, {"trash_id": trash_id})
         self._publish("tree_changed", {"reason": "trash", "path": rel})
@@ -950,6 +1025,7 @@ class FileOps:
         trash_dir = self._trash_root() / trash_id
         if not trash_dir.is_dir():
             raise FileNotFoundError(trash_id)
+        relink = bool(self._trash_meta(trash_dir).get("unlinked"))
         dest_rel = target_rel
         if dest_rel is None:
             origin, _ = self._trash_origin(trash_dir)
@@ -965,6 +1041,15 @@ class FileOps:
         if origin_file.exists():
             origin_file.unlink()
         final_rel = dest_dir.relative_to(self.vault).as_posix()
+        if relink and parent_rel:
+            folder = dest_dir.name
+
+            def add_link(body: str) -> str:
+                if indexer.VIEW_FENCE.search(body) or has_page_link(body, [folder, final_rel]):
+                    return body
+                return append_markdown(body, f"[[{folder}]]")
+
+            self._write_parent_body(parent_rel, add_link, actor)
         self._rescan()
         self._activity(actor, "page.restore", final_rel, {"trash_id": trash_id})
         self._publish("tree_changed", {"reason": "restore", "path": final_rel})
@@ -1109,10 +1194,10 @@ class FileOps:
                     rel,
                     meta,
                     current.body,
-                    old_text=page_file(self.vault, rel).read_text(),
+                    old_text=page_file(self.vault, rel).read_text(encoding="utf-8"),
                     actor=actor,
                 )
-                self._rescan()
+                self._rescan([rel])
                 self._activity(actor, "page.properties", rel, {"hash": result.hash})
                 self._publish("file_changed", {"path": rel, "hash": result.hash, "actor": actor})
                 return result
@@ -1147,7 +1232,7 @@ class FileOps:
                     k: current.frontmatter.get(k) for k in policy.KEYS
                 }:
                     return current
-                meta.setdefault("id", fm.uuid7())
+                meta.setdefault("id", fm.path_id(rel))
                 meta["updated"] = fm.now_iso()
                 doc = self._write_page_sync(rel, meta, current.body, old_text=old_text, actor=actor)
                 self._rescan()
@@ -1244,6 +1329,21 @@ class FileOps:
                                     text,
                                 ),
                             )
+                    old_parent = parent_of(source)
+                    if parent != old_parent:
+                        # A normal page lists its subpages as [[link]] blocks: move that block
+                        # along with the page. A page with a view lists its children itself.
+                        folder = destination.rsplit("/", 1)[-1]
+                        if old_parent in docs:
+                            rewrites[old_parent] = drop_page_links(
+                                rewrites.get(old_parent, docs[old_parent].body), [destination]
+                            )
+                        if parent in docs:
+                            body = rewrites.get(parent, docs[parent].body)
+                            if not indexer.VIEW_FENCE.search(body) and not has_page_link(
+                                body, [destination, folder]
+                            ):
+                                rewrites[parent] = append_markdown(body, f"[[{folder}]]")
                     moved = False
                     written: list[str] = []
                     try:

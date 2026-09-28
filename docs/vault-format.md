@@ -332,12 +332,19 @@ or `propose_properties`; both go through `fileops.set_properties` like any other
 ```graite:view
 view: kanban        # table | kanban | list
 group: Status       # board only: the status/select property to group by; omitted when unset
-show:               # per view kind: the property names it displays
-  kanban:           # a kind that is absent uses its default (table: all, board and list: none)
+show:               # per view kind: the order of the properties it displays
+  kanban:
     - Priority
     - Due
-  table: []         # an empty list means none
+settings:
+  hide:             # per view kind: the properties it leaves out
+    table: [Due]
 ```
+
+Every view shows all of its pages' properties except the ones under `settings.hide`, so a
+property added to one page appears on the board, table and list without further setup;
+`show` only orders them, and properties it does not list follow in schema order (D66). A
+board never repeats its grouping property on the cards.
 
 The legacy `field` key is read as `group`, and a legacy bare list under `show` is read as
 the list for the fence's own `view`; both are rewritten in the current form on the next save.
@@ -346,7 +353,8 @@ Property definitions are per page; a view merges the definitions of its children
 (options unioned, first color wins) and copies that merged definition onto a page when a
 card is dropped into a column the page has no property for. Displaying a view never adds
 properties automatically; the "Add a Status property" and "New property" actions do so
-explicitly for every child page. Reordering cards inside a board column changes the same
+explicitly for every child page. A page inside a view offers the properties its siblings use
+as empty rows, and filling one in adds that property to the page. Reordering cards inside a board column changes the same
 `order` key the sidebar uses. Date values are stored as ISO dates and displayed as
 "September 15, 2026".
 
@@ -360,7 +368,8 @@ A `graite:view` fence may contain a `settings` mapping: `sort` (`field`, `direct
 `filters` (AND rules with `field`, `op`, `value`), and `boards` keyed by grouping property
 name. Each board stores its column `order` and `hidden` option names. `$title` refers to
 page titles in sorting/filtering; an empty column name refers to ungrouped pages. Search
-is temporary UI state. The existing per-view `show` lists also define property order.
+is temporary UI state. The per-view `show` lists define property order and `hide` lists the
+properties a view kind leaves out.
 
 Empty editor paragraphs serialize as `<!-- graite:empty -->`. This unobtrusive Markdown
 comment preserves intentional blank blocks, including consecutive and trailing blocks,

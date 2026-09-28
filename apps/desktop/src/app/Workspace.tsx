@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Orbit } from "lucide-react";
 import { toast } from "sonner";
-import { connectEvents, isOwnRequest, pages, type PageDoc, type TreeNode } from "@/lib/api";
+import { connectEvents, isOwnRequest, pages, trash, type PageDoc, type TreeNode } from "@/lib/api";
+import { workspace } from "@/lib/workspace";
 import { PageEditor } from "@/editor/PageEditor";
 import { mapTree, parentPath } from "@/editor/tree-utils";
 import { TrashPage } from "./TrashPage";
@@ -78,6 +79,8 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const activeIdRef = useRef<string | null>(null);
   activeIdRef.current = activePage?.id ?? null;
+  const activePathRef = useRef<string | null>(null);
+  activePathRef.current = activePage?.path ?? null;
   const lastSavedHashRef = useRef<string | null>(null);
   const selectedRef = useRef(selectedPath);
   selectedRef.current = selectedPath;
@@ -88,9 +91,14 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
       .filter((node) => node.path !== memoryRoot)
       .map((node) => ({ ...node, children: knowledgeTree(node.children) }));
 
+  const treeRequest = useRef(0);
   const loadTree = useCallback(async () => {
+    const request = ++treeRequest.current;
     try {
-      setTree(await pages.tree());
+      const next = await pages.tree();
+      // Several events in a row start several loads; only the latest one may land.
+      if (request !== treeRequest.current) return;
+      setTree(next);
       setStartupError("");
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
@@ -179,8 +187,18 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
 
   useEffect(() => {
     if (selectedPath) {
-      localStorage.setItem(scopedKey(SELECTED_KEY), selectedPath);
-      void loadPage(selectedPath);
+      const previous = activePathRef.current;
+      void loadPage(selectedPath).then((page) => {
+        if (page) {
+          localStorage.setItem(scopedKey(SELECTED_KEY), selectedPath);
+        } else if (previous && previous !== selectedPath && selectedRef.current === selectedPath) {
+          // A failed navigation keeps the page you were on instead of dropping to Welcome.
+          toast.error(`Could not open ${selectedPath}`);
+          setSelectedPath(previous);
+        } else if (selectedRef.current === selectedPath) {
+          localStorage.removeItem(scopedKey(SELECTED_KEY));
+        }
+      });
     } else {
       localStorage.removeItem(scopedKey(SELECTED_KEY));
       setActivePage(null);
@@ -218,6 +236,70 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
       }
     },
     [loadPage],
+  );
+
+  const handleMoved = useCallback(
+    (oldPath: string, newPath: string) => {
+      const selected = selectedRef.current;
+      if (!selected) return;
+      const next =
+        selected === oldPath || selected.startsWith(oldPath + "/")
+          ? newPath + selected.slice(oldPath.length)
+          : selected;
+      setSelectedPath(next);
+      void loadPage(next).then((p) => p && setRefreshNonce((n) => n + 1));
+    },
+    [loadPage],
+  );
+
+  /** Move `sourcePath` under `targetPath`, e.g. a page dropped on a page link in the editor. */
+  const movePageInto = useCallback(
+    async (sourcePath: string, targetPath: string) => {
+      if (sourcePath === targetPath || targetPath.startsWith(sourcePath + "/")) return;
+      try {
+        await flushEditor.current?.();
+        const flatten = (nodes: TreeNode[]): TreeNode[] =>
+          nodes.flatMap((node) => [node, ...flatten(node.children)]);
+        const nodes = flatten(await pages.tree());
+        const source = nodes.find((n) => n.path === sourcePath);
+        const target = nodes.find((n) => n.path === targetPath);
+        if (!source || !target) throw new Error("That page no longer exists.");
+        const result = await workspace.move(source.id, target.id, "inside");
+        handleMoved(sourcePath, result.path);
+        void loadTree();
+      } catch (e) {
+        toast.error(`Could not move page: ${(e as Error).message}`);
+      }
+    },
+    [handleMoved, loadTree],
+  );
+
+  /** Delete from the page itself: trash it, go to its parent, offer Undo. */
+  const deletePage = useCallback(
+    async (path: string, title: string) => {
+      try {
+        await flushEditor.current?.();
+        const { trash_id } = await pages.remove(path, { unlink: true });
+        setSelectedPath(parentPath(path));
+        void loadTree();
+        toast(`Deleted ${title || "Untitled"}`, {
+          action: {
+            label: "Undo",
+            onClick: () =>
+              void trash
+                .restore(trash_id)
+                .then((page) => {
+                  void loadTree();
+                  setSelectedPath(page.path);
+                })
+                .catch((e: Error) => toast.error(`Could not restore: ${e.message}`)),
+          },
+        });
+      } catch (e) {
+        toast.error(`Could not move to trash: ${(e as Error).message}`);
+      }
+    },
+    [loadTree],
   );
 
   const handleTrashed = useCallback((path: string) => {
@@ -302,16 +384,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
           beforeMove={async () => {
             await flushEditor.current?.();
           }}
-          onMoved={(oldPath, newPath) => {
-            const selected = selectedRef.current;
-            if (!selected) return;
-            const next =
-              selected === oldPath || selected.startsWith(oldPath + "/")
-                ? newPath + selected.slice(oldPath.length)
-                : selected;
-            setSelectedPath(next);
-            void loadPage(next).then((p) => p && setRefreshNonce((n) => n + 1));
-          }}
+          onMoved={handleMoved}
           tree={knowledgeTree(tree)}
           selectedPath={trashOpen || aiOpen || welcomeOpen ? null : selectedPath}
           onSelect={navigatePage}
@@ -370,6 +443,8 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
             onTitleChange={handleTitleChange}
             onIconChange={(icon) => activePage && handleIconChanged(activePage.path, icon)}
             onRenamed={handleRenamed}
+            onMovePage={movePageInto}
+            onDelete={() => void deletePage(activePage.path, activePage.title)}
             onTreeChanged={() => void loadTree()}
             onSaved={saveActivePage}
             onSelectionChange={setSelection}

@@ -169,13 +169,32 @@ title: Basic
     "type": "numberedListItem",
   },
   {
-    "children": [],
+    "children": [
+      {
+        "children": [],
+        "content": [
+          {
+            "styles": {},
+            "text": "with a body",
+            "type": "text",
+          },
+        ],
+        "props": {},
+        "type": "paragraph",
+      },
+    ],
+    "content": [
+      {
+        "styles": {},
+        "text": "A callout",
+        "type": "text",
+      },
+    ],
     "props": {
-      "source": "> [!note] A callout
-> with a body
-",
+      "folded": "",
+      "kind": "note",
     },
-    "type": "rawMarkdown",
+    "type": "callout",
   },
   {
     "children": [],

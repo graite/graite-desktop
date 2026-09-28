@@ -67,18 +67,26 @@ export function ViewToolbar({
   const [propsOpen, setPropsOpen] = useState(false);
   // The block re-renders a microtask after `updateBlock`; keep the last written value so the
   // checkboxes reflect a click immediately instead of snapping back for one frame.
-  const [draftShow, setDraftShow] = useState<string | null>(null);
-  useEffect(() => setDraftShow(null), [show, view]);
-  const effectiveShow = draftShow ?? show;
+  const [draft, setDraft] = useState<{ show: string; hide: string[] } | null>(null);
+  useEffect(() => setDraft(null), [show, view, props.settings]);
+  const effectiveShow = draft?.show ?? show;
+  const hidden = draft?.hide ?? settings.hide?.[view] ?? [];
   const candidates = groupCandidates(fields);
   const listed = view === "kanban" ? fields.filter((f) => f !== groupField) : fields;
-  const visibleNames = visibleFields(listed, effectiveShow, view).map((f) => f.name);
+  const visibleNames = visibleFields(listed, effectiveShow, view, hidden).map((f) => f.name);
   const isShown = (field: PageProperty) => visibleNames.some((n) => sameName(n, field.name));
 
+  /** Show exactly `names`, in this order; every other property of the view is hidden. */
   const write = (names: string[]) => {
     const next = withShown(effectiveShow, view, names);
-    setDraftShow(next);
-    onProps({ show: next });
+    const hide = listed
+      .map((f) => f.name)
+      .filter((n) => !names.some((shown) => sameName(shown, n)));
+    setDraft({ show: next, hide });
+    onProps({
+      show: next,
+      settings: JSON.stringify({ ...settings, hide: { ...settings.hide, [view]: hide } }),
+    });
   };
   const names = orderedNames(
     listed.map((f) => f.name),

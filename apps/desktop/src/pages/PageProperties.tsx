@@ -26,6 +26,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PropertySelect } from "./PropertySelect";
 import { DateField } from "./DateField";
+import { emptyValue } from "@/editor/views/collection";
 import "./pages.css";
 
 const propertyIcons = {
@@ -320,9 +321,12 @@ export function PropertyForm({
 export function PageProperties({
   page,
   onSave,
+  schema = [],
 }: {
   page: PageDoc;
   onSave: (fields: PageProperty[]) => Promise<PageDoc>;
+  /** Properties the other pages of the same view use; shown here as empty rows to fill in. */
+  schema?: PageProperty[];
 }) {
   const [stored, setStored] = useState(page);
   const [editing, setEditing] = useState<string | null>(null);
@@ -340,6 +344,21 @@ export function PageProperties({
     };
   }, [page.path, page.hash]);
   const fields = pageProperties(stored);
+  const missing = schema.filter(
+    (s) => !fields.some((f) => f.name.trim().toLowerCase() === s.name.trim().toLowerCase()),
+  );
+  /** A value set on a property the page does not have yet adds it with the view's definition. */
+  const adopt = (field: PageProperty, value: PageProperty["value"]) =>
+    persist([
+      ...fields,
+      {
+        ...field,
+        id: crypto.randomUUID(),
+        options: [...field.options],
+        colors: { ...field.colors },
+        value,
+      },
+    ]).catch((e) => toast.error((e as Error).message));
   const persist = async (next: PageProperty[]) => {
     setBusy(true);
     try {
@@ -383,6 +402,21 @@ export function PageProperties({
                 (e) => toast.error((e as Error).message),
               )
             }
+          />
+        </div>
+      ))}
+      {missing.map((field) => (
+        <div className="property-row" key={`view-${field.name}`} data-view-property="">
+          <span className="property-name">
+            <PropertyIcon type={field.type} />
+            <span>{field.name}</span>
+          </span>
+          <PropertyValue
+            page={stored}
+            field={{ ...field, value: emptyValue(field) }}
+            disabled={busy}
+            onFieldChange={(next) => void adopt(next, next.value)}
+            onChange={(value) => void adopt(field, value)}
           />
         </div>
       ))}

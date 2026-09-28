@@ -60,15 +60,21 @@ def is_own_write(path: Path) -> bool:
 
 def changes_to_paths(vault: Path, changes: set[tuple[Change, str]]) -> tuple[list[str], list[str]]:
     """Map raw file events to (page paths to rescan, folders whose AGENTS.md changed)."""
-    root = vault.resolve()
+    # Events carry the path as watched; a vault reached through a symlink resolves elsewhere.
+    roots = list(dict.fromkeys([vault.absolute(), vault.resolve()]))
     pages: set[str] = set()
     policies: set[str] = set()
     for _change, raw in changes:
         path = Path(raw)
-        try:
-            rel_path = Path(os.path.relpath(path if path.is_absolute() else vault / path, root))
-        except ValueError:
-            continue
+        full = path if path.is_absolute() else vault / path
+        rel_path = Path("..")
+        for root in roots:
+            try:
+                rel_path = Path(os.path.relpath(full, root))
+            except ValueError:
+                continue
+            if rel_path.parts and rel_path.parts[0] != "..":
+                break
         parts = rel_path.parts
         if not parts or parts[0] == ".." or any(p.startswith(".") for p in parts):
             continue

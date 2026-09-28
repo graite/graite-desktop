@@ -133,3 +133,24 @@ async def test_watcher_shuts_down_cleanly_while_watching(tmp_path: Path) -> None
         await watcher.stop()  # stopping twice is harmless
     finally:
         conn.close()
+
+
+def test_a_page_added_outside_is_announced_even_after_an_autosave(tmp_path: Path) -> None:
+    """An autosave used to rescan the whole vault, indexing the new page silently; the
+    watcher's later batch then found nothing new and the sidebar never heard of it."""
+    settings = Settings(_env_file=None, vault=tmp_path / "vault", token=TOKEN, no_watch=True)  # type: ignore[call-arg]
+    with TestClient(create_app(settings), headers={"Authorization": f"Bearer {TOKEN}"}) as client:
+        open_page = client.post("/api/v1/pages", json={"title": "Open"}).json()
+        state = client.app.state
+        watcher = Watcher(settings.vault, state.fileops, state.events)
+        new = settings.vault / "Inbox" / "Idea"
+        new.mkdir(parents=True)
+        (new / "page.md").write_text("Dropped in from the file manager.\n", encoding="utf-8")
+        client.put("/api/v1/pages/Open", json={"body": "typing", "base_hash": open_page["hash"]})
+        with client.websocket_connect(f"/events?token={TOKEN}") as ws:
+            client.portal.call(watcher.handle, {(Change.added, str(settings.vault / "Inbox"))})
+            event = json.loads(ws.receive_text())
+            while event["type"] != "tree_changed":
+                event = json.loads(ws.receive_text())
+        tree = client.get("/api/v1/vault/tree").json()
+        assert "Inbox/Idea" in [node["path"] for node in tree]

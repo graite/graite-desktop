@@ -32,6 +32,7 @@ import type {
   CheckListItemBlock,
   InlineContent,
   NumberedListItemBlock,
+  TableCell,
   TextInline,
 } from "./types";
 
@@ -41,6 +42,33 @@ import type {
 
 export function toBlocks(markdown: string): Block[] {
   return nodesToBlocks(parse(markdown).children);
+}
+
+/**
+ * `toBlocks` that never fails as a whole: if mapping the page throws, each top-level node is
+ * mapped on its own and only the ones that fail become `rawMarkdown` blocks of their source.
+ */
+export function toBlocksSafe(markdown: string): Block[] {
+  try {
+    return toBlocks(markdown);
+  } catch {
+    const out: Block[] = [];
+    for (const node of parse(markdown).children) {
+      try {
+        out.push(...nodeToBlocks(node));
+      } catch {
+        const { start, end } = spanOf(node);
+        const source = start >= 0 ? markdown.slice(start, end) : serialize(rootOf([node]));
+        out.push({ type: "rawMarkdown", props: { source }, children: [] });
+      }
+    }
+    return out;
+  }
+}
+
+/** True when any block (at any depth) is a `rawMarkdown` block. */
+export function hasRawBlocks(blocks: Block[]): boolean {
+  return blocks.some((b) => b.type === "rawMarkdown" || hasRawBlocks(b.children));
 }
 
 /** Character range `[start, end)` of a top-level block in the markdown it was parsed from. */
@@ -94,7 +122,7 @@ function nodeToBlocks(node: RootContent): Block[] {
     case "blockquote":
       return [quoteBlock(node) ?? raw(node)];
     case "callout":
-      return [toggleBlock(node) ?? raw(node)];
+      return [toggleBlock(node) ?? calloutBlock(node) ?? raw(node)];
     case "code":
       return [codeBlock(node) ?? raw(node)];
     case "thematicBreak":
@@ -153,12 +181,25 @@ function quoteBlock(node: Blockquote): Block | null {
   return { type: "quote", props: {}, content, children: [] };
 }
 
-/** `> [!toggle]- Title` + body ↔ toggleListItem. Every other callout type stays raw for now. */
+/** `> [!toggle]- Title` + body ↔ toggleListItem. */
 function toggleBlock(node: Callout): Block | null {
   if (node.calloutType !== "toggle") return null;
   const content = toInline(titlePhrasing(node.title));
   if (!content) return null;
   return { type: "toggleListItem", props: {}, content, children: nodesToBlocks(node.children) };
+}
+
+/** Every other callout type (`[!note]`, `[!warning]`, …) ↔ callout. */
+function calloutBlock(node: Callout): Block | null {
+  const content = toInline(titlePhrasing(node.title));
+  if (!content) return null;
+  const folded = node.folded === true ? "-" : node.folded === false ? "+" : "";
+  return {
+    type: "callout",
+    props: { kind: node.calloutType, folded },
+    content,
+    children: nodesToBlocks(node.children),
+  };
 }
 
 function titlePhrasing(title: string): MdPhrasing[] {
@@ -234,9 +275,9 @@ function codeBlock(node: Code): Block | null {
           })),
         };
       }
-      // `field` is the legacy name of `group`. `show` maps a view kind to the property names it
-      // displays (kind absent = that view's default, [] = none); a bare list is the legacy form
-      // for the fence's own view.
+      // `field` is the legacy name of `group`. `show` maps a view kind to the order of the
+      // property names it displays (`settings.hide` lists the ones it leaves out); a bare list
+      // is the legacy form for the fence's own view.
       const group = value.group ?? value.field;
       if (
         Object.keys(value).some(
@@ -284,11 +325,20 @@ function codeBlock(node: Code): Block | null {
       const p = value as Record<string, unknown>;
       const keys =
         node.lang === "graite:media" ? ["file", "name", "kind", "job"] : ["file", "name", "source"];
+      // A value YAML reads as a number or date (`name: 2024`) or leaves empty (`job:`) is
+      // still that text; only nested values make the fence unusable.
       if (
         Object.keys(p).some((k) => !keys.includes(k)) ||
-        Object.values(p).some((v) => typeof v !== "string")
+        Object.values(p).some((v) => v !== null && typeof v === "object" && !(v instanceof Date))
       )
         return null;
+      for (const key of Object.keys(p))
+        p[key] =
+          p[key] == null
+            ? ""
+            : p[key] instanceof Date
+              ? (p[key] as Date).toISOString().slice(0, 10)
+              : String(p[key]);
       if (node.lang === "graite:media")
         return [
           {
@@ -320,14 +370,26 @@ function codeBlock(node: Code): Block | null {
 }
 
 function tableBlock(node: Table): Block | null {
-  if (node.align?.some((a) => a != null)) return null;
-  const rows: { cells: InlineContent[][] }[] = [];
+  // BlockNote's default cell alignment is "left", so an explicit `:---` cannot be told apart
+  // from no alignment on the way back; such tables stay raw. Centered and right work.
+  if (node.align?.some((a) => a === "left")) return null;
+  const aligned = node.align?.some((a) => a != null) ?? false;
+  const rows: { cells: (InlineContent[] | TableCell)[] }[] = [];
   for (const row of node.children) {
-    const cells: InlineContent[][] = [];
-    for (const cell of row.children) {
+    const cells: (InlineContent[] | TableCell)[] = [];
+    for (const [index, cell] of row.children.entries()) {
       const content = toInline(cell.children);
       if (!content) return null;
-      cells.push(content);
+      const align = node.align?.[index];
+      cells.push(
+        aligned
+          ? {
+              type: "tableCell",
+              props: { textAlignment: align === "center" || align === "right" ? align : "left" },
+              content,
+            }
+          : content,
+      );
     }
     rows.push({ cells });
   }
@@ -415,6 +477,15 @@ function blocksToNodes(blocks: Block[]): RootContent[] {
   return out;
 }
 
+/** A column's GFM alignment from its header cell; BlockNote's default "left" means none. */
+function cellAlign(cell: unknown): "center" | "right" | null {
+  const align =
+    cell && typeof cell === "object" && !Array.isArray(cell)
+      ? (cell as TableCell).props?.textAlignment
+      : undefined;
+  return align === "center" || align === "right" ? align : null;
+}
+
 /** BlockNote accepts plain inline arrays as cells but stores `{ type: "tableCell", content }`. */
 function cellContent(cell: unknown): InlineContent[] {
   if (Array.isArray(cell)) return cell as InlineContent[];
@@ -482,7 +553,7 @@ function blockToNodes(block: Block): RootContent[] {
       return [
         {
           type: "table",
-          align: block.content.rows[0]?.cells.map(() => null) ?? [],
+          align: block.content.rows[0]?.cells.map(cellAlign) ?? [],
           children: block.content.rows.map((row) => ({
             type: "tableRow",
             children: row.cells.map((cell) => ({
@@ -499,6 +570,17 @@ function blockToNodes(block: Block): RootContent[] {
         type: "callout",
         calloutType: "toggle",
         folded: true,
+        title: phrasingToText(fromInline(block.content)),
+        children: body,
+      };
+      return [callout];
+    }
+    case "callout": {
+      const body = mergeLists(blocksToNodes(block.children)) as BlockContent[];
+      const callout: Callout = {
+        type: "callout",
+        calloutType: block.props.kind || "note",
+        folded: block.props.folded === "-" ? true : block.props.folded === "+" ? false : null,
         title: phrasingToText(fromInline(block.content)),
         children: body,
       };
