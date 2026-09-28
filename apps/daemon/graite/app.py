@@ -35,6 +35,7 @@ from graite.api import mcp as mcp_api
 from graite.api import voice as voice_api
 from graite.api.auth import BearerAuthMiddleware
 from graite.assistant.presence import ForegroundGate
+from graite.cloud.relay import Relay
 from graite.cloud.session import CloudSession, set_cloud
 from graite.config import Settings
 from graite.events import EventBus
@@ -146,8 +147,10 @@ def create_app(settings: Settings) -> FastAPI:
         try:
             # The MCP session manager owns a task group for the lifetime of the app.
             async with mcp_service.manager.run():
+                app.state.relay.start()
                 yield
         finally:
+            await app.state.relay.stop()
             tasks = list(app.state.media_tasks.values())
             for task in tasks:
                 task.cancel()
@@ -172,6 +175,7 @@ def create_app(settings: Settings) -> FastAPI:
     # One per app: the session manager can only be run once.
     mcp_service = McpService(lambda: app.state, settings)
     app.state.mcp = mcp_service
+    app.state.relay = Relay(app)
     app.add_middleware(BearerAuthMiddleware, token=settings.token)
     # The webview origin (tauri://localhost, http://tauri.localhost, or the Vite dev server)
     # differs from the daemon's, so every fetch with an Authorization header is preflighted.

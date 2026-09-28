@@ -77,6 +77,7 @@ async def logout(request: Request) -> dict[str, bool]:
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     request.app.state.events.publish("cloud_status", {"signed_in": False})
+    request.app.state.relay.poke()
     return {"signed_in": False}
 
 
@@ -136,6 +137,7 @@ async def callback(
     except ValueError as exc:
         return _page("Sign-in didn’t finish", str(exc), 400)
     request.app.state.events.publish("cloud_status", {"signed_in": True})
+    request.app.state.relay.poke()
     return _page(
         "You’re signed in",
         f"Graite is now connected to {email}. You can close this tab and go back to Graite.",

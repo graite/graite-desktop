@@ -53,6 +53,7 @@ vi.mock("@/models/ModelLibrary", () => ({
 vi.mock("@/models/StarterModels", () => ({ StarterModels: () => <div>starter-models</div> }));
 vi.mock("@/models/IndexCard", () => ({ IndexCard: () => <div>index-card</div> }));
 vi.mock("@/models/VaultCard", () => ({ VaultCard: () => <div>vault-card</div> }));
+vi.mock("@/models/ConnectorsCard", () => ({ ConnectorsCard: () => <div>connectors-card</div> }));
 vi.mock("@/models/ConnectionsCard", () => ({ ConnectionsCard: () => <div>connections</div> }));
 vi.mock("@/models/GraiteCloudCard", () => ({
   GraiteCloudCard: ({ onPick }: { onPick: (model: { id: string }) => void }) => (
@@ -92,17 +93,19 @@ afterEach(cleanup);
 const panel = (name: string) =>
   document.querySelector(`[role="tabpanel"][aria-label="${name}"]`) as HTMLElement;
 
-it("is called Settings, has a tab per concern, and no longer shows the MCP card", async () => {
+it("is called Settings, has a tab per concern, and keeps the AI connectors right after Chat", async () => {
   render(<ModelsPage onClose={() => {}} />);
   expect(await screen.findByRole("heading", { level: 1, name: "Settings" })).toBeTruthy();
   expect(screen.getAllByRole("tab").map((t) => t.textContent?.trim())).toEqual([
     "Chat",
+    "AI connectors",
     "Voice",
     "Search",
     "Documents",
     "Vault",
   ]);
-  expect(screen.queryByText(/Connect AI apps/i)).toBeNull();
+  expect(within(panel("Chat")).queryByText("connectors-card")).toBeNull();
+  expect(within(panel("AI connectors")).getByText("connectors-card")).toBeTruthy();
   expect(panel("Chat").hidden).toBe(false);
   // Beginners see the starter models; engine and full library wait for tech mode.
   expect(within(panel("Chat")).getByText("starter-models")).toBeTruthy();
@@ -136,7 +139,7 @@ it("opens on the requested tab without microphone settings or tests", async () =
 it("keeps an unsaved change when switching tabs and saves it once", async () => {
   render(<ModelsPage onClose={() => {}} initialTab="chat" />);
   expect(screen.queryByLabelText(/GPU layers/)).toBeNull();
-  const advanced = await screen.findByRole("switch", { name: "Advanced model settings" });
+  const advanced = await screen.findByRole("switch", { name: "I’m a proper geek" });
   expect(advanced.getAttribute("aria-checked")).toBe("false");
   // The first thing in the local card, above the starter models.
   expect(

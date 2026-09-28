@@ -1465,6 +1465,60 @@
         "title": "ClientLog",
         "type": "object"
       },
+      "ClientStatus": {
+        "properties": {
+          "can_install": {
+            "title": "Can Install",
+            "type": "boolean"
+          },
+          "found": {
+            "title": "Found",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "outdated": {
+            "default": false,
+            "title": "Outdated",
+            "type": "boolean"
+          },
+          "where": {
+            "title": "Where",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "found",
+          "installed",
+          "where",
+          "can_install"
+        ],
+        "title": "ClientStatus",
+        "type": "object"
+      },
       "CloudModel": {
         "properties": {
           "available": {
@@ -2773,6 +2827,13 @@
       },
       "McpInfo": {
         "properties": {
+          "clients": {
+            "items": {
+              "$ref": "#/components/schemas/ClientStatus"
+            },
+            "title": "Clients",
+            "type": "array"
+          },
           "http_stable": {
             "title": "Http Stable",
             "type": "boolean"
@@ -2780,6 +2841,9 @@
           "http_url": {
             "title": "Http Url",
             "type": "string"
+          },
+          "remote": {
+            "$ref": "#/components/schemas/RemoteInfo"
           },
           "stdio_args": {
             "items": {
@@ -2805,7 +2869,9 @@
           "http_stable",
           "stdio_command",
           "stdio_args",
-          "tools"
+          "tools",
+          "remote",
+          "clients"
         ],
         "title": "McpInfo",
         "type": "object"
@@ -4307,6 +4373,53 @@
         "title": "RejectBody",
         "type": "object"
       },
+      "RemoteIn": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "RemoteIn",
+        "type": "object"
+      },
+      "RemoteInfo": {
+        "properties": {
+          "connected": {
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "connected",
+          "url"
+        ],
+        "title": "RemoteInfo",
+        "type": "object"
+      },
       "RenameVoice": {
         "properties": {
           "name": {
@@ -5753,7 +5866,7 @@
   },
   "info": {
     "title": "graite-daemon",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -9103,6 +9216,49 @@
         "summary": "Health"
       }
     },
+    "/api/v1/mcp/clients/{client}": {
+      "post": {
+        "description": "Add Graite to one MCP app on this computer. Only ever called from a click.",
+        "operationId": "add_client_api_v1_mcp_clients__client__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "client",
+            "required": true,
+            "schema": {
+              "title": "Client",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Client",
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
     "/api/v1/mcp/info": {
       "get": {
         "operationId": "info_api_v1_mcp_info_get",
@@ -9119,6 +9275,47 @@
           }
         },
         "summary": "Info",
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
+    "/api/v1/mcp/remote": {
+      "put": {
+        "operationId": "set_remote_api_v1_mcp_remote_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Remote",
         "tags": [
           "mcp"
         ]

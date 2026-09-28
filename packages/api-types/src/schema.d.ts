@@ -1223,6 +1223,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/mcp/clients/{client}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Add Client
+     * @description Add Graite to one MCP app on this computer. Only ever called from a click.
+     */
+    post: operations["add_client_api_v1_mcp_clients__client__post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/mcp/info": {
     parameters: {
       query?: never;
@@ -1233,6 +1253,23 @@ export interface paths {
     /** Info */
     get: operations["info_api_v1_mcp_info_get"];
     put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mcp/remote": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Set Remote */
+    put: operations["set_remote_api_v1_mcp_remote_put"];
     post?: never;
     delete?: never;
     options?: never;
@@ -2291,6 +2328,28 @@ export interface components {
       /** Stack */
       stack?: string | null;
     };
+    /** ClientStatus */
+    ClientStatus: {
+      /** Can Install */
+      can_install: boolean;
+      /** Found */
+      found: boolean;
+      /** Id */
+      id: string;
+      /** Installed */
+      installed: boolean;
+      /** Name */
+      name: string;
+      /** Note */
+      note?: string | null;
+      /**
+       * Outdated
+       * @default false
+       */
+      outdated: boolean;
+      /** Where */
+      where: string;
+    };
     /** CloudModel */
     CloudModel: {
       /**
@@ -2788,10 +2847,13 @@ export interface components {
     };
     /** McpInfo */
     McpInfo: {
+      /** Clients */
+      clients: components["schemas"]["ClientStatus"][];
       /** Http Stable */
       http_stable: boolean;
       /** Http Url */
       http_url: string;
+      remote: components["schemas"]["RemoteInfo"];
       /** Stdio Args */
       stdio_args: string[];
       /** Stdio Command */
@@ -3291,6 +3353,22 @@ export interface components {
        * @default
        */
       reason: string;
+    };
+    /** RemoteIn */
+    RemoteIn: {
+      /** Enabled */
+      enabled: boolean;
+    };
+    /** RemoteInfo */
+    RemoteInfo: {
+      /** Connected */
+      connected: boolean;
+      /** Enabled */
+      enabled: boolean;
+      /** Error */
+      error?: string | null;
+      /** Url */
+      url: string;
     };
     /** RenameVoice */
     RenameVoice: {
@@ -6312,6 +6390,37 @@ export interface operations {
       };
     };
   };
+  add_client_api_v1_mcp_clients__client__post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        client: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClientStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   info_api_v1_mcp_info_get: {
     parameters: {
       query?: never;
@@ -6328,6 +6437,39 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["McpInfo"];
+        };
+      };
+    };
+  };
+  set_remote_api_v1_mcp_remote_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RemoteIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RemoteInfo"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

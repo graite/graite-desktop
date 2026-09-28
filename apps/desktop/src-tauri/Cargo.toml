@@ -1,6 +1,6 @@
 [package]
 name = "graite-desktop"
-version = "0.1.0"
+version = "0.2.0"
 description = "Graite desktop shell"
 authors = ["Graite contributors"]
 license = "Apache-2.0"

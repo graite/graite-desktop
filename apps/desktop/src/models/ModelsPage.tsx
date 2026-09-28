@@ -35,12 +35,14 @@ import { useEngine } from "./useEngine";
 import { ModelLibrary } from "./ModelLibrary";
 import { StarterModels } from "./StarterModels";
 import { useTechMode } from "@/lib/techMode";
+import { ConnectorsCard } from "./ConnectorsCard";
 import { VaultCard } from "./VaultCard";
 import { VoicesCard } from "@/settings/VoicesCard";
 
-export type SettingsTab = "chat" | "voice" | "search" | "documents" | "vault";
+export type SettingsTab = "chat" | "connectors" | "voice" | "search" | "documents" | "vault";
 const TABS: { id: SettingsTab; label: string; icon: typeof Orbit }[] = [
   { id: "chat", label: "Chat", icon: MessageSquare },
+  { id: "connectors", label: "AI connectors", icon: Plug },
   { id: "voice", label: "Voice", icon: AudioLines },
   { id: "search", label: "Search", icon: Search },
   { id: "documents", label: "Documents", icon: FileText },
@@ -148,7 +150,8 @@ export function ModelsPage({
         <div className="ai-eyebrow">MAKE IT YOURS</div>
         <h1>Settings</h1>
         <p className="ai-lede">
-          Your chat model, your assistant’s voice, search, documents and your vault.
+          Your chat model, the AI apps connected to your vault, your assistant’s voice, search,
+          documents and your vault.
         </p>
         <nav className="ai-settings-tabs" aria-label="Settings sections">
           {TABS.map(({ id, label, icon: Icon }) => (
@@ -234,12 +237,12 @@ export function ModelsPage({
                     <div className="ai-tech-mode">
                       <span>
                         <label htmlFor="ai-tech-mode-switch">
-                          <strong>Advanced model settings</strong>
+                          <strong>I’m a proper geek</strong>
                         </label>
                         <small id="ai-tech-mode-hint">
-                          For people who know GGUF models: add any model from Hugging Face or your
-                          disk, choose engine builds, set context size and GPU layers, or run your
-                          own llama-server.
+                          I know my GGUFs from my quants. Show me every knob for local models: any
+                          model from Hugging Face or disk, engine builds, context size, GPU layers,
+                          or my own llama-server.
                         </small>
                       </span>
                       <button
@@ -462,7 +465,15 @@ export function ModelsPage({
             >
               <VaultCard />
             </div>
-            <div className="ai-actions" hidden={tab === "vault"}>
+            <div
+              className="settings-panel"
+              role="tabpanel"
+              aria-label="AI connectors"
+              hidden={tab !== "connectors"}
+            >
+              <ConnectorsCard />
+            </div>
+            <div className="ai-actions" hidden={tab === "vault" || tab === "connectors"}>
               <Button
                 variant="outline"
                 disabled={!!busy}

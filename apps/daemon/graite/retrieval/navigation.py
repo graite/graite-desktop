@@ -191,20 +191,29 @@ def _same(title: str, segment: str) -> bool:
     return keep == "".join(c for c in segment.casefold() if c.isalnum())
 
 
-def _lines(node: _Node, titles: dict[str, str], depth: int, max_depth: int) -> list[str]:
+def _lines(
+    node: _Node,
+    titles: dict[str, str],
+    depth: int,
+    max_depth: int,
+    tool: str = "list_children",
+    marked: frozenset[str] | set[str] = frozenset(),
+) -> list[str]:
     out = []
     for child in node.children.values():
         title = titles.get(child.path, "")
         label = child.segment
         if title and not _same(title, child.segment):
             label += f" ({title})"
+        if child.path in marked:
+            label += " *"
         if child.children and depth + 1 >= max_depth:
             more = child.count() - bool(child.path)
-            where = f' (list_children "{child.path}")' if child.path else ""
+            where = f' ({tool} "{child.path}")' if child.path else ""
             out.append(f"{INDENT * depth}{label}/ — {more} more{where}")
             continue
         out.append(INDENT * depth + label)
-        out.extend(_lines(child, titles, depth + 1, max_depth))
+        out.extend(_lines(child, titles, depth + 1, max_depth, tool, marked))
     return out
 
 
@@ -234,3 +243,63 @@ def render(paths: list[str], titles: dict[str, str], budget: int) -> str:
                 "\n".join([*lines, note]) if len((HEADER + "\n" + note).encode()) <= budget else ""
             )
         depth -= 1
+
+
+def render_subtree(
+    paths: list[str],
+    titles: dict[str, str],
+    root: str,
+    depth: int,
+    budget: int,
+    marked: frozenset[str] | set[str] = frozenset(),
+) -> tuple[str, int]:
+    """The pages under `root` ("" for the vault), `depth` levels deep, for the `navigate`
+    tool. Shallowed until it fits `budget` bytes; returns the text and the depth used."""
+    node = _tree(sorted(paths))
+    for segment in root.split("/") if root else []:
+        found = node.children.get(segment)
+        if found is None:
+            return "", depth
+        node = found
+    while True:
+        lines = _lines(node, titles, 0, depth, "navigate", marked)
+        text = "\n".join(lines)
+        if len(text.encode()) <= budget:
+            return text, depth
+        if depth == 1:
+            kept: list[str] = []
+            note = f"— {len(lines)} pages in all; use list_children with an offset for the rest"
+            for line in lines:
+                if len("\n".join([*kept, line, note]).encode()) > budget:
+                    break
+                kept.append(line)
+            return "\n".join([*kept, note]), depth
+        depth -= 1
+
+
+def rank_pages(name: str, titles: dict[str, str], limit: int = 8) -> list[tuple[str, str]]:
+    """The pages a name most likely refers to, best first, with the kind of match.
+
+    Exact titles and path segments beat whole words, whole words beat parts of words, and
+    a close spelling (a typo or a misheard name) comes last."""
+    wanted = name.strip().strip("/").casefold()
+    if SPELLED.fullmatch(wanted):
+        wanted = re.sub(r"[^a-z]", "", wanted)
+    if not wanted:
+        return []
+    word = re.compile(r"(?<!\w)" + re.escape(wanted) + r"(?!\w)")
+    scored: list[tuple[float, str, str]] = []
+    for path, title in titles.items():
+        labels = {title.casefold(), path.rsplit("/", 1)[-1].casefold()}
+        if wanted in labels or wanted == path.casefold():
+            scored.append((1.0, path, "exact"))
+        elif any(word.search(label) for label in labels) or word.search(path.casefold()):
+            scored.append((0.9, path, "word"))
+        elif any(wanted in label for label in labels):
+            scored.append((0.8, path, "partial"))
+        else:
+            ratio = max(SequenceMatcher(None, wanted, label).ratio() for label in labels)
+            if ratio >= 0.72:
+                scored.append((ratio * 0.75, path, "similar"))
+    scored.sort(key=lambda s: (-s[0], s[1].count("/"), s[1]))
+    return [(path, evidence) for _, path, evidence in scored[:limit]]
