@@ -218,6 +218,7 @@ def test_pages_without_frontmatter_get_distinct_stable_ids(tmp_path: Path) -> No
     assert ids["One"] and ids["Two"] and ids["One"] != ids["Two"]
     # Opening never rewrites the file; the id is derived again the same way.
     assert (vault / "One" / "page.md").read_text(encoding="utf-8") == "Plain text.\n"
+    conn.close()  # Windows cannot delete an open database file.
     shutil.rmtree(vault / ".graite")
     conn = db.connect(vault / ".graite" / "index.sqlite")
     indexer.scan(vault, conn)
