@@ -38,6 +38,7 @@ import { workspace, type PageProperty } from "@/lib/workspace";
 import { media } from "@/lib/media";
 import { MediaContext } from "./media/context";
 import { EditorSurface } from "./EditorSurface";
+import { useViewSchema } from "./views/useViewSchema";
 import { editorExtensions } from "./reviewDecorations";
 import { useSelectAllStages } from "./useSelectAllStages";
 import { markdownPasteHandler } from "./paste";
@@ -248,6 +249,11 @@ export function PageEditor({
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const [attachmentsOpen, setAttachmentsOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const viewParent = useMemo(() => {
+    const parent = page.path.includes("/") ? page.path.slice(0, page.path.lastIndexOf("/")) : null;
+    return parent ? findNode(tree, parent) : null;
+  }, [tree, page.path]);
+  const viewFields = useViewSchema(viewParent, page.hash);
   useEffect(() => {
     if (settingsRequested) {
       setAiSettingsOpen(true);
@@ -803,7 +809,9 @@ export function PageEditor({
             onOpenChange={setAttachmentsOpen}
           />
 
-          {page.path.includes("/") && <PageProperties page={page} onSave={saveProperties} />}
+          {page.path.includes("/") && (
+            <PageProperties page={page} onSave={saveProperties} schema={viewFields} />
+          )}
           {!!reviews.unanchored.length && (
             <div data-review-unanchored className="review-unanchored">
               {reviews.unanchored.map((p) => (

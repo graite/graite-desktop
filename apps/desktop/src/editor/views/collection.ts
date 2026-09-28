@@ -49,8 +49,10 @@ export const groupCandidates = (fields: PageProperty[]) =>
   fields.filter((f) => f.type === "status" || f.type === "single_select");
 
 /**
- * `show` block prop: "" or a JSON object mapping a view kind to the property names that view
- * displays. A kind with no entry uses its default (table: all, board and list: none).
+ * `show` block prop: "" or a JSON object mapping a view kind to the order of the property names
+ * that view displays. Every property is shown unless the view hides it (`settings.hide`), so a
+ * property added to one page appears in the view without further setup; `show` only sets the
+ * order, and properties it does not list follow in schema order.
  */
 export type ShowMap = Partial<Record<ViewKind, string[]>>;
 export function parseShow(show: string): ShowMap {
@@ -81,13 +83,14 @@ export function visibleFields(
   fields: PageProperty[],
   show: string,
   view: ViewKind,
+  hide: string[] = [],
 ): PageProperty[] {
-  const names = parseShow(show)[view];
-  if (names === undefined) return view === "table" ? fields : [];
-  return names.flatMap((n) => {
-    const field = fields.find((f) => sameName(n, f.name));
+  const shown = fields.filter((f) => !hide.some((n) => sameName(n, f.name)));
+  const listed = (parseShow(show)[view] ?? []).flatMap((n) => {
+    const field = shown.find((f) => sameName(n, f.name));
     return field ? [field] : [];
   });
+  return [...new Set([...listed, ...shown])];
 }
 
 /** The value a freshly added property gets on a page. */

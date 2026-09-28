@@ -67,7 +67,12 @@ const pages = [
   page("c", "Gamma", []),
 ];
 
-function mount(props: { view: "table" | "kanban" | "list"; group?: string; show?: string }) {
+function mount(props: {
+  view: "table" | "kanban" | "list";
+  group?: string;
+  show?: string;
+  settings?: string;
+}) {
   const editor = { updateBlock: vi.fn() } as unknown as GraiteEditor;
   const navigate = vi.fn();
   render(
@@ -76,7 +81,12 @@ function mount(props: { view: "table" | "kanban" | "list"; group?: string; show?
     >
       <PageViewBody
         id="blk"
-        props={{ view: props.view, group: props.group ?? "", show: props.show ?? "" }}
+        props={{
+          view: props.view,
+          group: props.group ?? "",
+          show: props.show ?? "",
+          settings: props.settings,
+        }}
         editor={editor}
       />
     </MediaContext.Provider>,
@@ -183,7 +193,8 @@ describe("collection helpers", () => {
       value: null,
     });
     expect(visibleFields(fields, "", "table")).toEqual(fields);
-    expect(visibleFields(fields, "", "kanban")).toEqual([]);
+    expect(visibleFields(fields, "", "kanban")).toEqual(fields);
+    expect(visibleFields(fields, "", "kanban", ["status"])).toEqual([]);
     expect(visibleFields(fields, JSON.stringify({ list: ["status"] }), "list")).toEqual(fields);
     expect(visibleFields(fields, JSON.stringify({ kanban: ["Status"] }), "table")).toEqual(fields);
   });
@@ -295,18 +306,28 @@ describe("toolbar", () => {
       props: { view: "kanban" },
     });
     fireEvent.click(screen.getByLabelText("Shown properties"));
-    fireEvent.click(await screen.findByRole("checkbox", { name: "Show Priority" }));
+    // Everything is shown to begin with; unticking hides it in this view only.
+    const box = await screen.findByRole("checkbox", { name: "Show Priority" });
+    expect(box.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(box);
     expect(editor.updateBlock).toHaveBeenLastCalledWith("blk", {
       type: "pageView",
-      props: { show: JSON.stringify({ list: ["Priority"] }) },
+      props: {
+        show: JSON.stringify({ list: ["Status"] }),
+        settings: JSON.stringify({ hide: { list: ["Priority"] } }),
+      },
     });
     expect(
       screen.getByRole("checkbox", { name: "Show Priority" }).getAttribute("aria-checked"),
-    ).toBe("true");
+    ).toBe("false");
   });
 
-  it("table shows only the chosen columns and offers to add a missing property", async () => {
-    mount({ view: "table", show: JSON.stringify({ table: ["Priority"], kanban: [] }) });
+  it("table hides the columns it was told to and offers to add a missing property", async () => {
+    mount({
+      view: "table",
+      show: JSON.stringify({ table: ["Priority"], kanban: [] }),
+      settings: JSON.stringify({ hide: { table: ["Status"] } }),
+    });
     await screen.findByText("Alpha");
     expect([...document.querySelectorAll("th")].map((th) => th.textContent)).toEqual([
       "Name",

@@ -234,9 +234,9 @@ function codeBlock(node: Code): Block | null {
           })),
         };
       }
-      // `field` is the legacy name of `group`. `show` maps a view kind to the property names it
-      // displays (kind absent = that view's default, [] = none); a bare list is the legacy form
-      // for the fence's own view.
+      // `field` is the legacy name of `group`. `show` maps a view kind to the order of the
+      // property names it displays (`settings.hide` lists the ones it leaves out); a bare list
+      // is the legacy form for the fence's own view.
       const group = value.group ?? value.field;
       if (
         Object.keys(value).some(
