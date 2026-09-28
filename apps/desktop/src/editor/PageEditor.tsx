@@ -1,13 +1,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCreateBlockNote } from "@blocknote/react";
 import { toBlocks, fromBlocks } from "@graite/md-convert";
-import { FolderOpen, Orbit, Paperclip } from "lucide-react";
+import { FolderOpen, MoreHorizontal, Orbit, Paperclip, Trash2 } from "lucide-react";
 import { canRevealPage, revealPage } from "@/pages/revealPage";
 import { toast } from "sonner";
 import { hasBodyContent, PageIcon } from "@/components/PageIcon";
 import { EmojiPickerPanel } from "@/components/EmojiPickerPanel";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ConflictError, pages, type PageDoc, type TreeNode } from "@/lib/api";
 import { reportError } from "@/lib/clientLog";
 import { schema, type GraiteBlock, type GraiteEditor, type GraitePartialBlock } from "./schema";
@@ -46,6 +62,8 @@ export interface PageEditorProps {
   onRenamed: (oldPath: string, newPath: string) => void;
   /** Move a page under another one (a page dropped on a page link). */
   onMovePage?: (sourcePath: string, targetPath: string) => Promise<void>;
+  /** Move this page to the trash. */
+  onDelete?: () => void;
   onTreeChanged: () => void;
   onSaved: (hash: string) => void;
   /** Selected text in the editor, so the chat panel can attach it. */
@@ -162,6 +180,7 @@ export function PageEditor({
   onIconChange,
   onRenamed,
   onMovePage,
+  onDelete,
   onTreeChanged,
   onSaved,
   onSelectionChange,
@@ -228,6 +247,7 @@ export function PageEditor({
   const flushPendingRef = useRef<(() => Promise<void>) | null>(null);
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const [attachmentsOpen, setAttachmentsOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   useEffect(() => {
     if (settingsRequested) {
       setAiSettingsOpen(true);
@@ -723,7 +743,48 @@ export function PageEditor({
                 <FolderOpen size={15} />
               </Button>
             )}
+            {onDelete && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 shrink-0 text-muted-foreground"
+                    title="More"
+                    aria-label="More actions for this page"
+                  >
+                    <MoreHorizontal size={15} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => {
+                      // Subpages go along with it: ask first. A lone page has Undo instead.
+                      if (findNode(tree, page.path)?.children.length) setConfirmDelete(true);
+                      else onDelete();
+                    }}
+                  >
+                    <Trash2 className="mr-2 size-4 text-destructive" /> Delete page
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
+          <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Move “{page.title || "Untitled"}” to trash?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  The page and its sub-pages move to the trash and can be restored from there.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => onDelete?.()}>Move to trash</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <AiSettingsDialog
             path={page.path}
             title={page.title}

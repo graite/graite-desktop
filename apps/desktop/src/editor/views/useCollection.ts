@@ -1,5 +1,6 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ConflictError, isOwnRequest, onDaemonEvent, pages, type PageDoc } from "@/lib/api";
+import { toast } from "sonner";
+import { ConflictError, isOwnRequest, onDaemonEvent, pages, trash, type PageDoc } from "@/lib/api";
 import { pageProperties, workspace, type PageProperty } from "@/lib/workspace";
 import { MediaContext } from "../media/context";
 import { emptyValue, findField, mergeFields, sameName } from "./collection";
@@ -173,6 +174,31 @@ export function useCollection(defaultFields: PageProperty[] = NO_FIELDS) {
     [],
   );
 
+  /** Move a child page to the trash, with an Undo in the toast. */
+  const remove = useCallback(
+    async (row: PageDoc) => {
+      setRows((rs) => rs.filter((r) => r.id !== row.id));
+      try {
+        const { trash_id } = await pages.remove(row.path);
+        onTreeChanged();
+        toast(`Deleted ${row.title || "Untitled"}`, {
+          action: {
+            label: "Undo",
+            onClick: () =>
+              void trash
+                .restore(trash_id)
+                .then(() => onTreeChanged())
+                .catch((e: Error) => toast.error(`Could not restore: ${e.message}`)),
+          },
+        });
+      } catch (e) {
+        void reload();
+        toast.error(`Could not delete: ${(e as Error).message}`);
+      }
+    },
+    [onTreeChanged, reload],
+  );
+
   return {
     rows,
     fields,
@@ -183,6 +209,7 @@ export function useCollection(defaultFields: PageProperty[] = NO_FIELDS) {
     addFieldToAll,
     createPage,
     reorder,
+    remove,
     reload,
   };
 }

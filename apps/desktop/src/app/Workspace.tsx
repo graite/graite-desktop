@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Orbit } from "lucide-react";
 import { toast } from "sonner";
-import { connectEvents, isOwnRequest, pages, type PageDoc, type TreeNode } from "@/lib/api";
+import { connectEvents, isOwnRequest, pages, trash, type PageDoc, type TreeNode } from "@/lib/api";
 import { workspace } from "@/lib/workspace";
 import { PageEditor } from "@/editor/PageEditor";
 import { mapTree, parentPath } from "@/editor/tree-utils";
@@ -269,6 +269,34 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
     [handleMoved, loadTree],
   );
 
+  /** Delete from the page itself: trash it, go to its parent, offer Undo. */
+  const deletePage = useCallback(
+    async (path: string, title: string) => {
+      try {
+        await flushEditor.current?.();
+        const { trash_id } = await pages.remove(path, { unlink: true });
+        setSelectedPath(parentPath(path));
+        void loadTree();
+        toast(`Deleted ${title || "Untitled"}`, {
+          action: {
+            label: "Undo",
+            onClick: () =>
+              void trash
+                .restore(trash_id)
+                .then((page) => {
+                  void loadTree();
+                  setSelectedPath(page.path);
+                })
+                .catch((e: Error) => toast.error(`Could not restore: ${e.message}`)),
+          },
+        });
+      } catch (e) {
+        toast.error(`Could not move to trash: ${(e as Error).message}`);
+      }
+    },
+    [loadTree],
+  );
+
   const handleTrashed = useCallback((path: string) => {
     if (selectedRef.current === path || selectedRef.current?.startsWith(path + "/"))
       setSelectedPath(null);
@@ -411,6 +439,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
             onIconChange={(icon) => activePage && handleIconChanged(activePage.path, icon)}
             onRenamed={handleRenamed}
             onMovePage={movePageInto}
+            onDelete={() => void deletePage(activePage.path, activePage.title)}
             onTreeChanged={() => void loadTree()}
             onSaved={saveActivePage}
             onSelectionChange={setSelection}

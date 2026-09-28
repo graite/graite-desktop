@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -326,9 +326,15 @@ async def patch_page(path: str, body: PatchPage, request: Request) -> PageDocMod
 
 
 @router.delete("/pages/{path:path}", response_model=TrashResult, responses=BAD_PATH | NOT_FOUND)
-async def delete_page(path: str, request: Request) -> TrashResult:
+async def delete_page(
+    path: str,
+    request: Request,
+    unlink: Annotated[
+        bool, Query(description="Also remove the [[link]] block to it from the parent page.")
+    ] = False,
+) -> TrashResult:
     try:
-        trash_id = await _fileops(request).trash_page(path, actor=UI_ACTOR)
+        trash_id = await _fileops(request).trash_page(path, actor=UI_ACTOR, unlink=unlink)
     except VaultPathError as exc:
         raise _bad_path(exc) from exc
     except FileNotFoundError as exc:

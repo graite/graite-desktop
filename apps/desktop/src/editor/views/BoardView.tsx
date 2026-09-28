@@ -10,6 +10,7 @@ import { NewPageInput } from "./NewPageInput";
 import { PropertyChip } from "./PropertyChip";
 import { orderedNames, moveName, type ViewSettings } from "./settings";
 import type { Collection } from "./useCollection";
+import { RowMenu } from "./RowMenu";
 
 export const DRAG_TYPE = "application/graite-view-page";
 type Drop = { card: string; position: "before" | "after" } | { column: string } | null;
@@ -185,6 +186,15 @@ export function BoardView({
                     }}
                     onDrop={(e) => onDropCard(e, row, column)}
                     onClick={() => onOpen(row)}
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === "Enter") onOpen(row);
+                      if (e.key === "Delete" || e.key === "Backspace") {
+                        e.preventDefault();
+                        void collection.remove(row);
+                      }
+                    }}
                   >
                     <div className="view-card-title">
                       <span className="view-page-icon">
@@ -192,6 +202,11 @@ export function BoardView({
                       </span>
                       <span title={row.title}>{row.title || "Untitled"}</span>
                     </div>
+                    <RowMenu
+                      row={row}
+                      onOpen={onOpen}
+                      onDelete={(r) => void collection.remove(r)}
+                    />
                     {!!visible.length && (
                       <div className="view-chips">
                         {visible.map((f) => (

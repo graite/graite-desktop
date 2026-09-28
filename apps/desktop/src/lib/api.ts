@@ -175,8 +175,14 @@ export const pages = {
         icon: opts.icon ?? null,
       }),
     }),
-  remove: (path: string) =>
-    request<{ trash_id: string }>(`/api/v1/pages/${enc(path)}`, { method: "DELETE" }),
+  /** Move a page to the trash; `unlink` also drops the parent's [[link]] block to it. */
+  remove: (path: string, opts: { unlink?: boolean } = {}) =>
+    request<{ trash_id: string }>(
+      `/api/v1/pages/${enc(path)}${opts.unlink ? "?unlink=true" : ""}`,
+      {
+        method: "DELETE",
+      },
+    ),
   /** Absolute folder and page.md on the daemon's machine. */
   location: (path: string) =>
     request<{ folder: string; file: string }>(

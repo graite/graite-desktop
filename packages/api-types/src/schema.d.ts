@@ -7039,7 +7039,10 @@ export interface operations {
   };
   delete_page_api_v1_pages__path__delete: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Also remove the [[link]] block to it from the parent page. */
+        unlink?: boolean;
+      };
       header?: never;
       path: {
         path: string;

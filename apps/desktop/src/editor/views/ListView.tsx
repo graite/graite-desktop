@@ -3,6 +3,7 @@ import type { PageProperty } from "@/lib/workspace";
 import { NewPageInput } from "./NewPageInput";
 import { PropertyChip } from "./PropertyChip";
 import { PageTitle } from "./TableView";
+import { RowMenu } from "./RowMenu";
 import type { Collection } from "./useCollection";
 
 export function ListView({
@@ -30,6 +31,7 @@ export function ListView({
               </div>
             ))}
           </div>
+          <RowMenu row={row} onOpen={onOpen} onDelete={(r) => void collection.remove(r)} />
         </div>
       ))}
       {draft && (

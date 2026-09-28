@@ -735,3 +735,47 @@
 .view-arrange-row[data-reorder-position="after"]::after {
   bottom: -2px;
 }
+
+/* The "…" menu of a card or row: shown on hover or keyboard focus. */
+.view-row-menu {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border-radius: 4px;
+  color: var(--muted-foreground);
+  opacity: 0;
+}
+.view-row-menu:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.view-row-menu:focus-visible,
+.view-row-menu[data-state="open"],
+.view-card:hover .view-row-menu,
+.view-card:focus-within .view-row-menu,
+.view-list-row:hover .view-row-menu,
+.view-list-row:focus-within .view-row-menu,
+tr:hover .view-row-menu,
+tr:focus-within .view-row-menu {
+  opacity: 1;
+}
+.view-card > .view-row-menu {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: var(--background);
+}
+.view-title-cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-width: 0;
+}
+@media (hover: none) {
+  .view-row-menu {
+    opacity: 1;
+  }
+}
