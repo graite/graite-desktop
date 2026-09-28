@@ -24,6 +24,7 @@ from graite.events import EventBus
 from graite.vault import frontmatter as fm
 from graite.vault import indexer
 from graite.vault.instructions import safe_file
+from graite.vault.layouts import map_markdown
 from graite.vault.models import (
     AttachmentEntry,
     AttachmentInUse,
@@ -107,6 +108,40 @@ def append_markdown(body: str, text: str) -> str:
         if all(_list_kind(line) == kind for line in joined):
             return "\n".join([*lines[:start], *joined]) + "\n"
     return "\n".join(lines) + "\n\n" + "\n".join(added) + "\n"
+
+
+def _link_line(targets: list[str]) -> re.Pattern[str]:
+    """A page-link block: `[[target]]` or `[[target|alias]]` alone on its line."""
+    names = "|".join(re.escape(t) for t in targets)
+    return re.compile(r"^[ \t]*\[\[(?:" + names + r")(?:\|[^\]\n]*)?\]\][ \t]*$", re.MULTILINE)
+
+
+def has_page_link(body: str, targets: list[str]) -> bool:
+    pattern = _link_line(targets)
+    found = False
+
+    def check(text: str) -> str:
+        nonlocal found
+        found = found or bool(pattern.search(text))
+        return text
+
+    map_markdown(body, check)
+    return found
+
+
+def drop_page_links(body: str, targets: list[str]) -> str:
+    """`body` without the page-link blocks to `targets`; links inside prose stay."""
+    pattern = _link_line(targets)
+
+    def drop(text: str) -> str:
+        kept = pattern.sub("", text)
+        return text if kept == text else re.sub(r"\n{3,}", "\n\n", kept)
+
+    new = map_markdown(body, drop)
+    if new == body:
+        return body
+    new = new.lstrip("\n")
+    return new.rstrip("\n") + "\n" if new.strip() else ""
 
 
 def _iso(timestamp: float) -> str:
@@ -1244,6 +1279,21 @@ class FileOps:
                                     text,
                                 ),
                             )
+                    old_parent = parent_of(source)
+                    if parent != old_parent:
+                        # A normal page lists its subpages as [[link]] blocks: move that block
+                        # along with the page. A page with a view lists its children itself.
+                        folder = destination.rsplit("/", 1)[-1]
+                        if old_parent in docs:
+                            rewrites[old_parent] = drop_page_links(
+                                rewrites.get(old_parent, docs[old_parent].body), [destination]
+                            )
+                        if parent in docs:
+                            body = rewrites.get(parent, docs[parent].body)
+                            if not indexer.VIEW_FENCE.search(body) and not has_page_link(
+                                body, [destination, folder]
+                            ):
+                                rewrites[parent] = append_markdown(body, f"[[{folder}]]")
                     moved = False
                     written: list[str] = []
                     try:

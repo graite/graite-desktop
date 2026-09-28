@@ -78,8 +78,10 @@ def test_move_subtree_keeps_ids_media_and_updates_links(client):
     assert response.json()["id"] == child["id"]
     assert client.get("/api/v1/pages/Archive/Task/Notes").json()["id"] == nested["id"]
     body = client.get("/api/v1/pages/Projects").json()["body"]
-    assert "[[Archive/Task]]" in body
-    assert "[[Archive/Task/Notes|My notes]]" in body
+    # The subpage block leaves with the page; a link to a page inside it follows it.
+    assert "[[Task]]" not in body and "[[Archive/Task]]" not in body
+    assert body == "[[Archive/Task/Notes|My notes]]\n"
+    assert client.get("/api/v1/pages/Archive").json()["body"] == "[[Task]]\n"
     assert (
         client.get(
             "/api/v1/media/file", params={"page_id": nested["id"], "file": media["file"]}
@@ -168,3 +170,51 @@ def test_number_and_option_colors_roundtrip(client):
     fields[0]["value"] = None
     fields[1]["colors"] = {"Done": "invalid-color"}
     assert properties(client, saved, fields).status_code == 422
+
+
+def move(client, p, target, position="inside"):
+    return client.post(
+        "/api/v1/workspace/move",
+        json={
+            "page_id": p["id"],
+            "target_id": target["id"] if target else None,
+            "position": position,
+        },
+    )
+
+
+def test_moving_a_page_moves_its_link_block_between_parents(client):
+    home = page(client, "Home")
+    inbox = page(client, "Inbox")
+    idea = page(client, "Idea", home["path"])
+    client.put(
+        "/api/v1/pages/Home",
+        json={
+            "body": "Intro with [[Idea]] inline.\n\n[[Idea]]\n\nOutro\n",
+            "base_hash": home["hash"],
+        },
+    )
+    client.put("/api/v1/pages/Inbox", json={"body": "Things to sort\n", "base_hash": inbox["hash"]})
+    assert move(client, idea, inbox).status_code == 200
+    # Inline mentions are rewritten to the new path; the block itself is gone.
+    assert client.get("/api/v1/pages/Home").json()["body"] == (
+        "Intro with [[Inbox/Idea]] inline.\n\nOutro\n"
+    )
+    assert client.get("/api/v1/pages/Inbox").json()["body"] == "Things to sort\n\n[[Idea]]\n"
+    # Moving it back does not duplicate a link the parent already has.
+    idea = client.get("/api/v1/pages/Inbox/Idea").json()
+    assert move(client, idea, home).status_code == 200
+    assert client.get("/api/v1/pages/Inbox").json()["body"] == "Things to sort\n"
+    assert client.get("/api/v1/pages/Home").json()["body"].count("[[Idea]]") == 1
+
+
+def test_moving_into_a_view_page_or_reordering_leaves_bodies_alone(client):
+    board = page(client, "Board")
+    board_body = "```graite:view\nview: kanban\n```\n"
+    client.put("/api/v1/pages/Board", json={"body": board_body, "base_hash": board["hash"]})
+    card = page(client, "Card")
+    other = page(client, "Other")
+    assert move(client, card, board).status_code == 200
+    assert client.get("/api/v1/pages/Board").json()["body"] == board_body
+    assert move(client, other, board, "before").status_code == 200
+    assert client.get("/api/v1/pages/Other").json()["body"] == ""
