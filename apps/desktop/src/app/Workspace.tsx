@@ -78,6 +78,8 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const activeIdRef = useRef<string | null>(null);
   activeIdRef.current = activePage?.id ?? null;
+  const activePathRef = useRef<string | null>(null);
+  activePathRef.current = activePage?.path ?? null;
   const lastSavedHashRef = useRef<string | null>(null);
   const selectedRef = useRef(selectedPath);
   selectedRef.current = selectedPath;
@@ -179,8 +181,18 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
 
   useEffect(() => {
     if (selectedPath) {
-      localStorage.setItem(scopedKey(SELECTED_KEY), selectedPath);
-      void loadPage(selectedPath);
+      const previous = activePathRef.current;
+      void loadPage(selectedPath).then((page) => {
+        if (page) {
+          localStorage.setItem(scopedKey(SELECTED_KEY), selectedPath);
+        } else if (previous && previous !== selectedPath && selectedRef.current === selectedPath) {
+          // A failed navigation keeps the page you were on instead of dropping to Welcome.
+          toast.error(`Could not open ${selectedPath}`);
+          setSelectedPath(previous);
+        } else if (selectedRef.current === selectedPath) {
+          localStorage.removeItem(scopedKey(SELECTED_KEY));
+        }
+      });
     } else {
       localStorage.removeItem(scopedKey(SELECTED_KEY));
       setActivePage(null);

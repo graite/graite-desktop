@@ -8,7 +8,8 @@ interface BreadcrumbsProps {
   onNavigate: (path: string) => void;
 }
 
-/** Ancestor chain derived from the page path; titles come from the tree, not from the path. */
+/** Ancestor chain derived from the page path; titles come from the tree, not from the path.
+ * A segment that is a plain folder (no page of its own) is shown but cannot be opened. */
 export function Breadcrumbs({ path, tree, onNavigate }: BreadcrumbsProps) {
   const segments = path.split("/").filter(Boolean);
   return (
@@ -20,6 +21,7 @@ export function Breadcrumbs({ path, tree, onNavigate }: BreadcrumbsProps) {
         const ancestor = segments.slice(0, i + 1).join("/");
         const node = findNode(tree, ancestor);
         const isLast = i === segments.length - 1;
+        const openable = isLast || node !== null || tree.length === 0;
         return (
           <span key={ancestor} className="flex min-w-0 items-center gap-2">
             {i > 0 && (
@@ -28,10 +30,12 @@ export function Breadcrumbs({ path, tree, onNavigate }: BreadcrumbsProps) {
               </span>
             )}
             <button
+              type="button"
               onClick={() => onNavigate(ancestor)}
+              disabled={!openable}
               aria-current={isLast ? "page" : undefined}
               title={node?.title ?? segment}
-              className={`flex min-w-0 items-center gap-1.5 transition-colors hover:text-foreground ${isLast ? "font-medium text-foreground" : ""}`}
+              className={`flex min-w-0 items-center gap-1.5 transition-colors enabled:hover:text-foreground ${isLast ? "font-medium text-foreground" : ""}`}
             >
               <PageIcon
                 icon={node?.icon ?? null}
