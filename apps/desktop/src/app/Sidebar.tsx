@@ -277,7 +277,7 @@ export function Sidebar({
           <div className="w-full min-w-0 overflow-x-hidden px-1 py-1">
             {tree.map((node) => (
               <PageTreeItem
-                key={node.id}
+                key={node.path}
                 node={node}
                 depth={0}
                 selectedPath={selectedPath}

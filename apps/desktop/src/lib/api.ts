@@ -252,7 +252,12 @@ export function connectEvents(onEvent: (e: DaemonEvent) => void): () => void {
   let socket: WebSocket | null = null;
   let closed = false;
   let delay = 500;
+  let connected = false;
   let retry: ReturnType<typeof setTimeout> | undefined;
+  const emit = (event: DaemonEvent) => {
+    onEvent(event);
+    for (const listener of eventListeners) listener(event);
+  };
   const reconnect = () => {
     if (closed) return;
     retry = setTimeout(() => void open(), delay);
@@ -272,12 +277,13 @@ export function connectEvents(onEvent: (e: DaemonEvent) => void): () => void {
     const { url, token } = info;
     const wsUrl = url.replace(/^http/, "ws") + `/events?token=${encodeURIComponent(token)}`;
     socket = new WebSocket(wsUrl);
-    socket.onopen = () => (delay = 500);
-    socket.onmessage = (m) => {
-      const event = JSON.parse(m.data as string) as DaemonEvent;
-      onEvent(event);
-      for (const listener of eventListeners) listener(event);
+    socket.onopen = () => {
+      delay = 500;
+      // Events sent while the socket was down (daemon restart, sleep) are gone: refetch.
+      if (connected) emit({ type: "tree_changed", data: { reason: "reconnect", path: null } });
+      connected = true;
     };
+    socket.onmessage = (m) => emit(JSON.parse(m.data as string) as DaemonEvent);
     socket.onclose = reconnect;
   };
   void open();

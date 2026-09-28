@@ -214,7 +214,7 @@ class FileOps:
         meta, body = fm.split(text)
         return PageDoc(
             path=rel,
-            id=str(meta.get("id") or ""),
+            id=str(meta.get("id") or fm.path_id(rel)),
             title=str(meta.get("title") or rel.rsplit("/", 1)[-1]),
             icon=meta.get("icon") or None,
             frontmatter=meta,
@@ -248,6 +248,8 @@ class FileOps:
         )
 
     def _rescan(self, paths: list[str] | None = None) -> indexer.ScanResult:
+        """Index after a write. A write rescans only what it touched where it can, so pages
+        changed outside Graite in the meantime are left for the watcher, which announces them."""
         result = indexer.scan(self.vault, self.db, paths=paths)
         if self.on_indexed is not None:
             self.on_indexed(result)
@@ -265,6 +267,7 @@ class FileOps:
         self, rel: str, meta: dict[str, Any], body: str, *, old_text: str | None, actor: str
     ) -> PageDoc:
         """Write page.md for `rel`; snapshot the previous text when the body changed."""
+        meta.setdefault("id", fm.path_id(rel))
         text = fm.join(meta, body)
         if old_text is not None and old_text != text:
             _, old_body = fm.split(old_text)
@@ -643,7 +646,7 @@ class FileOps:
                     self._publish(
                         "file_changed", {"path": rel, "hash": row["file_hash"], "actor": actor}
                     )
-            if result.structure_changed:
+            if result.tree_changed:
                 self._publish("tree_changed", {"reason": actor, "path": None})
             return result
 
@@ -667,12 +670,12 @@ class FileOps:
         if body == current.body:
             return current
         meta = dict(current.frontmatter)
-        meta.setdefault("id", fm.uuid7())
+        meta.setdefault("id", fm.path_id(rel))
         meta.setdefault("title", current.title)
         meta.setdefault("created", fm.now_iso())
         meta["updated"] = fm.now_iso()
         doc = self._write_page_sync(rel, meta, body, old_text=old_text, actor=actor)
-        self._rescan()
+        self._rescan([rel])
         self._activity(actor, "page.write", rel, {"hash": doc.hash})
         self._publish("file_changed", {"path": rel, "hash": doc.hash, "actor": actor})
         if bool(current.body.strip()) != bool(body.strip()):
@@ -728,7 +731,7 @@ class FileOps:
         old_text = f.read_text(encoding="utf-8")
         current = self._doc_from_text(rel, old_text)
         meta = dict(current.frontmatter)
-        meta.setdefault("id", fm.uuid7())
+        meta.setdefault("id", fm.path_id(rel))
         changed: dict[str, Any] = {}
         old_title = current.title
         if title is not None and title.strip() and title.strip() != current.title:
@@ -1194,7 +1197,7 @@ class FileOps:
                     old_text=page_file(self.vault, rel).read_text(encoding="utf-8"),
                     actor=actor,
                 )
-                self._rescan()
+                self._rescan([rel])
                 self._activity(actor, "page.properties", rel, {"hash": result.hash})
                 self._publish("file_changed", {"path": rel, "hash": result.hash, "actor": actor})
                 return result
@@ -1229,7 +1232,7 @@ class FileOps:
                     k: current.frontmatter.get(k) for k in policy.KEYS
                 }:
                     return current
-                meta.setdefault("id", fm.uuid7())
+                meta.setdefault("id", fm.path_id(rel))
                 meta["updated"] = fm.now_iso()
                 doc = self._write_page_sync(rel, meta, current.body, old_text=old_text, actor=actor)
                 self._rescan()

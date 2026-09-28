@@ -91,9 +91,14 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
       .filter((node) => node.path !== memoryRoot)
       .map((node) => ({ ...node, children: knowledgeTree(node.children) }));
 
+  const treeRequest = useRef(0);
   const loadTree = useCallback(async () => {
+    const request = ++treeRequest.current;
     try {
-      setTree(await pages.tree());
+      const next = await pages.tree();
+      // Several events in a row start several loads; only the latest one may land.
+      if (request !== treeRequest.current) return;
+      setTree(next);
       setStartupError("");
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);

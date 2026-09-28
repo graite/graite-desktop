@@ -58,9 +58,16 @@ def _normalize_value(value: Any) -> Any:
     return value
 
 
+def path_id(rel: str) -> str:
+    """The id of a page whose file has none yet (made outside Graite): stable per path, and
+    the one the first save writes, so it does not change while the page is open."""
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, "graite:page:" + rel))
+
+
 def split(text: str) -> tuple[dict[str, Any], str]:
     """Return (metadata, body). Body always ends with exactly one newline unless empty."""
-    post = _fm.loads(text)
+    # Editors on Windows may start the file with a byte order mark, which hides frontmatter.
+    post = _fm.loads(text.removeprefix("\ufeff"))
     meta = {k: _normalize_value(v) for k, v in post.metadata.items()}
     body = post.content.strip("\n")
     return meta, (body + "\n" if body else "")

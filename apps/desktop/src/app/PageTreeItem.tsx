@@ -278,7 +278,7 @@ export function PageTreeItem(props: PageTreeItemProps) {
       {hasChildren && isExpanded && (
         <div>
           {node.children.map((child) => (
-            <PageTreeItem key={child.id} {...props} node={child} depth={depth + 1} />
+            <PageTreeItem key={child.path} {...props} node={child} depth={depth + 1} />
           ))}
         </div>
       )}
