@@ -52,7 +52,7 @@ function dragHandle(editor: GraiteEditor, block: string, over: Element) {
   const handle = document.querySelector('[data-testid="handle"]')!;
   fireEvent.pointerDown(handle, { button: 0, clientX: 0, clientY: 0 });
   expect((handle as HTMLButtonElement).draggable).toBe(false);
-  fireEvent.pointerMove(window, { clientX: 30, clientY: 30 });
+  fireEvent.pointerMove(window, { clientX: 30, clientY: 30, buttons: 1 });
   expect(document.querySelector(".block-drag-ghost")).not.toBeNull();
   fireEvent.pointerUp(window, { clientX: 30, clientY: 30 });
   expect(document.querySelector(".block-drag-ghost")).toBeNull();
@@ -82,7 +82,7 @@ it("a short press on the handle is a click, not a drag", () => {
   const clicked = vi.fn();
   handle.addEventListener("click", clicked);
   fireEvent.pointerDown(handle, { button: 0, clientX: 0, clientY: 0 });
-  fireEvent.pointerMove(window, { clientX: 2, clientY: 1 });
+  fireEvent.pointerMove(window, { clientX: 2, clientY: 1, buttons: 1 });
   fireEvent.pointerUp(window, { clientX: 2, clientY: 1 });
   fireEvent.click(handle);
   expect(document.querySelector(".block-drag-ghost")).toBeNull();
@@ -106,4 +106,25 @@ it("moves a block before or after the block under the pointer as one undo step",
   expect(texts()).toEqual(["Second", "Third", "First"]);
   editor.undo();
   expect(texts()).toEqual(["First", "Second", "Third"]);
+});
+
+it("a click whose release never arrives does not turn later mouse moves into a drag", () => {
+  const { editor, moveMedia } = setup([
+    { type: "localMedia", props: { file: "voice.wav", kind: "audio" } },
+  ]);
+  const menu = editor.getExtension(SideMenuExtension)!;
+  act(() =>
+    menu.store.setState({ show: false, referencePos: new DOMRect(), block: editor.document[0]! }),
+  );
+  document.elementFromPoint = vi.fn(() => document.querySelector('[data-testid="destination"]'));
+  const handle = document.querySelector('[data-testid="handle"]')!;
+  fireEvent.pointerDown(handle, { button: 0, clientX: 0, clientY: 0 });
+  // The menu took the pointerup; the mouse now moves with no button held.
+  fireEvent.pointerMove(window, { clientX: 60, clientY: 60, buttons: 0 });
+  expect(document.querySelector(".block-drag-ghost")).toBeNull();
+  expect((handle as HTMLButtonElement).draggable).toBe(true);
+  fireEvent.pointerMove(window, { clientX: 90, clientY: 90, buttons: 0 });
+  fireEvent.pointerUp(window, { clientX: 90, clientY: 90 });
+  expect(document.querySelector(".block-drag-ghost")).toBeNull();
+  expect(moveMedia).not.toHaveBeenCalled();
 });

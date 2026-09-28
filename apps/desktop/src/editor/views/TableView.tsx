@@ -131,8 +131,8 @@ export function TableView({
             <tr key={row.id}>
               <td>
                 <div className="view-title-cell">
+                  <RowMenu row={row} handle="grip" onDelete={(r) => void collection.remove(r)} />
                   <PageTitle row={row} onOpen={onOpen} />
-                  <RowMenu row={row} onOpen={onOpen} onDelete={(r) => void collection.remove(r)} />
                 </div>
               </td>
               {visible.map((f) => {

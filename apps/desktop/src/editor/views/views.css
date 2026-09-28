@@ -767,12 +767,19 @@ tr:focus-within .view-row-menu {
   right: 6px;
   background: var(--background);
 }
-.view-title-cell {
+.view-title-cell,
+.view-list-lead {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
+}
+/* The 6-dot handle of a table or list row, like the editor's block handle. */
+.view-row-grip {
+  width: 18px;
+  padding: 2px 0;
+  margin-left: -4px;
+  cursor: pointer;
 }
 @media (hover: none) {
   .view-row-menu {

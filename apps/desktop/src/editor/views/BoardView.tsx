@@ -202,11 +202,7 @@ export function BoardView({
                       </span>
                       <span title={row.title}>{row.title || "Untitled"}</span>
                     </div>
-                    <RowMenu
-                      row={row}
-                      onOpen={onOpen}
-                      onDelete={(r) => void collection.remove(r)}
-                    />
+                    <RowMenu row={row} handle="dots" onDelete={(r) => void collection.remove(r)} />
                     {!!visible.length && (
                       <div className="view-chips">
                         {visible.map((f) => (

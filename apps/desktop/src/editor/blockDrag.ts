@@ -193,6 +193,8 @@ export function useBlockDrag(editor: GraiteEditor, actions: BlockDropActions) {
         window.removeEventListener("pointerup", up, true);
         window.removeEventListener("pointercancel", cancel, true);
         window.removeEventListener("keydown", key, true);
+        window.removeEventListener("mouseup", mouseUp, true);
+        window.removeEventListener("blur", cleanup);
         highlighted?.removeAttribute("data-media-drop-active");
         ghost?.remove();
         line?.remove();
@@ -231,6 +233,12 @@ export function useBlockDrag(editor: GraiteEditor, actions: BlockDropActions) {
 
       const move = (event: PointerEvent) => {
         if (event.pointerId !== down.pointerId) return;
+        // The button is no longer held: the release never reached us (the handle's menu can
+        // take it). A drag only ever happens while the button is down, so end here.
+        if ((event.buttons & 1) === 0) {
+          cleanup();
+          return;
+        }
         x = event.clientX;
         y = event.clientY;
         if (!dragging) {
@@ -240,8 +248,7 @@ export function useBlockDrag(editor: GraiteEditor, actions: BlockDropActions) {
         event.preventDefault();
         schedule();
       };
-      const up = (event: PointerEvent) => {
-        if (event.pointerId !== down.pointerId) return;
+      const release = (event: Event) => {
         if (dragging) {
           // Keep the release from reaching the handle, which would open its menu.
           event.stopPropagation();
@@ -258,6 +265,13 @@ export function useBlockDrag(editor: GraiteEditor, actions: BlockDropActions) {
         }
         cleanup();
       };
+      const up = (event: PointerEvent) => {
+        if (event.pointerId === down.pointerId) release(event);
+      };
+      // Fallback for webviews that deliver the mouse release but not the pointer one.
+      const mouseUp = (event: MouseEvent) => {
+        if (session === cleanup) release(event);
+      };
       const cancel = () => cleanup();
       const key = (event: KeyboardEvent) => {
         if (event.key === "Escape" && dragging) {
@@ -269,11 +283,15 @@ export function useBlockDrag(editor: GraiteEditor, actions: BlockDropActions) {
       window.addEventListener("pointerup", up, true);
       window.addEventListener("pointercancel", cancel, true);
       window.addEventListener("keydown", key, true);
+      window.addEventListener("mouseup", mouseUp, true);
+      window.addEventListener("blur", cleanup);
       session = cleanup;
     };
 
     const pointerDown = (event: PointerEvent) => {
-      if (event.button !== 0 || session || !editor.isEditable) return;
+      // A new press always starts fresh, even if an earlier one was never released for us.
+      session?.();
+      if (event.button !== 0 || !editor.isEditable) return;
       const handle = (event.target as Element | null)?.closest?.<HTMLElement>(HANDLE);
       if (handle) begin(event, handle);
     };

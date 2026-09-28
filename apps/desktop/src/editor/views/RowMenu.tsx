@@ -1,4 +1,4 @@
-import { ExternalLink, MoreHorizontal, Trash2 } from "lucide-react";
+import { GripVertical, MoreHorizontal, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,14 +7,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { PageDoc } from "@/lib/api";
 
-/** The "…" menu on a card or row of a view: open or delete that page. */
+/**
+ * The menu of a card or row in a view (clicking the item itself opens the page). Tables and
+ * lists show it as a 6-dot handle like the editor's blocks; board cards as "…".
+ */
 export function RowMenu({
   row,
-  onOpen,
+  handle,
   onDelete,
 }: {
   row: PageDoc;
-  onOpen: (row: PageDoc) => void;
+  handle: "grip" | "dots";
   onDelete: (row: PageDoc) => void;
 }) {
   return (
@@ -22,19 +25,20 @@ export function RowMenu({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="view-row-menu"
+          className={handle === "grip" ? "view-row-menu view-row-grip" : "view-row-menu"}
           aria-label={`Actions for ${row.title || "Untitled"}`}
           draggable={false}
           onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <MoreHorizontal size={14} />
+          {handle === "grip" ? <GripVertical size={14} /> : <MoreHorizontal size={14} />}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-        <DropdownMenuItem onClick={() => onOpen(row)}>
-          <ExternalLink className="mr-2 size-4" /> Open
-        </DropdownMenuItem>
+      <DropdownMenuContent
+        align={handle === "grip" ? "start" : "end"}
+        side={handle === "grip" ? "left" : "bottom"}
+        onClick={(e) => e.stopPropagation()}
+      >
         <DropdownMenuItem variant="destructive" onClick={() => onDelete(row)}>
           <Trash2 className="mr-2 size-4 text-destructive" /> Delete
         </DropdownMenuItem>

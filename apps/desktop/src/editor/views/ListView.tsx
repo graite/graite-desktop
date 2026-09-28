@@ -23,7 +23,10 @@ export function ListView({
     <div className="view-list">
       {collection.rows.map((row) => (
         <div className="view-list-row" key={row.id}>
-          <PageTitle row={row} onOpen={onOpen} />
+          <div className="view-list-lead">
+            <RowMenu row={row} handle="grip" onDelete={(r) => void collection.remove(r)} />
+            <PageTitle row={row} onOpen={onOpen} />
+          </div>
           <div className="view-chips">
             {visible.map((f) => (
               <div className="view-card-property" key={f.id}>
@@ -31,7 +34,6 @@ export function ListView({
               </div>
             ))}
           </div>
-          <RowMenu row={row} onOpen={onOpen} onDelete={(r) => void collection.remove(r)} />
         </div>
       ))}
       {draft && (
