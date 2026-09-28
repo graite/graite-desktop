@@ -16,6 +16,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 import tomllib
 from pathlib import Path
@@ -94,20 +95,21 @@ def _write_atomic(path: Path, text: str) -> None:
 
 
 async def _run(*argv: str) -> tuple[int, str]:
-    process = await asyncio.create_subprocess_exec(
-        *argv,
-        stdin=asyncio.subprocess.DEVNULL,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        creationflags=NO_WINDOW,
-    )
+    # A plain subprocess in a thread, not asyncio's: on Windows the CLIs are `.cmd` files, and
+    # asyncio's Proactor pipes to a batch file can outlive the call and hang the process.
     try:
-        out, err = await asyncio.wait_for(process.communicate(), TIMEOUT)
-    except TimeoutError:
-        process.kill()
+        done = await asyncio.to_thread(
+            subprocess.run,
+            argv,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            timeout=TIMEOUT,
+            creationflags=NO_WINDOW,
+        )
+    except subprocess.TimeoutExpired:
         raise ValueError(f"{Path(argv[0]).name} did not answer in {TIMEOUT} seconds.") from None
-    text = (err or out or b"").decode(errors="replace").strip()
-    return process.returncode or 0, text[-300:]
+    text = (done.stderr or done.stdout or b"").decode(errors="replace").strip()
+    return done.returncode, text[-300:]
 
 
 def _same(entry: Any, command: str, args: list[str]) -> bool:
