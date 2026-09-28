@@ -76,7 +76,7 @@ export function TextInstructionsEditor({
     schema,
     initialContent: blocks(value),
     pasteHandler: markdownPasteHandler(),
-    domAttributes: { editor: { "aria-label": label } },
+    domAttributes: { editor: { "aria-label": label, spellcheck: "false" } },
   });
   const last = useRef(value);
   const syncing = useRef(false);

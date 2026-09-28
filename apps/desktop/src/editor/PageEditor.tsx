@@ -171,7 +171,12 @@ export function PageEditor({
       hydratePageLinks(blocks, linkContextRef.current.tree, linkContextRef.current.path),
     ),
   );
-  const editor = useCreateBlockNote({ schema, extensions: editorExtensions, pasteHandler });
+  const editor = useCreateBlockNote({
+    schema,
+    extensions: editorExtensions,
+    pasteHandler,
+    domAttributes: { editor: { spellcheck: "false" } },
+  });
   useSelectAllStages(editor);
 
   // Report the editor's selected text so "Ask AI" can attach it as a source.
