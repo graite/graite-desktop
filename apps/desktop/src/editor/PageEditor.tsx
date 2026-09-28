@@ -44,6 +44,8 @@ export interface PageEditorProps {
   onIconChange: (icon: string | null) => void;
   /** The daemon renamed the folder (title change): old path -> new path. */
   onRenamed: (oldPath: string, newPath: string) => void;
+  /** Move a page under another one (a page dropped on a page link). */
+  onMovePage?: (sourcePath: string, targetPath: string) => Promise<void>;
   onTreeChanged: () => void;
   onSaved: (hash: string) => void;
   /** Selected text in the editor, so the chat panel can attach it. */
@@ -159,6 +161,7 @@ export function PageEditor({
   onTitleChange,
   onIconChange,
   onRenamed,
+  onMovePage,
   onTreeChanged,
   onSaved,
   onSelectionChange,
@@ -754,6 +757,7 @@ export function PageEditor({
               navigate: onNavigate,
               onTreeChanged,
               moveMedia,
+              movePage: onMovePage,
             }}
           >
             <EditorSurface editor={editor} slashDeps={slashDeps} onChange={handleChange} />

@@ -17,6 +17,8 @@ import { getSlashMenuItems, filterSlashItems, type SlashMenuDeps } from "./slash
 import { MediaContext } from "./media/context";
 import { BlockTypeMenuItem } from "./BlockTypeMenuItem";
 
+const SIDEBAR_PAGE = "application/graite-sidebar-page";
+
 export interface EditorSurfaceProps {
   editor: GraiteEditor;
   slashDeps: SlashMenuDeps;
@@ -31,7 +33,56 @@ export function EditorSurface({
   onChange,
   instructionsOnly = false,
 }: EditorSurfaceProps) {
-  const { moveMedia } = useContext(MediaContext);
+  const { moveMedia, movePage } = useContext(MediaContext);
+  useEffect(() => {
+    // A page dragged from the sidebar onto a page link in the text moves it under that page.
+    if (!movePage) return;
+    const root = editor.prosemirrorView.dom;
+    let highlighted: HTMLElement | null = null;
+    const clearHighlight = () => {
+      highlighted?.removeAttribute("data-media-drop-active");
+      highlighted = null;
+    };
+    const linkAt = (event: DragEvent) =>
+      event.dataTransfer?.types.includes(SIDEBAR_PAGE) && event.target instanceof Element
+        ? event.target.closest<HTMLElement>("[data-media-drop-page]")
+        : null;
+    const over = (event: DragEvent) => {
+      const target = linkAt(event);
+      if (highlighted !== target) clearHighlight();
+      if (!target) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      highlighted = target;
+      target.setAttribute("data-media-drop-active", "");
+    };
+    const drop = (event: DragEvent) => {
+      const target = linkAt(event);
+      const path = target?.dataset.mediaDropPage;
+      clearHighlight();
+      if (!path) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      try {
+        const source = JSON.parse(event.dataTransfer?.getData(SIDEBAR_PAGE) ?? "") as {
+          path: string;
+        };
+        void movePage(source.path, path);
+      } catch {
+        /* Not a sidebar page. */
+      }
+    };
+    root.addEventListener("dragover", over, true);
+    root.addEventListener("dragleave", clearHighlight, true);
+    root.addEventListener("drop", drop, true);
+    return () => {
+      clearHighlight();
+      root.removeEventListener("dragover", over, true);
+      root.removeEventListener("dragleave", clearHighlight, true);
+      root.removeEventListener("drop", drop, true);
+    };
+  }, [editor, movePage]);
   useEffect(() => {
     if (!moveMedia) return;
     let dragged: string | undefined;
