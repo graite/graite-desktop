@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { onDaemonEvent } from "@/lib/api";
 import { automation, relative, type ScheduleInfo } from "@/lib/automation";
 import { describeCron } from "@/lib/schedule";
@@ -81,18 +82,14 @@ function ScheduleCard({
         {row.source.startsWith("agent:") && <small>Timing is set in the agent’s settings.</small>}
       </div>
       <div className="sched-card-actions">
-        <button
-          type="button"
-          role="switch"
+        <Switch
+          size="sm"
           className="sched-switch"
-          aria-checked={row.enabled}
+          checked={row.enabled}
           aria-label={`${row.name} enabled`}
           title={row.enabled ? "Pause" : "Resume"}
-          onClick={() =>
-            void automation
-              .patchSchedule(row.id, { enabled: !row.enabled })
-              .then(refresh)
-              .catch(toastError)
+          onCheckedChange={(enabled) =>
+            void automation.patchSchedule(row.id, { enabled }).then(refresh).catch(toastError)
           }
         />
         <Button

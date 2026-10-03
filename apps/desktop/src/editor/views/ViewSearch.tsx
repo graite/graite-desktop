@@ -4,9 +4,11 @@ import { Search, X } from "lucide-react";
 export function ViewSearch({
   query,
   onQuery,
+  placeholder = "Search pages…",
 }: {
   query: string;
   onQuery: (value: string) => void;
+  placeholder?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -38,7 +40,7 @@ export function ViewSearch({
             ref={input}
             autoFocus
             aria-label="Search pages in view"
-            placeholder="Search pages…"
+            placeholder={placeholder}
             value={query}
             onChange={(e) => onQuery(e.target.value)}
             onKeyDown={(e) => {

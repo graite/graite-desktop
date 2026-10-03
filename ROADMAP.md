@@ -34,8 +34,10 @@ list below is the status.
 - M4: `summarize_page` → `NAVIGATION-DEEP.md`, `read_navigation`, the `Cmd+K` search UI.
 - M5: video, streaming Range delivery, attachment sync metadata, agent-facing media skills.
 - M5b: live-microphone pass on all three platforms; `whisper-server` as an installable engine.
+- M6 databases and dashboards: phases 1 (CSV tables) and 2a (agents read, query and propose
+  rows), 2b relations and tabs, 3 charts and 4 dashboards shipped; next board and calendar views of tables.
 
-**Not started**: M6 databases and dashboards, M7 packaging and release, M8–M10.
+**Not started**: M7 packaging and release, M8–M10.
 
 ## M0 — Scaffold
 
@@ -111,9 +113,31 @@ thinking pause is answered aloud once, in the speaker's language.
 
 ## M6 — Databases and dashboards
 
-Per-page SQLite (`_data/data.sqlite` + `schema.json`), `db_exec` in fileops, `run_query_ro`
-and `propose_db`, CSV import, `graite:dbview` block with inline editing, `graite:dashboard`
-sandboxed iframe with a `postMessage` bridge.
+CSV tables in `_data/` with a derived SQLite cache (D68), in phases:
+
+1. **Shipped:** CSV ↔ `.graite/tables.sqlite` cache, stable row ids, row and column writes in
+   fileops, `/api/v1/tables`, `graite:table` block and `![[x.csv]]` embed on a Glide grid with
+   server-side filter, sort and paging, live refresh on external edits (D68, D70). Field types
+   (text, number, currency, percentage, select, multi-select, status, date, checkbox, URL,
+   email) with page-style pills and status dots; the page views' filter pills and Fields
+   picker; a "+" after the last column and "+ New" under the rows; wrap text; a type change
+   that checks first and shows values that do not fit in red; hover checkboxes to select and
+   delete rows; "Database table" and "Import CSV" in the slash menu.
+2. **Shipped (2a):** `read_tables`, `run_query_ro` (read-only SQL over tables in scope and
+   the `pages` / `page_props` tables), `propose_rows` with the `rows` proposal kind, review
+   cards (a change list by row name: changed fields only, pills and money, long text clamped)
+   and grid highlighting, auto-apply by page settings (D69).
+   **Shipped (2b):** relation columns (`[[id|label]]` links, one or many, reverse columns
+   derived from the other table and editable from either side), a searchable row picker,
+   pills that open a row panel, display and detail fields, broken-link and duplicate-id
+   flags, the folder's tables as tabs with a "+" tab, and renaming tables (D71).
+3. **Shipped:** `graite:chart` (a compact spec compiled to read-only SQL and drawn with ECharts,
+   relation paths and date buckets, a builder in the block) (D72). **Next:** board and calendar
+   views of tables.
+4. **Shipped:** `graite:dashboard`: HTML in `_dashboards/`, a ticketed sandboxed frame with no
+   network, the `window.graite` bridge (query, chart, onChange), live updates, a starter
+   template and Edit HTML; agents propose charts and dashboards (`propose_chart`,
+   `propose_dashboard` with a live preview in review) (D72).
 
 Done when: a tasks table is created from the slash menu and edited inline; the agent adds
 rows through a proposal; a generated dashboard charts the table and updates when rows change.
@@ -149,7 +173,7 @@ without reading docs.
 | Tool-calling reliability of 4–8B models | Tolerant delta parsing, JSON repair, recovery of unparsed tool syntax (D47), short tool list. |
 | VRAM contention between chat, vision, embedding | TTL + swap mode; embedding model on CPU when needed. |
 | PyInstaller packaging on three OSes | Exercised in CI on every change; the daemon stays torch-free. |
-| Watcher storms; partial writes of `data.sqlite` on synced folders | Coalesce events, hash-based reindex, `sync_safe` journal mode. |
+| Watcher storms; partial writes on synced folders | Coalesce events, hash-based reindex; tables are plain CSV written atomically (D68). |
 | Obsidian details (attachment links, custom callouts, frontmatter key order) | Relative links, fixed key order with unknown keys preserved, fixtures from real vaults. |
 | llama.cpp build matrix maintenance | Pin upstream tags, automate in `graite-llama` with smoke tests, keep the previous version for rollback. |
 | Public exposure of a write-capable daemon once remote access exists | Off by default; Tailscale first; device tokens with scopes; rate limiting; remote actions audited. |

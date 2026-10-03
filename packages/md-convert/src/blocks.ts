@@ -163,6 +163,14 @@ function paragraphBlock(node: Paragraph): Block | null {
     return { type: "pageLink", props: { path: "", title: target, icon: "", target }, children: [] };
   }
   if (only?.type === "image") return imageBlock(only);
+  if (only?.type === "embed" && /\.csv$/i.test(only.value.trim())) {
+    // `![[name.csv]]` alone on its line shows the whole table; other embeds stay text.
+    return {
+      type: "tableView",
+      props: { ...EMPTY_TABLE, source: only.value.trim(), embed: true },
+      children: [],
+    };
+  }
   const content = toInline(node.children);
   if (!content) return null;
   return { type: "paragraph", props: {}, content, children: [] };
@@ -248,8 +256,228 @@ function validFields(value: unknown): boolean {
   );
 }
 
+const TABLE_KEYS = ["source", "view", "filter", "sort", "columns", "height", "tabs"];
+const TAB_KEYS = ["filter", "sort", "columns"];
+const TABLE_VIEWS = ["table"];
+const EMPTY_TABLE = {
+  source: "",
+  view: "",
+  filter: "",
+  sort: "",
+  columns: "",
+  height: 0,
+  embed: false,
+  tabs: "",
+};
+
+/** A `graite:table` fence; the same rules as `_check_table` in apps/daemon/graite/vault/blocks.py. */
+function tableViewBlock(node: Code): Block | null {
+  try {
+    const value: unknown = parseYaml(node.value, { maxAliasCount: 0 });
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const v = value as Record<string, unknown>;
+    const names = (x: unknown): x is string[] =>
+      Array.isArray(x) && x.every((n) => typeof n === "string" && !!n.trim());
+    // tabs: the view each other table of the block keeps, keyed like `source` (D71).
+    const tab = (x: unknown): boolean => {
+      if (!x || typeof x !== "object" || Array.isArray(x)) return false;
+      const t = x as Record<string, unknown>;
+      return (
+        Object.keys(t).every((k) => TAB_KEYS.includes(k)) &&
+        (t.filter === undefined || typeof t.filter === "string") &&
+        (t.sort === undefined || typeof t.sort === "string" || names(t.sort)) &&
+        (t.columns === undefined ||
+          names(t.columns) ||
+          (Array.isArray(t.columns) && !t.columns.length))
+      );
+    };
+    if (
+      Object.keys(v).some((k) => !TABLE_KEYS.includes(k)) ||
+      (v.tabs !== undefined &&
+        (!v.tabs ||
+          typeof v.tabs !== "object" ||
+          Array.isArray(v.tabs) ||
+          !Object.values(v.tabs).every(tab))) ||
+      typeof v.source !== "string" ||
+      !v.source.trim() ||
+      (v.view !== undefined && !TABLE_VIEWS.includes(v.view as string)) ||
+      (v.filter !== undefined && typeof v.filter !== "string") ||
+      (v.sort !== undefined && typeof v.sort !== "string" && !names(v.sort)) ||
+      (v.columns !== undefined && !names(v.columns)) ||
+      (v.height !== undefined &&
+        (typeof v.height !== "number" ||
+          !Number.isInteger(v.height) ||
+          v.height < 120 ||
+          v.height > 2000))
+    )
+      return null;
+    return {
+      type: "tableView",
+      props: {
+        source: v.source,
+        view: (v.view as string | undefined) ?? "",
+        filter: (v.filter as string | undefined) ?? "",
+        sort: Array.isArray(v.sort) ? JSON.stringify(v.sort) : ((v.sort as string) ?? ""),
+        columns: v.columns === undefined ? "" : JSON.stringify(v.columns),
+        height: (v.height as number | undefined) ?? 0,
+        embed: false,
+        tabs: v.tabs === undefined ? "" : JSON.stringify(v.tabs),
+      },
+      children: [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+const CHART_KEYS = [
+  "title",
+  "source",
+  "sql",
+  "type",
+  "x",
+  "y",
+  "series",
+  "filter",
+  "sort",
+  "limit",
+  "stacked",
+  "height",
+  "palette",
+];
+const CHART_PALETTES = ["vivid", "ocean", "sunset", "forest", "candy", "mono"];
+const CHART_TYPES = ["bar", "line", "area", "pie", "donut", "scatter", "number"];
+const CHART_AGG = /^\s*(count|sum|avg|min|max)\s*\(\s*(.+?)\s*\)\s*$/i;
+const CHART_COUNT = /^\s*count\s*(?:\(\s*\))?\s*$/i;
+// An aggregate the builder once saved without its field (`sum()`): kept as a chart, which
+// asks for a number field, though the daemon refuses it from a model (chart-cases.json).
+const CHART_AGG_EMPTY = /^\s*(sum|avg|min|max)\s*\(\s*\)\s*$/i;
+/** count, agg(column), or a plain number column; the same rule as `y_problem` in charts.py. */
+const chartY = (y: string) =>
+  CHART_COUNT.test(y) ||
+  CHART_AGG.test(y) ||
+  CHART_AGG_EMPTY.test(y) ||
+  (!!y.trim() && !/[()]/.test(y));
+const CHART_SORT = /^\s*(x|y)\s+(asc|desc)\s*$/i;
+export const EMPTY_CHART = {
+  title: "",
+  source: "",
+  sql: "",
+  type: "",
+  x: "",
+  y: "",
+  series: "",
+  filter: "",
+  sort: "",
+  limit: 0,
+  stacked: "",
+  height: 0,
+  palette: "",
+};
+
+/** A `graite:chart` fence; the same rules as `check_chart` in apps/daemon/graite/tables/charts.py. */
+function chartBlock(node: Code): Block | null {
+  try {
+    const value: unknown = parseYaml(node.value, { maxAliasCount: 0 });
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const v = value as Record<string, unknown>;
+    const text = (x: unknown) => typeof x === "string" && !!x.trim();
+    const int = (x: unknown, lo: number, hi: number) =>
+      typeof x === "number" && Number.isInteger(x) && x >= lo && x <= hi;
+    const kind = v.type ?? "bar";
+    const ys =
+      v.y === undefined
+        ? ["count"]
+        : typeof v.y === "string"
+          ? [v.y]
+          : Array.isArray(v.y) && v.y.length && v.y.every(text)
+            ? (v.y as string[])
+            : null;
+    if (
+      Object.keys(v).some((k) => !CHART_KEYS.includes(k)) ||
+      !CHART_TYPES.includes(kind as string) ||
+      (v.source !== undefined && v.sql !== undefined) ||
+      // A chart still being set up: only its look may be set yet.
+      (v.source === undefined &&
+        v.sql === undefined &&
+        Object.keys(v).some((k) => !["title", "type", "height", "palette"].includes(k))) ||
+      (v.source !== undefined && !text(v.source)) ||
+      (v.sql !== undefined &&
+        (!text(v.sql) || ["x", "y", "series", "filter"].some((k) => k in v))) ||
+      (v.source !== undefined &&
+        ((kind !== "number" && !text(v.x)) ||
+          !ys ||
+          (kind !== "scatter" && ys.some((y) => !chartY(y))) ||
+          (v.series !== undefined && !text(v.series)) ||
+          (v.series !== undefined && ys.length > 1) ||
+          (v.filter !== undefined && typeof v.filter !== "string"))) ||
+      (v.sort !== undefined && !(typeof v.sort === "string" && CHART_SORT.test(v.sort))) ||
+      (v.limit !== undefined && !int(v.limit, 1, 500)) ||
+      (v.stacked !== undefined && typeof v.stacked !== "boolean") ||
+      (v.height !== undefined && !int(v.height, 120, 2000)) ||
+      (v.title !== undefined && typeof v.title !== "string") ||
+      (v.palette !== undefined && !CHART_PALETTES.includes(v.palette as string))
+    )
+      return null;
+    const str = (x: unknown) => (typeof x === "string" ? x : "");
+    return {
+      type: "chart",
+      props: {
+        title: str(v.title),
+        source: str(v.source),
+        sql: str(v.sql),
+        type: str(v.type),
+        x: str(v.x),
+        y: Array.isArray(v.y) ? JSON.stringify(v.y) : str(v.y),
+        series: str(v.series),
+        filter: str(v.filter),
+        sort: str(v.sort),
+        limit: (v.limit as number | undefined) ?? 0,
+        stacked: v.stacked === undefined ? "" : String(v.stacked),
+        height: (v.height as number | undefined) ?? 0,
+        palette: str(v.palette),
+      },
+      children: [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+const DASHBOARD_SRC = /^_dashboards\/[^/\\:*?"<>|]{1,120}\.html$/i;
+
+/** A `graite:dashboard` fence; the same rules as `_check_dashboard` in vault/blocks.py. */
+function dashboardBlock(node: Code): Block | null {
+  try {
+    const value: unknown = parseYaml(node.value, { maxAliasCount: 0 });
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const v = value as Record<string, unknown>;
+    if (
+      Object.keys(v).some((k) => k !== "src" && k !== "height") ||
+      typeof v.src !== "string" ||
+      !DASHBOARD_SRC.test(v.src.trim()) ||
+      (v.height !== undefined &&
+        (typeof v.height !== "number" ||
+          !Number.isInteger(v.height) ||
+          v.height < 120 ||
+          v.height > 4000))
+    )
+      return null;
+    return {
+      type: "dashboard",
+      props: { src: v.src.trim(), height: (v.height as number | undefined) ?? 0 },
+      children: [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 function codeBlock(node: Code): Block | null {
   if (node.meta != null) return null;
+  if (node.lang === "graite:table") return tableViewBlock(node);
+  if (node.lang === "graite:chart") return chartBlock(node);
+  if (node.lang === "graite:dashboard") return dashboardBlock(node);
   if (node.lang === "graite:columns" || node.lang === "graite:view") {
     try {
       const value = parseYaml(node.value, { maxAliasCount: 0 });
@@ -649,6 +877,94 @@ function blockToNodes(block: Block): RootContent[] {
         {
           type: "code",
           lang: "graite:view",
+          meta: null,
+          value: stringifyYaml(props, { lineWidth: 0 }).trimEnd(),
+        },
+        ...trailing(),
+      ];
+    }
+    case "chart": {
+      const p = block.props;
+      let y: string | string[] = p.y;
+      try {
+        if (p.y.startsWith("[")) y = (JSON.parse(p.y) as unknown[]).map(String);
+      } catch {
+        /* Keep it as text. */
+      }
+      const props = {
+        ...(p.title ? { title: p.title } : {}),
+        ...(p.source ? { source: p.source } : {}),
+        ...(p.sql ? { sql: p.sql } : {}),
+        ...(p.type ? { type: p.type } : {}),
+        ...(p.x ? { x: p.x } : {}),
+        ...(y.length ? { y } : {}),
+        ...(p.series ? { series: p.series } : {}),
+        ...(p.filter ? { filter: p.filter } : {}),
+        ...(p.sort ? { sort: p.sort } : {}),
+        ...(p.limit ? { limit: p.limit } : {}),
+        ...(p.stacked ? { stacked: p.stacked === "true" } : {}),
+        ...(p.height ? { height: p.height } : {}),
+        ...(p.palette ? { palette: p.palette } : {}),
+      };
+      return [
+        {
+          type: "code",
+          lang: "graite:chart",
+          meta: null,
+          value: stringifyYaml(props, { lineWidth: 0 }).trimEnd(),
+        },
+        ...trailing(),
+      ];
+    }
+    case "dashboard": {
+      const p = block.props;
+      const props = { src: p.src, ...(p.height ? { height: p.height } : {}) };
+      return [
+        {
+          type: "code",
+          lang: "graite:dashboard",
+          meta: null,
+          value: stringifyYaml(props, { lineWidth: 0 }).trimEnd(),
+        },
+        ...trailing(),
+      ];
+    }
+    case "tableView": {
+      const p = block.props;
+      let sort: string | string[] = p.sort;
+      let columns: string[] | undefined;
+      try {
+        if (p.sort.startsWith("[")) sort = (JSON.parse(p.sort) as unknown[]).map(String);
+        if (p.columns) columns = (JSON.parse(p.columns) as unknown[]).map(String);
+      } catch {
+        /* Keep what parses. */
+      }
+      let tabs: Record<string, unknown> | undefined;
+      try {
+        if (p.tabs) tabs = JSON.parse(p.tabs) as Record<string, unknown>;
+      } catch {
+        /* Keep what parses. */
+      }
+      if (tabs && !Object.keys(tabs).length) tabs = undefined;
+      const plain = !p.view && !p.filter && !p.sort && !p.columns && !p.height && !tabs;
+      if (p.embed && plain && /\.csv$/i.test(p.source) && !/[[\]\n]/.test(p.source))
+        return [
+          { type: "paragraph", children: [{ type: "embed", value: p.source }] },
+          ...trailing(),
+        ];
+      const props = {
+        source: p.source,
+        ...(p.view ? { view: p.view } : {}),
+        ...(p.filter ? { filter: p.filter } : {}),
+        ...(sort.length ? { sort } : {}),
+        ...(columns ? { columns } : {}),
+        ...(p.height ? { height: p.height } : {}),
+        ...(tabs ? { tabs } : {}),
+      };
+      return [
+        {
+          type: "code",
+          lang: "graite:table",
           meta: null,
           value: stringifyYaml(props, { lineWidth: 0 }).trimEnd(),
         },

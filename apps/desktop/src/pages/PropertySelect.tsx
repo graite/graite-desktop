@@ -106,6 +106,92 @@ function OptionSettings({
   );
 }
 
+/**
+ * The searchable option list with "Create" and per-option settings (rename, delete, color).
+ * Page properties show it in a popover; table cells show it as the cell editor.
+ */
+export function OptionList({
+  field,
+  selected,
+  disabled = false,
+  onChoose,
+  onCreate,
+  onFieldChange,
+}: {
+  field: PageProperty;
+  selected: string[];
+  disabled?: boolean;
+  onChoose: (option: string) => void;
+  /** Adds `option` to the field's options and selects it. */
+  onCreate?: (option: string) => void;
+  onFieldChange?: (field: PageProperty) => void;
+}) {
+  const [query, setQuery] = useState("");
+  return (
+    <>
+      <input
+        aria-label="Find or create an option"
+        placeholder="Select an option or create one…"
+        value={query}
+        maxLength={100}
+        autoFocus
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter") return;
+          const exact = field.options.find((o) => o.toLowerCase() === query.trim().toLowerCase());
+          if (exact) onChoose(exact);
+          else if (onCreate && query.trim()) onCreate(query.trim());
+          else return;
+          setQuery("");
+        }}
+      />
+      <div className="property-options-list">
+        {field.options
+          .filter((o) => o.toLowerCase().includes(query.toLowerCase()))
+          .map((option) => (
+            <div className="property-choice" key={option}>
+              <button disabled={disabled} onClick={() => onChoose(option)}>
+                <PropertyTag field={field} option={option} />
+                {selected.includes(option) && <Check size={14} className="ml-auto" />}
+              </button>
+              {onFieldChange && (
+                <Popover>
+                  <PopoverTrigger aria-label={`Edit ${option}`} disabled={disabled}>
+                    <MoreHorizontal size={15} />
+                  </PopoverTrigger>
+                  {/* click-outside-ignore: inside a table cell editor, clicks here are not
+                      "outside" the editor (glide-data-grid checks for this class). */}
+                  <PopoverContent
+                    side="right"
+                    align="start"
+                    className="property-option-editor click-outside-ignore"
+                  >
+                    <OptionSettings field={field} option={option} save={onFieldChange} />
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+          ))}
+      </div>
+      {onCreate && query.trim() && !field.options.includes(query.trim()) && (
+        <button
+          className="property-create-option"
+          disabled={disabled}
+          onClick={() => {
+            onCreate(query.trim());
+            setQuery("");
+          }}
+        >
+          <Plus size={14} /> Create “{query.trim()}”
+        </button>
+      )}
+      {!field.options.length && !query && (
+        <small className="property-empty">Type to create your first option.</small>
+      )}
+    </>
+  );
+}
+
 export function PropertySelect({
   field,
   disabled,
@@ -118,7 +204,6 @@ export function PropertySelect({
   onFieldChange?: (field: PageProperty) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
   const selected = Array.isArray(field.value)
     ? field.value
     : typeof field.value === "string" && field.value
@@ -137,13 +222,7 @@ export function PropertySelect({
     if (field.type !== "multi_select") setOpen(false);
   };
   return (
-    <Popover
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        setQuery("");
-      }}
-    >
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         className="property-select-trigger"
         aria-label={field.name}
@@ -160,56 +239,24 @@ export function PropertySelect({
         className="property-select-menu"
         onClick={(e) => e.stopPropagation()}
       >
-        <input
-          aria-label="Find or create an option"
-          placeholder="Select an option or create one…"
-          value={query}
-          maxLength={100}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <div className="property-options-list">
-          {field.options
-            .filter((o) => o.toLowerCase().includes(query.toLowerCase()))
-            .map((option) => (
-              <div className="property-choice" key={option}>
-                <button disabled={disabled} onClick={() => choose(option)}>
-                  <PropertyTag field={field} option={option} />
-                  {selected.includes(option) && <Check size={14} className="ml-auto" />}
-                </button>
-                {onFieldChange && (
-                  <Popover>
-                    <PopoverTrigger aria-label={`Edit ${option}`} disabled={disabled}>
-                      <MoreHorizontal size={15} />
-                    </PopoverTrigger>
-                    <PopoverContent side="right" align="start" className="property-option-editor">
-                      <OptionSettings field={field} option={option} save={onFieldChange} />
-                    </PopoverContent>
-                  </Popover>
-                )}
-              </div>
-            ))}
-        </div>
-        {onFieldChange && query.trim() && !field.options.includes(query.trim()) && (
-          <button
-            className="property-create-option"
-            disabled={disabled}
-            onClick={() => {
-              const option = query.trim();
+        <OptionList
+          field={field}
+          selected={selected}
+          disabled={disabled}
+          onChoose={choose}
+          onFieldChange={onFieldChange}
+          onCreate={
+            onFieldChange &&
+            ((option) => {
               onFieldChange({
                 ...field,
                 options: [...field.options, option],
                 value: field.type === "multi_select" ? [...selected, option] : option,
               });
-              setQuery("");
               if (field.type !== "multi_select") setOpen(false);
-            }}
-          >
-            <Plus size={14} /> Create “{query.trim()}”
-          </button>
-        )}
-        {!field.options.length && !query && (
-          <small className="property-empty">Type to create your first option.</small>
-        )}
+            })
+          }
+        />
       </PopoverContent>
     </Popover>
   );

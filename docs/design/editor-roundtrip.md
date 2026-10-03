@@ -48,9 +48,9 @@ and the editor only sees the body.
 | `blockquote` | `quote` |
 | `blockquote` matching callout syntax | custom `callout` block `{kind, folded: ""|"-"|"+"}`, title as inline content, body as `children`; `[!toggle]` maps to `toggleListItem` |
 | `code` | `codeBlock` with `language` |
-| `code` with `lang = graite:<kind>` | custom block per kind: `dbview`, `dashboard`, `transcript`; YAML fields in `props`; unknown kind → `graiteUnknown` (labeled code) |
+| `code` with `lang = graite:<kind>` | custom block per kind: `table` → `tableView` (source, view, filter, sort, columns, height), `dashboard`, `transcript`; YAML fields in `props`; unknown kind → `graiteUnknown` (labeled code) |
 | `image` (`![alt](url)`) | `image` with `url` |
-| `embed` (`![[file]]`) | `image` / `audio` / `video` / `pdf` / `file` by extension, `url = vault://<vault-id>/<path>` |
+| `embed` (`![[file]]`) | `![[name.csv]]` alone on its line → `tableView` with `embed: true` (written back as the embed until a filter, sort or columns is set, then as a `graite:table` fence). Other embeds stay text and are written back unescaped; `image` / `audio` / `video` / `pdf` / `file` by extension is planned. |
 | `table` (GFM) | `table` (cells are inline content only). Centered and right-aligned columns set the cells' `textAlignment`; a table with an explicit left-aligned (`:---`) column stays `rawMarkdown`, because BlockNote's default alignment cannot be told apart from none |
 | `thematicBreak` | custom `divider` block |
 | `html`, `footnoteDefinition`, `math`, loose lists, list items with non-list children, multi-paragraph quotes, code fences with meta, anything unmapped | custom `rawMarkdown` block: verbatim source in a monospace text box, editable as text. When an edited source parses to native blocks only, it is replaced by them on leaving the box |
@@ -116,7 +116,7 @@ async def create_page(parent_path, title, *, body="", actor) -> Page
 async def move_page(path, new_parent_path, new_title=None, *, actor)      # rewrites wikilinks vault-wide
 async def trash_page(path, *, actor) / restore(trash_id)
 async def write_attachment(page_path, filename, stream, *, actor) -> AttachmentRef
-async def db_exec(page_path, sql, params=(), *, actor)
+async def write_table_rows(table_path, ops, base_hash, actor)   # CSV tables by row id (D68)
 ```
 
 Every write: acquire per-path `asyncio.Lock` → verify `base_hash` (if given) → snapshot the

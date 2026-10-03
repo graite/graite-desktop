@@ -46,7 +46,11 @@ INSTRUCTIONS = (
     "user: follow them when you read, write or create pages there. You cannot write "
     "directly: every propose_* tool files a proposal that the user reviews in Graite (some "
     "pages apply proposals automatically). Use propose_view for boards, tables and lists and "
-    "propose_properties for typed fields. Tell the user when a change is waiting for their "
+    "propose_properties for typed fields. Data tables (CSV files in a page's _data folder) are "
+    "read with read_tables and run_query_ro (read-only SQL) and changed with propose_rows. "
+    "Chart them with propose_chart and build HTML dashboards with propose_dashboard (load the "
+    "charts-and-dashboards skill first). "
+    "Tell the user when a change is waiting for their "
     "review. Pages the user keeps local-only are not available to you."
 )
 

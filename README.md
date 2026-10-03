@@ -35,6 +35,12 @@ optional escape hatch. The product does not depend on them.
 **Boards, tables and lists.** Any folder of pages can be a board, table or list. This is a
 Todos collection grouped by status. Every card is still a plain Markdown page underneath.
 
+**Database tables.** A page can hold data tables: plain CSV files in its `_data/` folder,
+shown as a fast grid with typed columns (numbers, money, dates, select pills, status),
+filters, sorting and search. They open in Excel or any editor unchanged. Agents can query
+them with read-only SQL and propose row changes, which apply or wait for your review
+depending on the page's settings.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/board-dark.png">
   <img src="docs/screenshots/board-light.png" alt="Graite's Todos board, with tasks grouped into Backlog, Open, In progress and Done." width="100%">
@@ -68,7 +74,8 @@ whisper.cpp, with no per-token bill. Cloud providers are optional and use your o
 ## What you get
 
 - A `/` block editor with headings, lists, toggles, callouts, tables, code, images, audio, PDF,
-  page links and board/table/list views, all round-tripping to Obsidian-compatible Markdown.
+  page links, board/table/list views and CSV database tables, all round-tripping to
+  Obsidian-compatible Markdown.
 - Pages as folders: typing `/page` creates a child page that owns its attachments,
   instructions and data.
 - A curated catalog of local models (chat, embeddings, Whisper, OCR, voice) downloaded from

@@ -286,7 +286,7 @@ def test_in_app_chat_does_not_get_the_mcp_tools() -> None:
 
 
 def test_schedule_and_unknown_tools_are_refused(client: TestClient) -> None:
-    for name in ("schedule", "write_page", "run_query_ro"):
+    for name in ("schedule", "write_page", "write_rows"):
         result, failed = call(client, name, when="daily", instructions="x")
         assert failed, (name, result)
     assert client.get("/api/v1/ai/schedules").status_code in (200, 404)

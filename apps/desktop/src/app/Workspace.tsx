@@ -12,7 +12,7 @@ import { StartupLoader } from "./StartupLoader";
 import { Sidebar } from "./Sidebar";
 
 import { ModelsPage, type SettingsTab } from "@/models/ModelsPage";
-import { ChatPanel } from "@/chat/ChatPanel";
+import { ChatPanel, type ChatRequest } from "@/chat/ChatPanel";
 import { useAssistant } from "@/assistant/useAssistant";
 import { AIPage } from "@/ai/AIPage";
 import { Button } from "@/components/ui/button";
@@ -67,6 +67,39 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
   };
   const [settingsVersion, setSettingsVersion] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
+  // A request for the page's AI from a block, sent (or drafted) when the panel opens.
+  const [aiRequest, setAiRequest] = useState<ChatRequest | null>(null);
+  const aiRequestId = useRef(0);
+  useEffect(() => {
+    const onAsk = (e: Event) => {
+      const detail = (e as CustomEvent<Omit<ChatRequest, "id">>).detail;
+      const prompt = detail?.prompt;
+      if (!prompt) return;
+      void (async () => {
+        try {
+          await flushEditor.current?.();
+          setAiRequest({
+            id: ++aiRequestId.current,
+            prompt,
+            mode: detail.mode,
+            send: detail.send,
+          });
+          setChatOpen(true);
+        } catch (error) {
+          toast.error((error as Error).message);
+        }
+      })();
+    };
+    window.addEventListener("graite:ask-ai", onAsk);
+    // A block that needs a model ("describe a chart") sends people to set one up.
+    const onSettings = () => openSettings();
+    window.addEventListener("graite:open-settings", onSettings);
+    return () => {
+      window.removeEventListener("graite:ask-ai", onAsk);
+      window.removeEventListener("graite:open-settings", onSettings);
+    };
+    // openSettings only sets state; the listeners are added once.
+  }, []);
   const [selection, setSelection] = useState("");
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [settingsPath, setSettingsPath] = useState<string | null>(null);
@@ -472,6 +505,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
           onNavigate={navigatePage}
           settingsVersion={settingsVersion}
           selection={selection}
+          request={aiRequest}
         />
       )}
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />

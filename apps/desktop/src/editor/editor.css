@@ -129,26 +129,86 @@
   margin-left: 24px;
 }
 
-/* Tables: full width, shaded header row, subtle borders. */
+/* Markdown tables (GFM): a compact document table, deliberately separate from CSV-backed
+   databases and page table views. It fills the text column, but can still grow and scroll
+   when the content needs more room. The "+" controls are TableExtendButton.tsx. */
+.bn-editor [data-content-type="table"] {
+  margin-block: 6px;
+}
 .bn-editor [data-content-type="table"] table {
-  width: 100% !important;
-  border-collapse: collapse;
+  width: max-content !important;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.45;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 3%),
+    0 8px 22px -22px rgb(0 0 0 / 28%);
 }
 .bn-editor [data-content-type="table"] th,
 .bn-editor [data-content-type="table"] td {
-  border: 1px solid var(--border);
-  padding: 6px 10px;
-  min-width: 80px;
-  vertical-align: top;
+  position: relative;
+  border: 0;
+  border-right: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  padding: 9px 13px;
+  min-width: 132px;
+  vertical-align: middle;
+  transition: background-color 0.12s ease;
 }
-.bn-editor [data-content-type="table"] th {
-  background: var(--muted);
-  font-weight: 500;
+.bn-editor [data-content-type="table"] tr > :last-child {
+  border-right: 0;
+}
+.bn-editor [data-content-type="table"] tr:last-child > * {
+  border-bottom: 0;
+}
+/* The header row (Markdown tables always have one). */
+.bn-editor [data-content-type="table"] th,
+.bn-editor [data-content-type="table"] tr:first-child td {
+  background: color-mix(in srgb, var(--muted) 48%, var(--background));
+  color: color-mix(in srgb, var(--foreground) 78%, var(--muted-foreground));
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
   text-align: left;
 }
-.bn-editor [data-content-type="table"] tr:first-child td {
-  background: var(--muted);
-  font-weight: 500;
+.bn-editor [data-content-type="table"] tbody tr:nth-child(even):not(:first-child) td {
+  background: color-mix(in srgb, var(--muted) 16%, var(--background));
+}
+.bn-editor [data-content-type="table"] tbody tr:not(:first-child):hover td {
+  background: color-mix(in srgb, var(--muted) 42%, var(--background));
+}
+/* Selected cells and the column resize line in the selection blue, not black. */
+.bn-editor [data-content-type="table"] .selectedCell::after {
+  background: color-mix(in srgb, #3189d1 14%, transparent);
+}
+.bn-editor [data-content-type="table"] .column-resize-handle {
+  background-color: #3189d1;
+  width: 2px;
+}
+.bn-extend-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-foreground) !important;
+  font-size: 12px;
+  opacity: 0.7;
+}
+.bn-extend-button:hover,
+.bn-extend-button.bn-extend-button-editing {
+  opacity: 1;
+  background: var(--muted) !important;
+  color: var(--foreground) !important;
+}
+.bn-extend-button-add-remove-rows {
+  justify-content: flex-start;
+  padding-left: 10px !important;
 }
 
 /* Divider and raw-markdown custom blocks */
@@ -323,7 +383,8 @@
   width: 100%;
   max-width: none;
 }
-.bn-block-content[data-content-type="pageView"] {
+.bn-block-content[data-content-type="pageView"],
+.bn-block-content[data-content-type="tableView"] {
   min-width: 0;
   max-width: 100%;
 }

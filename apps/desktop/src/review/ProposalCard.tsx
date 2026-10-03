@@ -1,12 +1,26 @@
-import { useState } from "react";
-import { Check, ChevronRight, FileText, Pencil, RotateCcw, ShieldCheck, X } from "lucide-react";
+import { lazy, Suspense, useState } from "react";
+import {
+  Check,
+  ChevronRight,
+  FileText,
+  LayoutDashboard,
+  Pencil,
+  RotateCcw,
+  ShieldCheck,
+  Table2,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KIND_LABELS, STATUS_LABELS, type Proposal, type ReviewActions } from "@/lib/review";
 import { ReviewContent } from "./ReviewContent";
 import { PropertyDiff } from "./PropertyDiff";
+import { RowsDiff, tableName } from "./RowsDiff";
 import { PatchView, TextDiff } from "./DiffView";
 import { useProposalDecision } from "./useProposalDecision";
 import "./review.css";
+
+// The live preview runs the dashboard in its frame; it loads with the first such proposal.
+export const DashboardPreview = lazy(() => import("./DashboardPreview"));
 
 /**
  * One proposed change with its diff and the decision buttons. With `collapsible` the card is
@@ -116,7 +130,13 @@ export function ProposalCard({
       {shown && (
         <>
           <p className="review-target">
-            <FileText size={12} />
+            {proposal.kind === "rows" ? (
+              <Table2 size={12} />
+            ) : proposal.kind === "dashboard" ? (
+              <LayoutDashboard size={12} />
+            ) : (
+              <FileText size={12} />
+            )}
             {proposal.kind === "move" ? (
               <>
                 {proposal.page_path} → {proposal.new_path || "vault root"}
@@ -124,6 +144,17 @@ export function ProposalCard({
             ) : proposal.kind === "create" ? (
               <>
                 {proposal.page_title} under {proposal.page_path || "the vault root"}
+              </>
+            ) : proposal.kind === "rows" && proposal.rows ? (
+              <>
+                {tableName(proposal.rows.table).name} ·{" "}
+                {proposal.page_title || tableName(proposal.rows.table).page}
+              </>
+            ) : proposal.kind === "dashboard" && proposal.dashboard ? (
+              <>
+                {proposal.dashboard.src.replace(/^_dashboards\//, "").replace(/\.html$/i, "")}
+                {proposal.dashboard.created ? " (new)" : ""} ·{" "}
+                {proposal.page_title || proposal.page_path}
               </>
             ) : (
               proposal.page_path
@@ -162,11 +193,21 @@ export function ProposalCard({
               <ReviewContent editing>
                 <TextDiff
                   highlightChanges
-                  oldText={proposal.kind === "edit" ? (proposal.old_text ?? "") : ""}
+                  oldText={
+                    proposal.kind === "edit" || proposal.kind === "dashboard"
+                      ? (proposal.old_text ?? "")
+                      : ""
+                  }
                   newText={draft}
                 />
               </ReviewContent>
             </>
+          ) : proposal.kind === "rows" && proposal.rows ? (
+            <RowsDiff rows={proposal.rows} limit={quick ? 3 : 4} />
+          ) : proposal.kind === "dashboard" ? (
+            <Suspense fallback={<div className="review-note">Loading preview…</div>}>
+              <DashboardPreview proposal={proposal} maxHeight={quick ? 320 : 640} />
+            </Suspense>
           ) : proposal.kind === "properties" ? null : proposal.new_text != null &&
             proposal.kind !== "move" &&
             proposal.kind !== "delete" ? (
@@ -222,7 +263,8 @@ export function ProposalCard({
                 </Button>
                 {proposal.kind !== "delete" &&
                   proposal.kind !== "move" &&
-                  proposal.kind !== "properties" && (
+                  proposal.kind !== "properties" &&
+                  proposal.kind !== "rows" && (
                     <Button
                       size="sm"
                       variant="secondary"

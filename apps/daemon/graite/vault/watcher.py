@@ -1,8 +1,9 @@
 """Notice pages changed outside Graite (Obsidian, vim, sync clients) and index them.
 
 Bursts are coalesced by watchfiles; writes the daemon made itself are dropped by matching
-the file's mtime against what FileOps recorded. Only page files, `AGENTS.md` and the
-definition folders matter; everything under `.graite/` and temp files is ignored.
+the file's mtime against what FileOps recorded. Only page files, `AGENTS.md`, the
+definition folders and table CSVs in `_data/` matter; everything under `.graite/` and temp
+files is ignored.
 """
 
 from __future__ import annotations
@@ -17,6 +18,8 @@ from pathlib import Path
 from watchfiles import Change, awatch
 
 from graite.events import EventBus
+from graite.tables import paths as table_paths
+from graite.tables.paths import DATA_DIR
 from graite.vault import fileops as fileops_module
 from graite.vault.fileops import FileOps
 from graite.vault.paths import GRAITE_DIR, PAGE_FILE, VaultPathError, validate_rel
@@ -58,6 +61,43 @@ def is_own_write(path: Path) -> bool:
         return False
 
 
+def _vault_parts(vault: Path, roots: list[Path], raw: str) -> tuple[Path, tuple[str, ...]]:
+    """The event's path and its parts relative to the vault (empty when outside it)."""
+    path = Path(raw)
+    full = path if path.is_absolute() else vault / path
+    rel_path = Path("..")
+    for root in roots:
+        try:
+            rel_path = Path(os.path.relpath(full, root))
+        except ValueError:
+            continue
+        if rel_path.parts and rel_path.parts[0] != "..":
+            break
+    parts = rel_path.parts
+    if not parts or parts[0] == ".." or any(p.startswith(".") for p in parts):
+        return path, ()
+    return path, parts
+
+
+def changes_to_tables(vault: Path, changes: set[tuple[Change, str]]) -> list[str]:
+    """Table CSVs (`<page>/_data/<name>.csv`) whose file or schema changed outside Graite."""
+    roots = list(dict.fromkeys([vault.absolute(), vault.resolve()]))
+    tables: set[str] = set()
+    for _change, raw in changes:
+        path, parts = _vault_parts(vault, roots, raw)
+        if len(parts) < 3 or parts[-2] != DATA_DIR:
+            continue
+        rel = "/".join(parts)
+        rel = table_paths.schema_owner(rel) or rel
+        if not rel.lower().endswith(".csv") or (path.suffix == ".csv" and is_own_write(path)):
+            continue
+        try:
+            tables.add(table_paths.parse(rel).rel)
+        except VaultPathError:
+            continue
+    return sorted(tables)
+
+
 def changes_to_paths(vault: Path, changes: set[tuple[Change, str]]) -> tuple[list[str], list[str]]:
     """Map raw file events to (page paths to rescan, folders whose AGENTS.md changed)."""
     # Events carry the path as watched; a vault reached through a symlink resolves elsewhere.
@@ -65,18 +105,8 @@ def changes_to_paths(vault: Path, changes: set[tuple[Change, str]]) -> tuple[lis
     pages: set[str] = set()
     policies: set[str] = set()
     for _change, raw in changes:
-        path = Path(raw)
-        full = path if path.is_absolute() else vault / path
-        rel_path = Path("..")
-        for root in roots:
-            try:
-                rel_path = Path(os.path.relpath(full, root))
-            except ValueError:
-                continue
-            if rel_path.parts and rel_path.parts[0] != "..":
-                break
-        parts = rel_path.parts
-        if not parts or parts[0] == ".." or any(p.startswith(".") for p in parts):
+        path, parts = _vault_parts(vault, roots, raw)
+        if not parts:
             continue
         name = parts[-1]
         folder = "/".join(parts[:-1])
@@ -166,6 +196,7 @@ class Watcher:
 
     async def handle(self, changes: set[tuple[Change, str]]) -> None:
         pages, policies = changes_to_paths(self.vault, changes)
+        tables = changes_to_tables(self.vault, changes)
         self.batches += 1
         for folder in policies:
             self.fileops.bump()
@@ -175,3 +206,8 @@ class Watcher:
                 await self.fileops.rescan_paths(pages, actor="external")
             except Exception:  # noqa: BLE001
                 log.exception("rescan after external change failed")
+        if tables:
+            try:
+                await self.fileops.refresh_tables(tables, actor="external")
+            except Exception:  # noqa: BLE001
+                log.exception("table refresh after external change failed")

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Copy, Globe, Laptop, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { onDaemonEvent } from "@/lib/api";
 import { cloud, type CloudStatus } from "@/lib/cloud";
 import {
@@ -171,15 +172,12 @@ function BrowserConnector({ initial }: { initial: RemoteInfo }) {
               Opens a secure connection from this computer to Graite Cloud while Graite is open.{" "}
               {status}.
             </small>
-            <button
-              type="button"
-              role="switch"
-              className="ai-switch"
+            <Switch
               aria-label="Remote access"
-              aria-checked={remote.enabled}
+              checked={remote.enabled}
               aria-describedby="mcp-remote-hint"
               disabled={busy || !signedIn}
-              onClick={() => void toggle()}
+              onCheckedChange={() => void toggle()}
             />
           </div>
         </Step>
@@ -302,14 +300,11 @@ function LocalApps({ info }: { info: McpInfo }) {
             Claude Code, Codex or Cursor. They talk to Graite directly, without Graite Cloud.
           </small>
         </span>
-        <button
+        <Switch
           id="local-apps-switch"
-          type="button"
-          role="switch"
-          className="ai-switch"
-          aria-checked={open}
+          checked={open}
           aria-describedby="local-apps-hint"
-          onClick={() => setOpen(!open)}
+          onCheckedChange={setOpen}
         />
       </div>
       {open ? (

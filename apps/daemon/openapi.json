@@ -288,6 +288,52 @@
         "title": "ActivityStep",
         "type": "object"
       },
+      "AddRelation": {
+        "properties": {
+          "cardinality": {
+            "default": "many",
+            "enum": [
+              "one",
+              "many"
+            ],
+            "title": "Cardinality",
+            "type": "string"
+          },
+          "column": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Column",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "reverse": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reverse"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "column",
+          "target"
+        ],
+        "title": "AddRelation",
+        "type": "object"
+      },
       "AgentBody": {
         "properties": {
           "description": {
@@ -581,6 +627,40 @@
           "effective"
         ],
         "title": "AiSettings",
+        "type": "object"
+      },
+      "AlterColumns": {
+        "properties": {
+          "base_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Hash"
+          },
+          "ops": {
+            "items": {
+              "$ref": "#/components/schemas/ColumnOpModel"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Ops",
+            "type": "array"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "ops"
+        ],
+        "title": "AlterColumns",
         "type": "object"
       },
       "Archive": {
@@ -1232,6 +1312,171 @@
         "title": "CatalogModel",
         "type": "object"
       },
+      "ChartAIReply": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "spec": {
+            "additionalProperties": true,
+            "title": "Spec",
+            "type": "object"
+          }
+        },
+        "required": [
+          "spec",
+          "message"
+        ],
+        "title": "ChartAIReply",
+        "type": "object"
+      },
+      "ChartAIRequest": {
+        "properties": {
+          "current": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current"
+          },
+          "page_path": {
+            "title": "Page Path",
+            "type": "string"
+          },
+          "prompt": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Prompt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page_path",
+          "prompt"
+        ],
+        "title": "ChartAIRequest",
+        "type": "object"
+      },
+      "ChartData": {
+        "properties": {
+          "categories": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "format": {
+            "default": "number",
+            "title": "Format",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "points": {
+            "default": [],
+            "items": {
+              "items": {},
+              "type": "array"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "series": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ChartSeries"
+            },
+            "title": "Series",
+            "type": "array"
+          },
+          "tables": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Tables",
+            "type": "array"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "title": "ChartData",
+        "type": "object"
+      },
+      "ChartRequest": {
+        "properties": {
+          "page_path": {
+            "title": "Page Path",
+            "type": "string"
+          },
+          "spec": {
+            "additionalProperties": true,
+            "title": "Spec",
+            "type": "object"
+          }
+        },
+        "required": [
+          "page_path",
+          "spec"
+        ],
+        "title": "ChartRequest",
+        "type": "object"
+      },
+      "ChartSeries": {
+        "properties": {
+          "data": {
+            "items": {},
+            "title": "Data",
+            "type": "array"
+          },
+          "format": {
+            "default": "number",
+            "title": "Format",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "data"
+        ],
+        "title": "ChartSeries",
+        "type": "object"
+      },
       "ChatAttachment": {
         "properties": {
           "conversation_id": {
@@ -1728,6 +1973,182 @@
         "title": "CloudUsage",
         "type": "object"
       },
+      "ColumnModel": {
+        "properties": {
+          "cardinality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cardinality"
+          },
+          "colors": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Colors",
+            "type": "object"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "invalid": {
+            "default": 0,
+            "title": "Invalid",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "reverse": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reverse"
+          },
+          "table": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table"
+          },
+          "table_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Id"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "via": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Via"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          },
+          "wrap": {
+            "default": false,
+            "title": "Wrap",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "ColumnModel",
+        "type": "object"
+      },
+      "ColumnOpModel": {
+        "properties": {
+          "index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "op": {
+            "enum": [
+              "add",
+              "rename",
+              "delete",
+              "move"
+            ],
+            "title": "Op",
+            "type": "string"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To"
+          }
+        },
+        "required": [
+          "op",
+          "name"
+        ],
+        "title": "ColumnOpModel",
+        "type": "object"
+      },
       "ConflictBody": {
         "properties": {
           "body": {
@@ -1948,6 +2369,125 @@
           }
         },
         "title": "CreatePage",
+        "type": "object"
+      },
+      "CreateTable": {
+        "properties": {
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Columns",
+            "type": "array"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "page_path": {
+            "title": "Page Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page_path",
+          "name"
+        ],
+        "title": "CreateTable",
+        "type": "object"
+      },
+      "Dashboard": {
+        "properties": {
+          "html": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Html"
+          },
+          "page_path": {
+            "title": "Page Path",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "src": {
+            "title": "Src",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page_path",
+          "src",
+          "path"
+        ],
+        "title": "Dashboard",
+        "type": "object"
+      },
+      "DashboardChange": {
+        "properties": {
+          "created": {
+            "default": false,
+            "title": "Created",
+            "type": "boolean"
+          },
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "html": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Html"
+          },
+          "show": {
+            "default": false,
+            "title": "Show",
+            "type": "boolean"
+          },
+          "src": {
+            "title": "Src",
+            "type": "string"
+          }
+        },
+        "required": [
+          "src",
+          "file"
+        ],
+        "title": "DashboardChange",
+        "type": "object"
+      },
+      "DashboardInfo": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "src": {
+            "title": "Src",
+            "type": "string"
+          }
+        },
+        "required": [
+          "src",
+          "name"
+        ],
+        "title": "DashboardInfo",
         "type": "object"
       },
       "DiscoveredModel": {
@@ -2236,6 +2776,59 @@
           "version"
         ],
         "title": "EngineState",
+        "type": "object"
+      },
+      "EnsureIds": {
+        "properties": {
+          "duplicates": {
+            "default": false,
+            "title": "Duplicates",
+            "type": "boolean"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "EnsureIds",
+        "type": "object"
+      },
+      "EnsureIdsResult": {
+        "properties": {
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ids",
+            "type": "array"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "reassigned": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Reassigned",
+            "type": "object"
+          }
+        },
+        "required": [
+          "path",
+          "hash"
+        ],
+        "title": "EnsureIdsResult",
         "type": "object"
       },
       "ErrorBody": {
@@ -3503,6 +4096,43 @@
         "title": "OptInBody",
         "type": "object"
       },
+      "OptionChange": {
+        "properties": {
+          "column": {
+            "title": "Column",
+            "type": "string"
+          },
+          "new": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New"
+          },
+          "old": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Old",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "column",
+          "old"
+        ],
+        "title": "OptionChange",
+        "type": "object"
+      },
       "PageDoc": {
         "properties": {
           "body": {
@@ -3813,6 +4443,25 @@
         "title": "PatchPage",
         "type": "object"
       },
+      "PatchSchema": {
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "schema": {
+            "additionalProperties": true,
+            "title": "Schema",
+            "type": "object"
+          }
+        },
+        "required": [
+          "path",
+          "schema"
+        ],
+        "title": "PatchSchema",
+        "type": "object"
+      },
       "PreviewBody": {
         "properties": {
           "cfg": {
@@ -3963,6 +4612,16 @@
           "created_at": {
             "title": "Created At",
             "type": "string"
+          },
+          "dashboard": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DashboardChange"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "decided_at": {
             "anyOf": [
@@ -4127,6 +4786,16 @@
             ],
             "title": "Reason"
           },
+          "rows": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RowsChange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "run_id": {
             "anyOf": [
               {
@@ -4285,6 +4954,56 @@
         "title": "PutResult",
         "type": "object"
       },
+      "QueryBody": {
+        "properties": {
+          "page_path": {
+            "title": "Page Path",
+            "type": "string"
+          },
+          "sql": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Sql",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page_path",
+          "sql"
+        ],
+        "title": "QueryBody",
+        "type": "object"
+      },
+      "QueryResult": {
+        "properties": {
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "rows": {
+            "items": {
+              "items": {},
+              "type": "array"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "columns",
+          "rows",
+          "truncated"
+        ],
+        "title": "QueryResult",
+        "type": "object"
+      },
       "Question": {
         "properties": {
           "asked_at": {
@@ -4420,6 +5139,26 @@
         "title": "RemoteInfo",
         "type": "object"
       },
+      "RenameTable": {
+        "properties": {
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "name"
+        ],
+        "title": "RenameTable",
+        "type": "object"
+      },
       "RenameVoice": {
         "properties": {
           "name": {
@@ -4461,6 +5200,19 @@
         "title": "ResolveResult",
         "type": "object"
       },
+      "Resolved": {
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "Resolved",
+        "type": "object"
+      },
       "RestoreRequest": {
         "properties": {
           "target_path": {
@@ -4476,6 +5228,388 @@
           }
         },
         "title": "RestoreRequest",
+        "type": "object"
+      },
+      "RowChange": {
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "base": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "op": {
+            "title": "Op",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": true,
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "op"
+        ],
+        "title": "RowChange",
+        "type": "object"
+      },
+      "RowColumn": {
+        "properties": {
+          "colors": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Colors",
+            "type": "object"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "type": {
+            "default": "text",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "RowColumn",
+        "type": "object"
+      },
+      "RowConflictModel": {
+        "properties": {
+          "column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "missing",
+              "changed"
+            ],
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reason"
+        ],
+        "title": "RowConflictModel",
+        "type": "object"
+      },
+      "RowModel": {
+        "properties": {
+          "cells": {
+            "items": {},
+            "title": "Cells",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "cells"
+        ],
+        "title": "RowModel",
+        "type": "object"
+      },
+      "RowOpModel": {
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "base": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "op": {
+            "enum": [
+              "insert",
+              "update",
+              "delete"
+            ],
+            "title": "Op",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": true,
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "op"
+        ],
+        "title": "RowOpModel",
+        "type": "object"
+      },
+      "RowsChange": {
+        "properties": {
+          "applied": {
+            "default": false,
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "columns": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/RowColumn"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Columns"
+          },
+          "ops": {
+            "items": {
+              "$ref": "#/components/schemas/RowChange"
+            },
+            "title": "Ops",
+            "type": "array"
+          },
+          "table": {
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "ops"
+        ],
+        "title": "RowsChange",
+        "type": "object"
+      },
+      "RowsPage": {
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ColumnModel"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display"
+          },
+          "display_secondary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Secondary"
+          },
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "label_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label Column"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "page_path": {
+            "title": "Page Path",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "primary_key": {
+            "title": "Primary Key",
+            "type": "string"
+          },
+          "row_count": {
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/RowModel"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "secondary_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secondary Column"
+          },
+          "table_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Id"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "visible": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Visible",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "path",
+          "page_path",
+          "name",
+          "hash",
+          "row_count",
+          "primary_key",
+          "columns",
+          "visible",
+          "total",
+          "offset",
+          "rows"
+        ],
+        "title": "RowsPage",
         "type": "object"
       },
       "RunDetail": {
@@ -5384,6 +6518,201 @@
         "title": "StepBody",
         "type": "object"
       },
+      "TableConflictBody": {
+        "properties": {
+          "conflicts": {
+            "items": {
+              "$ref": "#/components/schemas/RowConflictModel"
+            },
+            "title": "Conflicts",
+            "type": "array"
+          },
+          "detail": {
+            "default": "conflict",
+            "title": "Detail",
+            "type": "string"
+          },
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hash",
+          "conflicts"
+        ],
+        "title": "TableConflictBody",
+        "type": "object"
+      },
+      "TableModel": {
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ColumnModel"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display"
+          },
+          "display_secondary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Secondary"
+          },
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "label_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label Column"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "page_path": {
+            "title": "Page Path",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "primary_key": {
+            "title": "Primary Key",
+            "type": "string"
+          },
+          "row_count": {
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "secondary_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secondary Column"
+          },
+          "table_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Id"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "path",
+          "page_path",
+          "name",
+          "hash",
+          "row_count",
+          "primary_key",
+          "columns"
+        ],
+        "title": "TableModel",
+        "type": "object"
+      },
+      "TablePathBody": {
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "TablePathBody",
+        "type": "object"
+      },
+      "TicketRequest": {
+        "properties": {
+          "page_path": {
+            "title": "Page Path",
+            "type": "string"
+          },
+          "proposal_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposal Id"
+          },
+          "src": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Src"
+          }
+        },
+        "required": [
+          "page_path"
+        ],
+        "title": "TicketRequest",
+        "type": "object"
+      },
+      "TicketResult": {
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "TicketResult",
+        "type": "object"
+      },
       "TrashEntryModel": {
         "properties": {
           "file": {
@@ -5531,6 +6860,32 @@
           "icon"
         ],
         "title": "TreeNodeModel",
+        "type": "object"
+      },
+      "TypeCheck": {
+        "properties": {
+          "examples": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Examples",
+            "type": "array"
+          },
+          "invalid": {
+            "title": "Invalid",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "invalid",
+          "examples"
+        ],
+        "title": "TypeCheck",
         "type": "object"
       },
       "UpgradeResult": {
@@ -5831,6 +7186,94 @@
           "steps"
         ],
         "title": "WorkflowInfo",
+        "type": "object"
+      },
+      "WriteDashboard": {
+        "properties": {
+          "create": {
+            "default": false,
+            "title": "Create",
+            "type": "boolean"
+          },
+          "html": {
+            "maxLength": 1000000,
+            "title": "Html",
+            "type": "string"
+          },
+          "page_path": {
+            "title": "Page Path",
+            "type": "string"
+          },
+          "src": {
+            "title": "Src",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page_path",
+          "src",
+          "html"
+        ],
+        "title": "WriteDashboard",
+        "type": "object"
+      },
+      "WriteResult": {
+        "properties": {
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ids",
+            "type": "array"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "hash"
+        ],
+        "title": "WriteResult",
+        "type": "object"
+      },
+      "WriteRows": {
+        "properties": {
+          "base_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Hash"
+          },
+          "ops": {
+            "items": {
+              "$ref": "#/components/schemas/RowOpModel"
+            },
+            "maxItems": 5000,
+            "minItems": 1,
+            "title": "Ops",
+            "type": "array"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "ops"
+        ],
+        "title": "WriteRows",
         "type": "object"
       },
       "graite__api__assistant__OptInResult": {
@@ -8762,6 +10205,89 @@
         ]
       }
     },
+    "/api/v1/charts/ai": {
+      "post": {
+        "description": "A chart spec from words, made by the configured model and checked against the data.\nThe block applies it as the user's own edit (D73).",
+        "operationId": "from_words_api_v1_charts_ai_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChartAIRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChartAIReply"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "From Words",
+        "tags": [
+          "charts"
+        ]
+      }
+    },
+    "/api/v1/charts/data": {
+      "post": {
+        "operationId": "data_api_v1_charts_data_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChartData"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Data",
+        "tags": [
+          "charts"
+        ]
+      }
+    },
     "/api/v1/client-log": {
       "post": {
         "operationId": "client_log_api_v1_client_log_post",
@@ -8919,6 +10445,183 @@
         "summary": "Status",
         "tags": [
           "cloud"
+        ]
+      }
+    },
+    "/api/v1/dashboards": {
+      "get": {
+        "operationId": "read_api_v1_dashboards_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_path",
+            "required": true,
+            "schema": {
+              "title": "Page Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "src",
+            "required": true,
+            "schema": {
+              "title": "Src",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dashboard"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read",
+        "tags": [
+          "dashboards"
+        ]
+      },
+      "put": {
+        "operationId": "write_api_v1_dashboards_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteDashboard"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dashboard"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Write",
+        "tags": [
+          "dashboards"
+        ]
+      }
+    },
+    "/api/v1/dashboards/list": {
+      "get": {
+        "operationId": "list_dashboards_api_v1_dashboards_list_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_path",
+            "required": true,
+            "schema": {
+              "title": "Page Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DashboardInfo"
+                  },
+                  "title": "Response List Dashboards Api V1 Dashboards List Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Dashboards",
+        "tags": [
+          "dashboards"
+        ]
+      }
+    },
+    "/api/v1/dashboards/ticket": {
+      "post": {
+        "operationId": "ticket_api_v1_dashboards_ticket_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ticket",
+        "tags": [
+          "dashboards"
         ]
       }
     },
@@ -10469,6 +12172,823 @@
         "summary": "Resolve Link",
         "tags": [
           "pages"
+        ]
+      }
+    },
+    "/api/v1/tables": {
+      "get": {
+        "operationId": "list_tables_api_v1_tables_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_path",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Page Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TableModel"
+                  },
+                  "title": "Response List Tables Api V1 Tables Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Tables",
+        "tags": [
+          "tables"
+        ]
+      },
+      "post": {
+        "operationId": "create_api_v1_tables_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTable"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create",
+        "tags": [
+          "tables"
+        ]
+      }
+    },
+    "/api/v1/tables/check-type": {
+      "get": {
+        "description": "How a column's current values would read as `type` (for a relation: as rows of\n`target`), before the user switches to it.",
+        "operationId": "check_type_api_v1_tables_check_type_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "title": "Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "column",
+            "required": true,
+            "schema": {
+              "title": "Column",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "title": "Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TypeCheck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Type",
+        "tags": [
+          "tables"
+        ]
+      }
+    },
+    "/api/v1/tables/columns": {
+      "post": {
+        "operationId": "alter_columns_api_v1_tables_columns_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlterColumns"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WriteResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableConflictBody"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Alter Columns",
+        "tags": [
+          "tables"
+        ]
+      }
+    },
+    "/api/v1/tables/ensure-ids": {
+      "post": {
+        "operationId": "ensure_ids_api_v1_tables_ensure_ids_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnsureIds"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnsureIdsResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ensure Ids",
+        "tags": [
+          "tables"
+        ]
+      }
+    },
+    "/api/v1/tables/import": {
+      "post": {
+        "description": "Copy an uploaded CSV (request body) into the page's `_data/`, adding ids.",
+        "operationId": "import_csv_api_v1_tables_import_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_path",
+            "required": true,
+            "schema": {
+              "title": "Page Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Csv",
+        "tags": [
+          "tables"
+        ]
+      }
+    },
+    "/api/v1/tables/link-labels": {
+      "post": {
+        "description": "Write this table's current display values into the links other tables hold to it.",
+        "operationId": "refresh_link_labels_api_v1_tables_link_labels_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TablePathBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh Link Labels",
+        "tags": [
+          "tables"
+        ]
+      }
+    },
+    "/api/v1/tables/options": {
+      "post": {
+        "description": "Rename or remove a select option in every row and in the schema file.",
+        "operationId": "change_option_api_v1_tables_options_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OptionChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WriteResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Option",
+        "tags": [
+          "tables"
+        ]
+      }
+    },
+    "/api/v1/tables/query": {
+      "post": {
+        "description": "Read-only SQL for charts and dashboards: writes are refused, at most 5000 rows.",
+        "operationId": "query_api_v1_tables_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Query",
+        "tags": [
+          "tables"
+        ]
+      }
+    },
+    "/api/v1/tables/relations": {
+      "post": {
+        "description": "Make a column a relation to another table, with an optional reverse column there.",
+        "operationId": "add_relation_api_v1_tables_relations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddRelation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Relation",
+        "tags": [
+          "tables"
+        ]
+      }
+    },
+    "/api/v1/tables/rename": {
+      "post": {
+        "description": "Rename the CSV (and schema) file; relations, fences and embeds that name it follow.",
+        "operationId": "rename_api_v1_tables_rename_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameTable"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rename",
+        "tags": [
+          "tables"
+        ]
+      }
+    },
+    "/api/v1/tables/resolve": {
+      "get": {
+        "description": "The table a block on `page_path` means by `source` (`_data/x.csv`, a vault path, or a\nbare name as in `![[x.csv]]`).",
+        "operationId": "resolve_api_v1_tables_resolve_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_path",
+            "required": true,
+            "schema": {
+              "title": "Page Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "required": true,
+            "schema": {
+              "title": "Source",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Resolved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve",
+        "tags": [
+          "tables"
+        ]
+      }
+    },
+    "/api/v1/tables/rows": {
+      "get": {
+        "operationId": "rows_api_v1_tables_rows_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "title": "Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Filter"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sort"
+            }
+          },
+          {
+            "in": "query",
+            "name": "columns",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Columns"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 1000,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ids"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 1000,
+              "minimum": 0,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RowsPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rows",
+        "tags": [
+          "tables"
+        ]
+      },
+      "post": {
+        "operationId": "write_rows_api_v1_tables_rows_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteRows"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WriteResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableConflictBody"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Write Rows",
+        "tags": [
+          "tables"
+        ]
+      }
+    },
+    "/api/v1/tables/schema": {
+      "patch": {
+        "operationId": "patch_schema_api_v1_tables_schema_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Schema",
+        "tags": [
+          "tables"
         ]
       }
     },

@@ -28,6 +28,7 @@ MyVault/
   .graite/
     config.toml                    # vault settings
     index.sqlite                   # derived; safe to delete
+    tables.sqlite                  # derived query cache of every _data/*.csv; safe to delete
     versions/<page-id>/<unix_ms>.md
     trash/<unix_ms>-<slug>/        # soft-deleted page folders, restorable
     chat/<conversation-id>/        # files attached to a chat, deleted with it
@@ -36,8 +37,8 @@ MyVault/
     page.md                        # the "Projects" page
     AGENTS.md                      # instructions for everything under Projects/
     _assets/                       # files for this page only
-    _data/data.sqlite              # this page's tables
-    _data/schema.json              # column display metadata
+    _data/expenses.csv             # a table: plain CSV with an `id` column
+    _data/expenses.schema.json     # optional: column types, options, relations, order
     _dashboards/overview.html
     _skills/weekly-review/SKILL.md # page-level skill
     Atlas/
@@ -87,7 +88,7 @@ Body starts here. The H1 is optional; `title` in frontmatter is authoritative.
 | `order` | float | user / UI | Sibling ordering. Floats allow insert-between without renumbering. |
 | `aliases` | list | user | Extra names wikilinks may use; also used to resolve links after external renames. |
 | `autonomy` | `auto-apply` \| `propose` \| `none` | user | Inherits from the nearest page or `AGENTS.md`, then vault config. Default `propose`. `none` means no AI updates at all and cannot be lifted by a nested page. |
-| `auto_apply_kinds` | list of `append`, `create`, `edit`, `properties`, `delete` | user | Only read when `autonomy: auto-apply`. `move` is never auto-applied; `delete` only where listed explicitly (the assistant's memory root sets it, the settings dialog never offers it, D57). |
+| `auto_apply_kinds` | list of `append`, `create`, `edit`, `properties`, `rows`, `delete` | user | Only read when `autonomy: auto-apply`. `edit` also covers `properties` and `rows` (table row changes, D69). `move` is never auto-applied; `delete` only where listed explicitly (the assistant's memory root sets it, the settings dialog never offers it, D57). |
 | `cloud` | `allowed` \| `local-only` | user | `local-only` keeps this page and everything below it out of cloud providers (Claude, OpenAI-compatible servers off this machine); such pages are left out of answers produced by a cloud model and the answer says so. Cannot be lifted by a nested page. |
 | `instructions` | string | user | How this page and its subtree should be structured. Accumulates root to leaf: every ancestor's instructions apply, then this page's. |
 | `skills` | list | user | Allowlist of skill names for this subtree. Omit = inherit. |
@@ -189,20 +190,27 @@ Rule: **native markdown wherever Obsidian renders it. Fences only for config-onl
 | Local audio / image / PDF | ```` ```graite:media ```` fence: `file` (stored name in the page's `_assets/`), `name`, `kind` |
 | Image by URL | `![caption](https://…)` |
 | Page view (table / board / list of child pages) | ```` ```graite:view ```` fence, see "Page properties and views" |
-| Database view (M6, not yet implemented) | ```` ```graite:dbview ```` fence |
-| Dashboard | ```` ```graite:dashboard ```` fence |
+| Table (CSV in `_data/`) | ```` ```graite:table ```` fence, or `![[name.csv]]` alone on its line for the whole table; see §7 |
+| Chart (over CSV tables) | ```` ```graite:chart ```` fence; see §8 |
+| Dashboard | ```` ```graite:dashboard ```` fence (`src: _dashboards/x.html`); see §8 |
 | Transcript (inline) | ```` ```graite:transcript ```` fence |
 | Anything else (HTML, math, footnotes) | `rawMarkdown` block: verbatim, edited as text |
 
 Fence bodies are YAML:
 
 ````markdown
-```graite:dbview
-table: tasks
-view: table          # table | board | gallery   (v1: table only)
-filter: "status != 'done'"
-sort: [-priority, due]
-columns: [title, status, due, owner]
+```graite:table
+source: _data/expenses.csv   # this page's _data/, a vault path, or a bare table name
+view: table                  # table (board, calendar later)
+filter: category = "Travel" and amount > 100
+sort: date desc              # or a list: [-date, amount]
+columns: [date, description, amount, category]
+height: 480                  # optional, pixels
+tabs:                        # optional: the view each other tab of the block keeps (D71)
+  _data/people.csv:          # keyed like source:
+    filter: age > 30
+    sort: [-age]
+    columns: [name, age]
 ```
 
 ```graite:dashboard
@@ -234,37 +242,161 @@ everywhere else. Never break on unknown kinds.
   A file counts as used when its stored name appears in the `page.md` of its page or of a
   subpage.
 
-## 7. Per-page data: `_data/`
+## 7. Per-page data: `_data/` (D68)
 
-`_data/data.sqlite` holds this page's tables. Chosen over CSV and markdown tables because
-dashboards and agents need real queries, typed columns, indexes and transactions, and
-SQLite is an archival-grade format.
+A page's tables are CSV files in its `_data/` folder. The CSV is the truth; Graite queries a
+derived SQLite copy in `.graite/tables.sqlite`, rebuilt from the files whenever they change.
 
-- Every table gets system columns `_id INTEGER PRIMARY KEY`, `_created TEXT`, `_updated TEXT`.
-- `_data/schema.json` holds display metadata the database cannot express: column order,
-  widths, display type (`text | number | date | select | checkbox | url | relation`),
-  select options, number formats.
-- All writes go through fileops (`db_exec`) under a per-file lock. Agents change data only via
-  `propose_db(path, sql, summary)`.
-- `.graite/config.toml` options:
-  - `data.mirror_csv = true` → every change also rewrites `_data/<table>.csv` (git/Obsidian
-    users can read it; the CSV is derived, never read back).
-  - `data.sync_safe = true` → journal mode `DELETE` instead of WAL, for vaults on
-    iCloud/Dropbox where WAL sidecar files get partially synced.
-
-## 8. Dashboards: `_dashboards/`
-
-Plain HTML files rendered in `<iframe sandbox="allow-scripts">` served over `vault://`. No
-network, no parent DOM. The host injects a small bridge over `postMessage`:
-
-```js
-const rows = await graite.query("SELECT status, count(*) n FROM tasks GROUP BY status");
-const page = await graite.page();     // frontmatter of the owning page
-const theme = await graite.theme();   // { mode: "light" | "dark", colors: {...} }
+```
+Projects/Atlas/_data/
+  expenses.csv             # RFC 4180, UTF-8, header row, a stable `id` column
+  expenses.schema.json     # optional
+  project_tags.csv         # a junction table (many-to-many with fields of its own)
 ```
 
-`graite.query` runs read-only (`?mode=ro`) against the owning page's `data.sqlite` only.
-Agents create or modify dashboards through ordinary `propose_create` / `propose_edit`.
+- **Ids.** Every row has an `id` (uuidv7) that never changes, so edits, proposals and diffs
+  address rows by id, not by position. A CSV without an `id` column (or with blank or repeated
+  ids) is shown with temporary ids and a warning; Graite writes real ids on the first edit or
+  when asked, never just because the table was opened. Tables created or imported in Graite
+  get the column immediately; a new table starts with one empty row. The id column is always
+  text, even when ids look like numbers.
+- **Writing.** Only fileops writes table files (`write_table_rows`, `alter_table_columns`,
+  `create_table`, `update_table_schema`), under the per-file lock, with a snapshot in
+  `.graite/versions/tables/`. The file keeps its delimiter, line endings and BOM, and rows
+  nobody edited keep their exact bytes. Editing a row somebody else changed meanwhile is a
+  conflict for that row only. Agents never write rows: they file `rows` proposals on the
+  table's page, which apply or wait for review by that page's AI settings (D69).
+- **`<name>.schema.json`** (optional, hand-editable):
+
+  ```json
+  { "id": "0199…", "primary_key": "id", "display": "name", "display_secondary": "city",
+    "order": ["id", "date", "amount"],
+    "columns": {
+      "amount":   { "type": "currency", "currency": "EUR", "width": 120 },
+      "category": { "type": "single_select", "options": ["Travel", "Food"],
+                    "colors": { "Travel": "blue", "Food": "orange" } },
+      "state":    { "type": "status", "options": ["Todo", "Doing", "Done"] },
+      "owner":    { "type": "relation", "table": "People/_data/people.csv",
+                    "table_id": "0199…", "cardinality": "one" },
+      "tasks":    { "type": "relation", "table": "tasks", "table_id": "0199…",
+                    "reverse": "project" } } }
+  ```
+
+  Types are the page-property kinds plus two number formats: `text | number | currency |
+  percent | single_select | multi_select | status | date | checkbox | url | email |
+  relation` (older spellings `integer`, `boolean`, `select`, `multiselect`, `datetime` are
+  still read). Without a schema file (or for columns it does not list) types are inferred from
+  the data. A broken schema file is a warning, never a hidden table.
+  - `currency` and `percent` cells are plain numbers (`12.5`, `25`); the column's `currency`
+    (ISO code, default EUR) and the `%` are added on screen. `€12.50` and `25%` are still
+    read when a file already holds them.
+  - Select, multi-select and status options are the schema's `options` plus any other value
+    found in the data; `colors` uses the page palette (gray, brown, orange, yellow, green,
+    blue, purple, pink, red), defaulting like page properties (Done green, Blocked red, …).
+    Renaming or deleting an option in Graite rewrites every row that holds it.
+  - Changing a column's type edits only the schema file, never the CSV. Values that do not
+    read as the new type stay as written; Graite counts them before the change and shows them
+    in red until they are fixed.
+  - `"wrap": true` on a text column shows long values on several lines.
+  - `multi_select` cells hold values separated by `;`. In filters, `=`, `!=` and `in`
+    match one whole value of the list; `contains` matches text.
+- **Relations** (D71). A relation column holds links to rows of another table (or the same
+  one): `[[<row id>|<label>]]`, several separated by a space, e.g.
+  `[[0199a…|Acme BV]] [[0199b…|Beta]]`. The id is what the link means; the label is the
+  target row's display value, there so the CSV reads well elsewhere. Graite shows the live
+  value, rewrites the labels when the value is edited in Graite, and rewrites stale ones on
+  request ("Refresh link labels"). `[[id]]` and bare ids separated by `;` are read too.
+  - `table:` names the target (a name in the same `_data/`, or a vault path) and `table_id:`
+    its schema `id`, which wins, so links survive moving or renaming pages and tables.
+    `cardinality:` is `one` or `many` (default).
+  - A **reverse column** (`"reverse": "<forward column>"`) lives in the target's schema only,
+    never in its CSV: it lists the rows linking to each row, and editing it writes the forward
+    cells in the other table. Each relationship is stored once.
+  - Many-to-many needs no special table; when the relationship has fields of its own (role,
+    hours), use a junction table with two `one` relations. (`via:` is read but unused.)
+  - `display` names a row in pills, the picker and review cards (default: the first text,
+    select or status column); `display_secondary` tells rows with the same name apart.
+  - Deleting a row in Graite removes links to it. A link to a row that is gone (deleted
+    outside Graite) is kept and flagged as broken; repeated ids are flagged and only get new
+    ids when the user asks, never on a write.
+- **Renaming** a table renames `<name>.csv` and `<name>.schema.json`; relation `table:` hints,
+  fence `source:` values and `tabs:` keys, and `![[<name>.csv]]` embeds that meant it follow.
+- **Views** are `graite:table` fences or `![[name.csv]]` embeds (§5). Filter, sort and
+  visible columns live in the fence, so two pages can show the same table differently.
+  Filters use a small language (`=`, `!=`, `<`, `>`, `contains`, `in [...]`, `is empty`,
+  `and`/`or`/`not`, parentheses; `` `quoted names` ``) compiled to parameterized SQL.
+
+## 8. Charts and dashboards (D72)
+
+Both read the **tables a page may read**: its own `_data/` tables, its subpages', and every
+table those link to through relations. Nothing else in the vault is visible to them.
+
+**Charts** are ```` ```graite:chart ```` fences, drawn with ECharts from a compact spec the
+daemon compiles to read-only SQL:
+
+```graite:chart
+title: Spend per owner city      # optional; made from the fields when absent
+source: _data/expenses.csv       # like graite:table (or sql:, see below)
+type: bar                        # bar | line | area | pie | donut | scatter | number
+x: owner.city                    # column | relation (its rows' names) | relation.column | month(date)
+y: amount                        # a number column (added up per label), count, avg(col), ... or a list
+series: status                   # optional: split by a second field
+filter: date >= "2026-01-01"     # the graite:table filter language
+sort: y desc                     # x|y asc|desc
+limit: 12
+stacked: true
+height: 320
+palette: sunset                  # mono/grayscale (default) | vivid | ocean | sunset | forest | candy
+```
+
+- `y` is a number column (its values, added up per label: the value itself when each label
+  is one row), `count`, or `count|sum|avg|min|max(col)`; a list draws one series each.
+- Date buckets: `day()`, `week()`, `month()`, `quarter()`, `year()`.
+- Relation paths follow one relation, in either direction (a reverse column works too).
+- `sql:` replaces `source`/`x`/`y`/`series`/`filter`: one SELECT whose first column is the label
+  and every other column a series.
+- A fence with neither `source` nor `sql` is a chart still being set up.
+- In the editor a new chart opens on "What do you want to see?": the user describes it, and the
+  page's model returns a spec (`/api/v1/charts/ai`, checked against the data, never `sql`),
+  or picks one of the suggested charts shown with live previews. An AI change to a chart is
+  the user's own edit and can be undone (D73).
+
+**Dashboards** are HTML files in the page's `_dashboards/` folder, for example
+`Projects/Atlas/_dashboards/overview.html`, shown by a ```` ```graite:dashboard ```` fence
+(`src: _dashboards/overview.html`, optional `height`; without one the frame fits its content).
+They stay plain HTML and JS on disk. Adding an HTML block opens a dialog: the user can upload a
+self-contained `.html` file, or ask the page's side chat to create a report/dashboard. AI creation
+and revision use the ordinary `read_dashboard` / `propose_dashboard` review flow (D74).
+
+- **The frame:** a sandboxed iframe (`allow-scripts` only, so an opaque origin, no access to
+  the app or its storage) loaded from the daemon at `/api/v1/dashboards/frame` with a
+  short-lived ticket. Its CSP allows no network at all.
+- **What gets inlined:** the daemon inlines ECharts (`echarts`) and the bridge
+  (`apps/daemon/graite/dashboards/static/bridge.js`) before the file's own scripts.
+- **The bridge:** the dashboard asks the app over `postMessage`:
+
+```js
+const rows = await graite.query("SELECT status, count(*) AS n FROM tasks GROUP BY status");
+graite.chart("#by-status", { source: "tasks", type: "donut", x: "status" }); // or an ECharts option
+graite.onChange(() => redraw());   // a table the page reads changed
+graite.format(1234.5, "EUR");      // "€1,234.50"
+const page = await graite.page();  // { path, title }
+const theme = graite.theme();      // { mode, colors }; also CSS --graite-fg, --graite-muted, ...
+```
+
+**Read-only SQL** (dashboards, `sql:` charts and the agent's `run_query_ro`):
+- Tables are named by their name on the page (`expenses`) and by their quoted path elsewhere
+  (`"Projects/Atlas/expenses"`).
+- `pages` and `page_props` hold the pages in scope.
+- `links(table, column, row_id, target_table, target_id)` holds every relation link, so joins
+  through relations are plain SQL.
+
+**Agents:**
+- `propose_chart` adds a checked chart fence.
+- `propose_dashboard` files a `dashboard` proposal. It writes the file (conflict-checked
+  against the HTML the agent saw) and can add the block to the page; the user reviews it with
+  a live preview.
+- `read_dashboard` reads an existing one.
 
 ## 9. Skills
 
@@ -303,9 +435,6 @@ speech = "whisper-large-v3-turbo"
 [agents]
 autonomy = "propose"           # vault-wide default
 
-[data]
-mirror_csv = false
-sync_safe = false
 ```
 
 ## Page properties and views

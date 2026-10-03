@@ -35,14 +35,17 @@ function FieldMenu({
   fields,
   selected,
   onPick,
+  titleField = true,
 }: {
   fields: PageProperty[];
   selected?: string;
   onPick: (name: string) => void;
+  /** Offer the page title ("Name"); tables have no such field. */
+  titleField?: boolean;
 }) {
   return (
     <>
-      {["$title", ...fields.map((f) => f.name)].map((name) => (
+      {[...(titleField ? ["$title"] : []), ...fields.map((f) => f.name)].map((name) => (
         <button key={name} className="view-menu-item" onClick={() => onPick(name)}>
           <PropertyIcon type={fields.find((f) => f.name === name)?.type ?? "text"} />
           <span>{fieldName(name)}</span>
@@ -56,9 +59,11 @@ function FieldMenu({
 export function AddViewFilter({
   fields,
   onAdd,
+  titleField,
 }: {
   fields: PageProperty[];
   onAdd: (field: string) => void;
+  titleField?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -71,6 +76,7 @@ export function AddViewFilter({
         <small>Filter by property</small>
         <FieldMenu
           fields={fields}
+          titleField={titleField}
           onPick={(field) => {
             setOpen(false);
             onAdd(field);
@@ -87,9 +93,11 @@ function FilterEditor({
   onChange,
   onRemove,
   onDone,
+  titleField,
 }: {
   filter: ViewFilter;
   fields: PageProperty[];
+  titleField?: boolean;
   onChange: (next: ViewFilter) => void;
   onRemove: () => void;
   onDone: () => void;
@@ -115,6 +123,7 @@ function FilterEditor({
           <PopoverContent className="view-menu" align="start">
             <FieldMenu
               fields={fields}
+              titleField={titleField}
               selected={filter.field}
               onPick={(name) => {
                 onChange({ ...filter, field: name, value: "" });
@@ -209,8 +218,13 @@ export function ViewFilterPills({
   onOpen,
   onChange,
   onAdd,
+  titleField,
+  children,
 }: {
   fields: PageProperty[];
+  titleField?: boolean;
+  /** Extra pills after the filters (a table's custom-filter pill). */
+  children?: React.ReactNode;
   filters: ViewFilter[];
   openIndex: number | null;
   onOpen: (index: number | null) => void;
@@ -240,6 +254,7 @@ export function ViewFilterPills({
               <FilterEditor
                 filter={filter}
                 fields={fields}
+                titleField={titleField}
                 onChange={(next) => onChange(filters.map((f, i) => (i === index ? next : f)))}
                 onRemove={() => {
                   onOpen(null);
@@ -251,7 +266,8 @@ export function ViewFilterPills({
           </Popover>
         );
       })}
-      <AddViewFilter fields={fields} onAdd={onAdd} />
+      {children}
+      <AddViewFilter fields={fields} onAdd={onAdd} titleField={titleField} />
     </div>
   );
 }

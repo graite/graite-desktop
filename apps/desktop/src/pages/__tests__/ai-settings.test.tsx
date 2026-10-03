@@ -72,7 +72,7 @@ it("saves this-page access and explicit auto-apply permission", async () => {
         autonomy: "auto-apply",
         cloud: "local-only",
         model: null,
-        auto_apply_kinds: ["append", "create", "edit", "properties"],
+        auto_apply_kinds: ["append", "create", "edit", "properties", "rows"],
       },
       "h1",
     ),

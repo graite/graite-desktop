@@ -16,12 +16,32 @@ import shutil
 import sqlite3
 import time
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable, Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from graite.dashboards import paths as dash_paths
+from graite.dashboards.paths import DashboardPath
 from graite.events import EventBus
+from graite.tables import cache as table_cache
+from graite.tables import csvio
+from graite.tables import links as tbl_links
+from graite.tables import paths as table_paths
+from graite.tables import schema as tbl_schema
+from graite.tables.cache import TablesCache
+from graite.tables.edit import (
+    ColumnOp,
+    RowOp,
+    TableConflict,
+    apply_columns,
+    apply_rows,
+    effective_ids,
+    ensure_ids,
+    pk_index,
+    reassign_duplicates,
+)
+from graite.tables.paths import TablePath
 from graite.vault import frontmatter as fm
 from graite.vault import indexer
 from graite.vault.instructions import safe_file
@@ -187,9 +207,24 @@ def _record_write(path: Path) -> None:
             RECENT_WRITES.pop(key, None)
 
 
-def _atomic_write(path: Path, text: str) -> None:
+# `graite:table` fences, their `source:` values and `![[name.csv]]` embeds (table renames).
+_TABLE_FENCE = re.compile(r"^```graite:table[^\n]*\n.*?^```", re.MULTILINE | re.DOTALL)
+_FENCE_VALUE = re.compile(r"^([ \t]*)((?:\"[^\"]*\"|'[^']*'|[^:\s][^:]*?))(:[ \t]*)(.*)$")
+_TABLE_EMBEDS = re.compile(r"^[ \t]*!\[\[([^\]|#]+\.csv)\]\][ \t]*$", re.M | re.I)
+_TABLE_EMBED_LINE = re.compile(r"^([ \t]*)!\[\[([^\]|#]+\.csv)\]\]([ \t]*)$", re.M | re.I)
+
+
+def _set_cell(record: csvio.Record, index: int, text: str) -> None:
+    if index >= len(record.values):
+        record.values.extend([""] * (index + 1 - len(record.values)))
+    if record.values[index] != text:
+        record.values[index] = text
+        record.raw = None
+
+
+def _atomic_write(path: Path, text: str, *, newline: str | None = None) -> None:
     tmp = path.with_name(f".{path.name}.tmp-{os.getpid()}")
-    tmp.write_text(text, encoding="utf-8")
+    tmp.write_text(text, encoding="utf-8", newline=newline)
     os.replace(tmp, path)
     _record_write(path)
 
@@ -204,6 +239,8 @@ class FileOps:
         self.on_indexed: Callable[[indexer.ScanResult], None] | None = None
         # Bumped on every change the daemon knows about; caches keyed on it stay honest.
         self.epoch = 0
+        # Set by the app: the derived table cache (`.graite/tables.sqlite`).
+        self.tables: TablesCache | None = None
 
     def bump(self) -> None:
         self.epoch += 1
@@ -253,6 +290,8 @@ class FileOps:
         result = indexer.scan(self.vault, self.db, paths=paths)
         if self.on_indexed is not None:
             self.on_indexed(result)
+        if result.structure_changed:
+            self.sync_tables()
         return result
 
     def _unique_dir(self, parent: Path, slug: str, *, ignore: Path | None = None) -> Path:
@@ -574,6 +613,1118 @@ class FileOps:
         self._publish("attachments_changed", {"page_id": page_id, "path": rel, "reason": "trash"})
         self._publish("trash_changed", {"reason": "trash"})
         return dest.name
+
+    # ----------------------------------------------------------------- tables (D68)
+
+    def _table(self, rel: str) -> TablePath:
+        return table_paths.checked(self.vault, table_paths.parse(rel))
+
+    def _table_changed(self, rel: str, actor: str, **extra: Any) -> None:
+        info = None
+        if self.tables is not None:
+            self.tables.refresh(rel)
+            with contextlib.suppress(FileNotFoundError, VaultPathError):
+                info = self.tables.info(rel)
+        self._publish(
+            "table_changed",
+            {"path": rel, "hash": info.file_hash if info else None, "actor": actor, **extra},
+        )
+
+    def _read_table_sync(self, table: TablePath) -> tuple[csvio.Table, str, bytes]:
+        target = table.file(self.vault)
+        if not target.is_file():
+            raise FileNotFoundError(table.rel)
+        data = target.read_bytes()
+        return csvio.parse(csvio.decode(data)), table_cache.sha256(data), data
+
+    def _schema_sync(self, table: TablePath) -> tuple[tbl_schema.Schema, str]:
+        target = table.schema_file(self.vault)
+        text = target.read_text(encoding="utf-8") if target.is_file() else ""
+        return tbl_schema.load(text)[0], text
+
+    def _columns_sync(self, table: TablePath, parsed: csvio.Table) -> list[tbl_schema.Column]:
+        schema, _ = self._schema_sync(table)
+        names = tbl_schema.column_names(parsed.header)
+        return tbl_schema.columns_for(names, [r.values for r in parsed.rows], schema)
+
+    def _kinds_sync(self, table: TablePath, parsed: csvio.Table) -> dict[str, str]:
+        return {c.name: c.type for c in self._columns_sync(table, parsed)}
+
+    def _write_table_sync(
+        self,
+        table: TablePath,
+        parsed: csvio.Table,
+        old: bytes | None,
+        actor: str,
+        action: str,
+        detail: dict[str, Any],
+    ) -> str:
+        """Snapshot the old file, write the new one atomically, refresh the cache, announce."""
+        text = csvio.serialize(parsed)
+        if old is not None:
+            if text.encode("utf-8") == old:
+                return table_cache.sha256(old)
+            snap = (
+                self.vault
+                / GRAITE_DIR
+                / "versions"
+                / "tables"
+                / hashlib.sha256(table.rel.encode("utf-8")).hexdigest()[:16]
+                / f"{int(time.time() * 1000)}.csv"
+            )
+            snap.parent.mkdir(parents=True, exist_ok=True)
+            snap.write_bytes(old)
+        target = table.file(self.vault)
+        target.parent.mkdir(exist_ok=True)
+        # newline="": the table keeps its own line endings on every platform.
+        _atomic_write(target, text, newline="")
+        new_hash = _sha256(text)
+        self._activity(actor, action, table.rel, {"hash": new_hash, **detail})
+        self._table_changed(table.rel, actor)
+        return new_hash
+
+    @contextlib.asynccontextmanager
+    async def _table_locks(self, rels: Iterable[str]) -> AsyncIterator[None]:
+        """Hold the locks of several tables, always taken in path order (no deadlocks)."""
+        async with contextlib.AsyncExitStack() as stack:
+            for rel in sorted(set(rels)):
+                await stack.enter_async_context(self._locks[rel])
+            yield
+
+    def _related_sync(self, rel: str) -> list[str]:
+        """Tables a write to `rel` may also write: those that link to it (their labels,
+        links to deleted rows, reverse edits) and those it links to (their reverse columns)."""
+        if self.tables is None:
+            return []
+        out = [src for src, _ in self.tables.inbound(rel)]
+        with contextlib.suppress(FileNotFoundError, VaultPathError):
+            out += [c.target for c in self.tables.info(rel).columns if c.target]
+        return out
+
+    async def _related(self, rel: str) -> list[str]:
+        return await asyncio.to_thread(self._related_sync, rel)
+
+    def _relation_values_sync(
+        self,
+        table: TablePath,
+        parsed: csvio.Table,
+        columns: list[tbl_schema.Column],
+        ops: list[RowOp],
+    ) -> tuple[list[RowOp], list[tuple[int, tbl_schema.Column, str, list[str]]]]:
+        """Relation values as links with the target rows' labels, and reverse-column values
+        split off: `(op index, column, source table, source row ids)`. Unknown row ids are an
+        error, except links a cell already holds (a broken link stays until removed)."""
+        by_name = {c.name: c for c in columns}
+        if not any(
+            by_name.get(n) is not None and by_name[n].type == "relation"
+            for op in ops
+            for n in op.values
+        ):
+            return ops, []
+        if self.tables is None:
+            raise ValueError("Relations are not available here.")
+        schema, _ = self._schema_sync(table)
+        ids, _ = effective_ids(parsed, schema.primary_key)
+        records = dict(zip(ids, parsed.rows, strict=True))
+        names = tbl_schema.column_names(parsed.header)
+        out: list[RowOp] = []
+        reverse: list[tuple[int, tbl_schema.Column, str, list[str]]] = []
+        for index, op in enumerate(ops):
+            values: dict[str, Any] = {}
+            for name, value in op.values.items():
+                column = by_name.get(name)
+                if column is None or column.type != "relation":
+                    values[name] = value
+                    continue
+                wanted = tbl_links.ids_of(value)
+                if column.cardinality == "one" and not column.reverse and len(wanted) > 1:
+                    raise ValueError(f"{name!r} links to one row only.")
+                target = self.tables.resolve_target(table.page, column.table, column.table_id)
+                if target is None:
+                    raise ValueError(f"The table that {name!r} links to cannot be found.")
+                labels = self.tables.labels(target, wanted)
+                held: dict[str, str] = {}
+                record = records.get(op.id or "")
+                if record is not None and not column.reverse and name in names:
+                    i = names.index(name)
+                    cell = record.values[i] if i < len(record.values) else ""
+                    held = {link.id: link.label for link in tbl_links.parse_links(cell)}
+                unknown = [w for w in wanted if w not in labels and w not in held]
+                if unknown:
+                    raise ValueError(f"{target} has no row with id {unknown[0]!r}.")
+                if column.reverse:
+                    if op.op != "delete":
+                        reverse.append((index, column, target, wanted))
+                    continue
+                values[name] = [
+                    {"id": w, "label": labels[w][0] if w in labels else held[w]} for w in wanted
+                ]
+            base = op.base
+            if base is not None:
+                base = {k: v for k, v in base.items() if not (k in by_name and by_name[k].reverse)}
+            out.append(
+                RowOp(op=op.op, id=op.id, values=values, base=base, after=op.after, first=op.first)
+            )
+        return out, reverse
+
+    def _relink_sync(
+        self,
+        source: str,
+        column: str,
+        target_row: str,
+        label: str,
+        wanted: list[str],
+        actor: str,
+    ) -> None:
+        """Make exactly the rows `wanted` of `source` link to `target_row` in `column` (a
+        reverse-column edit stores the change on the forward side)."""
+        assert self.tables is not None
+        current = {src for src, _ in self.tables.links_to(source, column, [target_row])}
+        add, remove = set(wanted) - current, current - set(wanted)
+        if not add and not remove:
+            return
+        table = self._table(source)
+        parsed, _, old = self._read_table_sync(table)
+        info = self.tables.info(source)
+        one = next((c.cardinality == "one" for c in info.columns if c.name == column), False)
+        schema, _ = self._schema_sync(table)
+        ids, _ = effective_ids(parsed, schema.primary_key)
+        i = tbl_schema.column_names(parsed.header).index(column)
+        for rid, record in zip(ids, parsed.rows, strict=True):
+            if rid not in add and rid not in remove:
+                continue
+            cell = record.values[i] if i < len(record.values) else ""
+            links = [link for link in tbl_links.parse_links(cell) if link.id != target_row]
+            if rid in add:
+                links = [*([] if one else links), tbl_links.Link(target_row, label)]
+            _set_cell(record, i, tbl_links.format_links(links))
+        self._write_table_sync(
+            table, parsed, old, actor, "table.links", {"column": column, "row": target_row}
+        )
+
+    def _fix_inbound_sync(
+        self, rel: str, ids: list[str] | None, deleted: list[str], actor: str
+    ) -> None:
+        """In every table that links to `rel`: write the current label of the rows `ids`
+        (every row when None), and drop links to the rows `deleted`."""
+        if self.tables is None or (ids is not None and not ids and not deleted):
+            return
+        gone = set(deleted)
+        for source, column in self.tables.inbound(rel):
+            pairs = self.tables.links_to(source, column, None if ids is None else [*ids, *deleted])
+            if not pairs:
+                continue
+            labels = self.tables.labels(rel, [d for _, d in pairs])
+            touched = {s for s, _ in pairs}
+            table = self._table(source)
+            parsed, _, old = self._read_table_sync(table)
+            schema, _ = self._schema_sync(table)
+            row_ids, _ = effective_ids(parsed, schema.primary_key)
+            i = tbl_schema.column_names(parsed.header).index(column)
+            for rid, record in zip(row_ids, parsed.rows, strict=True):
+                if rid not in touched:
+                    continue
+                cell = record.values[i] if i < len(record.values) else ""
+                links = [
+                    tbl_links.Link(link.id, labels[link.id][0] if link.id in labels else link.label)
+                    for link in tbl_links.parse_links(cell)
+                    if link.id not in gone
+                ]
+                _set_cell(record, i, tbl_links.format_links(links))
+            self._write_table_sync(
+                table, parsed, old, actor, "table.labels", {"column": column, "target": rel}
+            )
+
+    async def write_table_rows(
+        self, rel: str, ops: list[RowOp], base_hash: str | None, actor: str
+    ) -> dict[str, Any]:
+        """Insert, update and delete rows by id. A stale `base_hash` is fine as long as the
+        rows an op touches still hold the values the client saw (`RowOp.base`).
+
+        Relations (D71): link values get their target rows' labels; a reverse column's
+        change is written to the forward column of the other table; a changed display value
+        is rewritten in the labels of tables that link here; deleted rows lose their links."""
+        table = self._table(rel)
+        related = await self._related(table.rel)
+        async with self._table_locks([table.rel, *related]):
+
+            def write() -> dict[str, Any]:
+                parsed, current, old = self._read_table_sync(table)
+                columns = self._columns_sync(table, parsed)
+                kinds: dict[str, str] = {c.name: c.type for c in columns if not c.reverse}
+                schema, _ = self._schema_sync(table)
+                checked_ops, reverse = self._relation_values_sync(table, parsed, columns, ops)
+                if base_hash == current:
+                    checked_ops = [
+                        RowOp(op=o.op, id=o.id, values=o.values, base=None, after=o.after)
+                        for o in checked_ops
+                    ]
+                ids = apply_rows(
+                    parsed, checked_ops, kinds, file_hash=current, primary_key=schema.primary_key
+                )
+                new_hash = self._write_table_sync(
+                    table, parsed, old, actor, "table.rows", {"ops": len(ops)}
+                )
+                if self.tables is None:
+                    return {"path": table.rel, "hash": new_hash, "ids": ids}
+                label = tbl_schema.display_column(columns, schema)
+                for index, column, source, wanted in reverse:
+                    names = self.tables.labels(table.rel, [ids[index]])
+                    self._relink_sync(
+                        source,
+                        column.reverse or "",
+                        ids[index],
+                        names.get(ids[index], ("", None))[0],
+                        wanted,
+                        actor,
+                    )
+                relabel = [
+                    ids[i]
+                    for i, o in enumerate(ops)
+                    if o.op == "update" and label is not None and label in o.values
+                ]
+                deleted = [ids[i] for i, o in enumerate(ops) if o.op == "delete"]
+                self._fix_inbound_sync(table.rel, relabel, deleted, actor)
+                if self.tables is not None and (reverse or relabel or deleted):
+                    new_hash = self.tables.info(table.rel).file_hash
+                return {"path": table.rel, "hash": new_hash, "ids": ids}
+
+            return await asyncio.to_thread(write)
+
+    async def prepare_table_rows(
+        self, rel: str, ops: list[RowOp]
+    ) -> tuple[list[dict[str, Any]], str, dict[str, dict[str, Any]]]:
+        """Check ops against the table as it is now, without writing (a proposal's dry run).
+
+        Returns the ops as JSON with `base` filled in (the touched cells of an update, every
+        cell of a deleted row) and a `label` naming each row for the reviewer, the file hash
+        they were checked against, and the touched columns' types, options and colors.
+        Raises ValueError for unknown columns, id edits and missing rows."""
+        table = self._table(rel)
+
+        def check() -> tuple[list[dict[str, Any]], str, dict[str, dict[str, Any]]]:
+            parsed, current, _ = self._read_table_sync(table)
+            columns = self._columns_sync(table, parsed)
+            kinds: dict[str, str] = {c.name: c.type for c in columns if not c.reverse}
+            schema, _ = self._schema_sync(table)
+            names = tbl_schema.column_names(parsed.header)
+            rows = self._rows_by_id_sync(parsed, names, kinds, schema.primary_key)
+            # The column that names a row for a reviewer: the display column, else the next
+            # text column (never the id).
+            pk = schema.primary_key.lower()
+            candidates = [
+                c.name
+                for c in columns
+                if c.name.lower() != pk
+                and not c.reverse
+                and c.type in ("text", "single_select", "status")
+            ]
+            label_column = tbl_schema.display_column(columns, schema)
+            if label_column:
+                candidates.insert(0, label_column)
+            # Relation values: checked against the target (unknown ids are an error).
+            relations, _ = self._relation_values_sync(table, parsed, columns, ops)
+            reverse_names = {c.name for c in columns if c.reverse}
+
+            def label(values: dict[str, Any], fallback: str) -> str:
+                for name in candidates:
+                    value = values.get(name)
+                    if value not in (None, "", []):
+                        return str(value)[:80]
+                return fallback
+
+            out: list[dict[str, Any]] = []
+            for number, op in enumerate(ops, start=1):
+                entry: dict[str, Any] = {"op": op.op, "values": dict(op.values)}
+                if op.id:
+                    entry["id"] = op.id
+                if op.after:
+                    entry["after"] = op.after
+                if op.op in ("update", "delete"):
+                    found = rows.get(op.id or "")
+                    if found is None:
+                        raise ValueError(f"The table has no row with id {op.id!r}.")
+                    cells = found["values"]
+                    entry["base"] = (
+                        {k: cells.get(k) for k in op.values} if op.op == "update" else dict(cells)
+                    )
+                    entry["label"] = label(cells, f"Row {op.id}")
+                else:
+                    entry["label"] = label(op.values, f"New row {number}")
+                out.append(entry)
+            trial = csvio.parse(csvio.serialize(parsed))
+            try:
+                apply_rows(
+                    trial,
+                    [
+                        RowOp(
+                            op=o["op"],
+                            id=o.get("id"),
+                            after=o.get("after"),
+                            values={
+                                k: v
+                                for k, v in relations[n].values.items()
+                                if k not in reverse_names
+                            },
+                        )
+                        for n, o in enumerate(out)
+                    ],
+                    kinds,
+                    file_hash=current,
+                    primary_key=schema.primary_key,
+                )
+            except TableConflict as exc:
+                missing = ", ".join(c.id for c in exc.conflicts)
+                raise ValueError(f"These rows do not exist: {missing}.") from exc
+            touched = {name for o in out for name in [*o["values"], *(o.get("base") or {})]}
+            meta = {
+                c.name: {
+                    k: v
+                    for k, v in c.to_json().items()
+                    if k in ("type", "options", "colors", "currency")
+                }
+                for c in columns
+                if c.name in touched
+            }
+            return out, current, meta
+
+        return await asyncio.to_thread(check)
+
+    def _rows_by_id_sync(
+        self, parsed: csvio.Table, names: list[str], kinds: dict[str, str], primary_key: str
+    ) -> dict[str, dict[str, Any]]:
+        """Each row's values (as the API shows them) and the id of the row before it."""
+        from graite.tables.edit import effective_ids, pk_index
+
+        ids, _ = effective_ids(parsed, primary_key)
+        pk = pk_index(parsed.header, primary_key)
+        out: dict[str, dict[str, Any]] = {}
+        previous: str | None = None
+        for rid, record in zip(ids, parsed.rows, strict=True):
+            values = {
+                name: tbl_schema.to_json(
+                    kinds.get(name, "text"),
+                    tbl_schema.to_sql(
+                        kinds.get(name, "text"),
+                        record.values[i] if i < len(record.values) else "",
+                    ),
+                )
+                for i, name in enumerate(names)
+                if i != pk
+            }
+            out[rid] = {"values": values, "after": previous}
+            previous = rid
+        return out
+
+    async def read_table_rows(self, rel: str, ids: list[str]) -> dict[str, dict[str, Any]]:
+        """`{id: {"values": {...}, "after": previous id}}` for the rows that exist."""
+        table = self._table(rel)
+
+        def read() -> dict[str, dict[str, Any]]:
+            parsed, _, _ = self._read_table_sync(table)
+            kinds = self._kinds_sync(table, parsed)
+            schema, _ = self._schema_sync(table)
+            names = tbl_schema.column_names(parsed.header)
+            rows = self._rows_by_id_sync(parsed, names, kinds, schema.primary_key)
+            return {i: rows[i] for i in ids if i in rows}
+
+        return await asyncio.to_thread(read)
+
+    async def create_table(
+        self, page_rel: str, name: str, columns: list[str], actor: str, *, data: bytes | None = None
+    ) -> str:
+        """Create `<page>/_data/<name>.csv` (from `columns`, or an imported file) with an id
+        column; a taken name gets a number. Returns the table path."""
+        page_rel = validate_rel(page_rel)
+        base = table_paths.check_name(name)
+        async with self._locks[page_rel]:
+
+            def write() -> str:
+                n, table_name = 2, base
+                while True:
+                    table = table_paths.checked(self.vault, TablePath(page_rel, table_name))
+                    if not table.file(self.vault).exists():
+                        break
+                    table_name, n = f"{base} {n}", n + 1
+                if data is None:
+                    names = [c.strip() for c in columns if c.strip()] or ["name"]
+                    # One empty row, so the new table can be typed into straight away.
+                    parsed = csvio.Table(
+                        header=["id", *names],
+                        records=[csvio.Record(values=[fm.uuid7(), *[""] * len(names)])],
+                    )
+                    if len({c.lower() for c in parsed.header}) != len(parsed.header):
+                        raise ValueError("Column names must be unique.")
+                else:
+                    parsed = csvio.parse(csvio.decode(data))
+                    if not parsed.header:
+                        raise ValueError("This file has no header row.")
+                    parsed.dialect.bom = False
+                    ensure_ids(parsed)
+                self._write_table_sync(
+                    table, parsed, None, actor, "table.create", {"imported": data is not None}
+                )
+                self._publish("tables_changed", {"page_path": page_rel, "path": table.rel})
+                return table.rel
+
+            return await asyncio.to_thread(write)
+
+    async def ensure_table_ids(self, rel: str, actor: str) -> str:
+        """Give every row a real id, adding the id column if the file has none."""
+        table = self._table(rel)
+        async with self._locks[table.rel]:
+
+            def write() -> str:
+                parsed, _, old = self._read_table_sync(table)
+                schema, _ = self._schema_sync(table)
+                ensure_ids(parsed, schema.primary_key)
+                return self._write_table_sync(table, parsed, old, actor, "table.ids", {})
+
+            return await asyncio.to_thread(write)
+
+    async def alter_table_columns(
+        self, rel: str, ops: list[ColumnOp], base_hash: str | None, actor: str
+    ) -> str:
+        """Add, rename, delete or move columns; the schema file follows renames and deletes.
+        A reverse relation column lives in the schema only, so its ops change nothing else;
+        renaming or deleting a forward relation updates the reverse column of its target."""
+        table = self._table(rel)
+        related = await self._related(table.rel)
+        async with self._table_locks([table.rel, *related]):
+
+            def write() -> str:
+                parsed, current, old = self._read_table_sync(table)
+                if base_hash is not None and base_hash != current:
+                    raise TableConflict(current, [])
+                schema, schema_text = self._schema_sync(table)
+                columns = {c.name: c for c in self._columns_sync(table, parsed)}
+                virtual = {n for n, c in columns.items() if c.reverse}
+                csv_ops = [op for op in ops if op.name not in virtual or op.op == "add"]
+                ensure_ids(parsed, schema.primary_key)
+                apply_columns(parsed, csv_ops, schema.primary_key)
+                if schema_text.strip():
+                    raw = json.loads(schema_text)
+                    specs = raw.get("columns") if isinstance(raw, dict) else None
+                    order = raw.get("order") if isinstance(raw, dict) else None
+                    if isinstance(specs, dict) or isinstance(order, list):
+                        for op in ops:
+                            if op.op == "rename" and op.to and op.name in virtual:
+                                to = op.to.strip()
+                                if to.lower() in (n.lower() for n in columns if n != op.name):
+                                    raise ValueError(f"Choose a new column name (not {to!r}).")
+                            if isinstance(specs, dict) and op.name in specs:
+                                if op.op == "rename" and op.to:
+                                    specs[op.to.strip()] = specs.pop(op.name)
+                                elif op.op == "delete":
+                                    specs.pop(op.name)
+                            if isinstance(order, list) and op.name in order:
+                                if op.op == "rename" and op.to:
+                                    order[order.index(op.name)] = op.to.strip()
+                                elif op.op == "delete":
+                                    order.remove(op.name)
+                        self._write_schema_sync(table, raw, actor)
+                # The other side of a forward relation follows its rename or delete.
+                for op in ops:
+                    column = columns.get(op.name)
+                    if (
+                        op.op not in ("rename", "delete")
+                        or column is None
+                        or column.type != "relation"
+                        or column.reverse
+                        or self.tables is None
+                    ):
+                        continue
+                    found = self.tables.resolve_target(table.page, column.table, column.table_id)
+                    if found is None:
+                        continue
+                    target = self._table(found)
+                    raw_target = self._raw_schema_sync(target)
+                    changed = False
+                    for name, spec in list((raw_target.get("columns") or {}).items()):
+                        if (
+                            isinstance(spec, dict)
+                            and spec.get("reverse") == op.name
+                            and (
+                                table_cache.hint_path(target.page, spec.get("table")) == table.rel
+                                or (schema.id is not None and spec.get("table_id") == schema.id)
+                            )
+                        ):
+                            if op.op == "delete":
+                                raw_target["columns"].pop(name)
+                            else:
+                                spec["reverse"] = (op.to or "").strip()
+                            changed = True
+                    if changed:
+                        self._write_schema_sync(target, raw_target, actor)
+                        if target != table:
+                            self._table_changed(target.rel, actor)
+                new_hash = self._write_table_sync(
+                    table, parsed, old, actor, "table.columns", {"ops": len(ops)}
+                )
+                self._table_changed(table.rel, actor)
+                return new_hash
+
+            return await asyncio.to_thread(write)
+
+    def _write_schema_sync(self, table: TablePath, schema: dict[str, Any], actor: str) -> None:
+        target = table.schema_file(self.vault)
+        text = json.dumps(schema, ensure_ascii=False, indent=2) + "\n"
+        if target.is_file() and target.read_text(encoding="utf-8") == text:
+            return
+        target.parent.mkdir(exist_ok=True)
+        _atomic_write(target, text)
+        self._activity(actor, "table.schema", table.rel, {})
+
+    async def update_table_schema(self, rel: str, patch: dict[str, Any], actor: str) -> None:
+        """Merge `patch` into `<name>.schema.json`: `columns.<name>` entries merge key by key,
+        other keys replace; a null value removes the key. Hand-written entries survive."""
+        table = self._table(rel)
+        async with self._locks[table.rel]:
+
+            def write() -> None:
+                if not table.file(self.vault).is_file():
+                    raise FileNotFoundError(table.rel)
+                _, text = self._schema_sync(table)
+                raw: dict[str, Any] = {}
+                if text.strip():
+                    try:
+                        loaded = json.loads(text)
+                    except json.JSONDecodeError as exc:
+                        raise ValueError("Fix the schema file's JSON before changing it.") from exc
+                    raw = loaded if isinstance(loaded, dict) else {}
+                for key, value in patch.items():
+                    if key == "columns" and isinstance(value, dict):
+                        columns = raw.get("columns")
+                        columns = dict(columns) if isinstance(columns, dict) else {}
+                        for name, spec in value.items():
+                            if spec is None:
+                                columns.pop(name, None)
+                                continue
+                            merged = dict(columns.get(name) or {})
+                            for k, v in (spec or {}).items():
+                                if v is None:
+                                    merged.pop(k, None)
+                                else:
+                                    merged[k] = v
+                            if merged:
+                                columns[name] = merged
+                            else:
+                                columns.pop(name, None)
+                        raw["columns"] = columns
+                    elif value is None:
+                        raw.pop(key, None)
+                    else:
+                        raw[key] = value
+                problems = tbl_schema.load(json.dumps(raw))[1]
+                if problems:
+                    raise ValueError(problems[0])
+                self._write_schema_sync(table, raw, actor)
+                self._table_changed(table.rel, actor)
+
+            await asyncio.to_thread(write)
+
+    async def replace_table_values(
+        self, rel: str, column: str, old: str, new: str | None, actor: str
+    ) -> str:
+        """Rename (`new`) or remove (`None`) one select option in every row and in the
+        schema file. In a multi-select cell only that element changes."""
+        table = self._table(rel)
+        old = old.strip()
+        new = new.strip() if new is not None else None
+        if not old or new == "":
+            raise ValueError("Option names cannot be empty.")
+        async with self._locks[table.rel]:
+
+            def write() -> str:
+                parsed, _, data = self._read_table_sync(table)
+                schema, schema_text = self._schema_sync(table)
+                names = tbl_schema.column_names(parsed.header)
+                if column not in names:
+                    raise ValueError(f"The table has no column {column!r}.")
+                multi = self._kinds_sync(table, parsed).get(column) == "multi_select"
+                ensure_ids(parsed, schema.primary_key)
+                index = tbl_schema.column_names(parsed.header).index(column)
+                for record in parsed.rows:
+                    cell = record.values[index] if index < len(record.values) else ""
+                    if multi:
+                        parts = [p.strip() for p in cell.split(tbl_schema.MULTI_SEPARATOR)]
+                        if old not in parts:
+                            continue
+                        kept: list[str] = []
+                        for part in parts:
+                            value = (new if part == old else part) or ""
+                            if value and value not in kept:
+                                kept.append(value)
+                        text = f"{tbl_schema.MULTI_SEPARATOR} ".join(kept)
+                    elif cell.strip() == old:
+                        text = new or ""
+                    else:
+                        continue
+                    record.values[index] = text
+                    record.raw = None
+                if schema_text.strip():
+                    raw = json.loads(schema_text)
+                    spec = (raw.get("columns") or {}).get(column) if isinstance(raw, dict) else None
+                    if isinstance(spec, dict):
+                        options = spec.get("options")
+                        if isinstance(options, list) and old in options:
+                            at = options.index(old)
+                            if new is None or new in options:
+                                options.pop(at)
+                            else:
+                                options[at] = new
+                        colors = spec.get("colors")
+                        if isinstance(colors, dict) and old in colors:
+                            color = colors.pop(old)
+                            if new is not None:
+                                colors.setdefault(new, color)
+                        self._write_schema_sync(table, raw, actor)
+                detail = {"column": column, "old": old, "new": new}
+                return self._write_table_sync(table, parsed, data, actor, "table.options", detail)
+
+            return await asyncio.to_thread(write)
+
+    async def check_table_type(
+        self, rel: str, column: str, kind: str, target: str | None = None
+    ) -> dict[str, Any]:
+        """Counts of the column's cells that would not read as `kind` (a read, no write).
+        For a relation to `target`, a cell fits when every id in it is a row there."""
+        table = self._table(rel)
+        normalized = tbl_schema.normalize_type(kind)
+        if normalized is None:
+            raise ValueError(f"Unknown field type {kind!r}.")
+
+        def read() -> dict[str, Any]:
+            parsed, _, _ = self._read_table_sync(table)
+            names = tbl_schema.column_names(parsed.header)
+            if column not in names:
+                raise ValueError(f"The table has no column {column!r}.")
+            i = names.index(column)
+            cells = [r.values[i] if i < len(r.values) else "" for r in parsed.rows]
+            if normalized == "relation" and target and self.tables is not None:
+                known = self.tables.labels(
+                    self._table(target).rel,
+                    [link.id for c in cells for link in tbl_links.parse_links(c)],
+                )
+                filled = [c for c in cells if c.strip()]
+                bad = [
+                    c
+                    for c in filled
+                    if not tbl_links.is_links(c)
+                    or any(link.id not in known for link in tbl_links.parse_links(c))
+                ]
+                return {
+                    "total": len(filled),
+                    "invalid": len(bad),
+                    "examples": list(dict.fromkeys(bad))[:3],
+                }
+            return tbl_schema.check(normalized, cells)
+
+        return await asyncio.to_thread(read)
+
+    # ----------------------------------------------------------------- relations (D71)
+
+    def _raw_schema_sync(self, table: TablePath) -> dict[str, Any]:
+        """The schema file as JSON (empty when there is none); a broken file is an error."""
+        _, text = self._schema_sync(table)
+        if not text.strip():
+            return {}
+        try:
+            loaded = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Fix the JSON of {table.schema_rel} first.") from exc
+        return loaded if isinstance(loaded, dict) else {}
+
+    @staticmethod
+    def _hint(owner: TablePath, target: TablePath) -> str:
+        """How `owner`'s schema names `target`: its name in the same `_data/`, else the path."""
+        return target.name if target.page == owner.page else target.rel
+
+    async def add_relation(
+        self,
+        rel: str,
+        column: str,
+        target_rel: str,
+        cardinality: str,
+        reverse: str | None,
+        actor: str,
+    ) -> str:
+        """Make `column` of `rel` a relation to `target_rel` (adding the column if needed),
+        with an optional reverse column on the target. Both tables get a schema id. Cells that
+        already hold ids of target rows are rewritten as labeled links."""
+        table, target = self._table(rel), self._table(target_rel)
+        column = column.strip()
+        reverse = reverse.strip() if reverse else None
+        if not column:
+            raise ValueError("Name the relation field.")
+        if cardinality not in ("one", "many"):
+            raise ValueError("cardinality must be one or many.")
+        async with self._table_locks([table.rel, target.rel]):
+
+            def write() -> str:
+                if not target.file(self.vault).is_file():
+                    raise FileNotFoundError(target.rel)
+                parsed, _, old = self._read_table_sync(table)
+                schema, _ = self._schema_sync(table)
+                own = self._raw_schema_sync(table)
+                other = own if target == table else self._raw_schema_sync(target)
+                own.setdefault("id", fm.uuid7())
+                other.setdefault("id", fm.uuid7())
+                ensure_ids(parsed, schema.primary_key)
+                names = tbl_schema.column_names(parsed.header)
+                if column not in names:
+                    apply_columns(parsed, [ColumnOp(op="add", name=column)], schema.primary_key)
+                elif names.index(column) == pk_index(parsed.header, schema.primary_key):
+                    raise ValueError("The id column cannot be a relation.")
+                columns = own.setdefault("columns", {})
+                spec = {
+                    k: v for k, v in (columns.get(column) or {}).items() if k in ("width", "wrap")
+                }
+                spec.update(
+                    type="relation",
+                    table=self._hint(table, target),
+                    table_id=other["id"],
+                    cardinality=cardinality,
+                )
+                columns[column] = spec
+                if reverse:
+                    target_parsed = parsed if target == table else self._read_table_sync(target)[0]
+                    taken = {n.lower() for n in tbl_schema.column_names(target_parsed.header)}
+                    if target == table:
+                        taken.add(column.lower())
+                    others = other.setdefault("columns", {})
+                    existing = others.get(reverse)
+                    if reverse.lower() in taken or (
+                        isinstance(existing, dict) and existing.get("reverse") not in (None, column)
+                    ):
+                        raise ValueError(f"{target.name} already has a field named {reverse!r}.")
+                    others[reverse] = {
+                        "type": "relation",
+                        "table": self._hint(target, table),
+                        "table_id": own["id"],
+                        "reverse": column,
+                    }
+                for owner, raw in ((table, own), (target, other)):
+                    if tbl_schema.load(json.dumps(raw))[1]:
+                        raise ValueError(tbl_schema.load(json.dumps(raw))[1][0])
+                    self._write_schema_sync(owner, raw, actor)
+                    if owner == target and target == table:
+                        break
+                if self.tables is not None:
+                    self.tables.refresh(target.rel)
+                    self.tables.refresh(table.rel)
+                    # Ids already in the column become labeled links.
+                    i = tbl_schema.column_names(parsed.header).index(column)
+                    cells = {
+                        n: tbl_links.parse_links(r.values[i] if i < len(r.values) else "")
+                        for n, r in enumerate(parsed.rows)
+                    }
+                    labels = self.tables.labels(
+                        target.rel, [link.id for found in cells.values() for link in found]
+                    )
+                    for n, record in enumerate(parsed.rows):
+                        found = cells[n]
+                        if found and all(link.id in labels for link in found):
+                            if cardinality == "one":
+                                found = found[:1]
+                            _set_cell(
+                                record,
+                                i,
+                                tbl_links.format_links(
+                                    [tbl_links.Link(x.id, labels[x.id][0]) for x in found]
+                                ),
+                            )
+                new_hash = self._write_table_sync(
+                    table,
+                    parsed,
+                    old,
+                    actor,
+                    "table.relation",
+                    {"column": column, "target": target.rel},
+                )
+                self._table_changed(table.rel, actor)
+                if target != table:
+                    self._table_changed(target.rel, actor)
+                return new_hash
+
+            return await asyncio.to_thread(write)
+
+    async def refresh_link_labels(self, rel: str, actor: str) -> None:
+        """Write the current display value into every link to `rel` in other tables (labels
+        edited outside Graite go stale; this is the explicit fix)."""
+        table = self._table(rel)
+        related = await self._related(table.rel)
+        async with self._table_locks([table.rel, *related]):
+            await asyncio.to_thread(self._fix_inbound_sync, table.rel, None, [], actor)
+
+    async def reassign_duplicate_ids(self, rel: str, actor: str) -> dict[str, Any]:
+        """Give rows that repeat an earlier id a new one; the first row keeps the id and with
+        it every link to it. Only on the user's request (D71)."""
+        table = self._table(rel)
+        async with self._locks[table.rel]:
+
+            def write() -> dict[str, Any]:
+                parsed, _, old = self._read_table_sync(table)
+                schema, _ = self._schema_sync(table)
+                changed = reassign_duplicates(parsed, schema.primary_key)
+                new_hash = self._write_table_sync(
+                    table, parsed, old, actor, "table.ids", {"duplicates": len(changed)}
+                )
+                return {"hash": new_hash, "reassigned": changed}
+
+            return await asyncio.to_thread(write)
+
+    async def rename_table(self, rel: str, new_name: str, actor: str) -> str:
+        """Rename `<name>.csv` (and its schema file) in place. Relations that name it, and
+        `graite:table` fences and `![[name.csv]]` embeds that show it, follow."""
+        table = self._table(rel)
+        renamed = table_paths.checked(
+            self.vault, TablePath(table.page, table_paths.check_name(new_name))
+        )
+        if renamed == table:
+            return table.rel
+        if renamed.file(self.vault).exists() or (
+            renamed.name.lower() != table.name.lower() and renamed.schema_file(self.vault).exists()
+        ):
+            raise ValueError(f"{table.page} already has a table named {renamed.name!r}.")
+        related = await self._related(table.rel)
+        async with self._table_locks([table.rel, renamed.rel, *related]):
+
+            def write() -> str:
+                if not table.file(self.vault).is_file():
+                    raise FileNotFoundError(table.rel)
+                pages = self._table_pages_sync(table)
+                # Schemas that name this table by path: find them while the cache knows it.
+                refs: list[TablePath] = []
+                if self.tables is not None:
+                    for info in self.tables.tables():
+                        if any(
+                            c.type == "relation" and c.target == table.rel for c in info.columns
+                        ):
+                            refs.append(table_paths.parse(info.path))
+                os.replace(table.file(self.vault), renamed.file(self.vault))
+                if table.schema_file(self.vault).is_file():
+                    os.replace(table.schema_file(self.vault), renamed.schema_file(self.vault))
+                self._activity(actor, "table.rename", renamed.rel, {"from": table.rel})
+                for owner in refs:
+                    owner = renamed if owner == table else owner
+                    raw = self._raw_schema_sync(owner)
+                    changed = False
+                    for spec in (raw.get("columns") or {}).values():
+                        if (
+                            isinstance(spec, dict)
+                            and spec.get("type") == "relation"
+                            and table_cache.hint_path(owner.page, spec.get("table")) == table.rel
+                        ):
+                            spec["table"] = self._hint(owner, renamed)
+                            changed = True
+                    if changed:
+                        self._write_schema_sync(owner, raw, actor)
+                        if owner != renamed:
+                            self._table_changed(owner.rel, actor)
+                for page, sources in pages.items():
+                    self._rewrite_table_refs_sync(page, sources, table, renamed, actor)
+                if self.tables is not None:
+                    self.tables.refresh(table.rel)
+                self._table_changed(renamed.rel, actor)
+                self._publish("table_renamed", {"from": table.rel, "to": renamed.rel})
+                self._publish("tables_changed", {"page_path": table.page, "path": renamed.rel})
+                return renamed.rel
+
+            return await asyncio.to_thread(write)
+
+    def _table_pages_sync(self, table: TablePath) -> dict[str, set[str]]:
+        """Pages whose text shows `table`, with the sources that mean it there: a fence's
+        `source:`, a key of its `tabs:`, or an `![[name.csv]]` embed."""
+        out: dict[str, set[str]] = {}
+        if self.tables is None:
+            return out
+        for (page,) in self.db.execute("SELECT path FROM pages").fetchall():
+            try:
+                text = page_file(self.vault, page).read_text(encoding="utf-8")
+            except OSError:
+                continue
+            if table.name.lower() not in text.lower():
+                continue
+            candidates: set[str] = set(_TABLE_EMBEDS.findall(text))
+            for block in _TABLE_FENCE.findall(text):
+                for line in block.split("\n")[1:]:
+                    m = _FENCE_VALUE.match(line)
+                    if not m:
+                        continue
+                    indent, key, _, value = m.groups()
+                    if key == "source" and not indent:
+                        candidates.add(value.strip().strip("\"'"))
+                    elif indent and not value.strip():
+                        candidates.add(key.strip("\"'"))
+            found: set[str] = set()
+            for value in candidates:
+                if table.name.lower() not in value.lower():
+                    continue
+                with contextlib.suppress(VaultPathError, FileNotFoundError):
+                    if self.tables.resolve(page, value) == table.rel:
+                        found.add(value)
+            if found:
+                out[page] = found
+        return out
+
+    def _rewrite_table_refs_sync(
+        self, page: str, sources: set[str], old: TablePath, new: TablePath, actor: str
+    ) -> None:
+        f = page_file(self.vault, page)
+        if not f.is_file():
+            return
+        old_text = f.read_text(encoding="utf-8")
+
+        def renamed(value: str) -> str:
+            for tail in (old.name + table_paths.SUFFIX, old.name):
+                if value.endswith(tail):
+                    return (
+                        value[: -len(tail)]
+                        + new.name
+                        + (table_paths.SUFFIX if tail.endswith(table_paths.SUFFIX) else "")
+                    )
+            return value
+
+        def fence(match: re.Match[str]) -> str:
+            lines = match.group(0).split("\n")
+            for n, line in enumerate(lines):
+                m = _FENCE_VALUE.match(line)
+                if not m:
+                    continue
+                indent, key, sep, value = m.groups()
+                # `source:` and the keys of `tabs:` name tables.
+                bare_key = key.strip("\"'")
+                if key == "source" and not indent:
+                    raw = value.strip()
+                    quote = raw[:1] if raw[:1] in "\"'" else ""
+                    inner = raw.strip("\"'")
+                    if inner in sources:
+                        lines[n] = f"{key}{sep}{quote}{renamed(inner)}{quote}"
+                elif indent and bare_key in sources and not value.strip():
+                    q = key[:1] if key[:1] in "\"'" else ""
+                    lines[n] = f"{indent}{q}{renamed(bare_key)}{q}{sep}{value}"
+            return "\n".join(lines)
+
+        text = _TABLE_FENCE.sub(fence, old_text)
+        text = _TABLE_EMBED_LINE.sub(
+            lambda m: (
+                f"{m.group(1)}![[{renamed(m.group(2))}]]{m.group(3)}"
+                if m.group(2) in sources
+                else m.group(0)
+            ),
+            text,
+        )
+        if text == old_text:
+            return
+        meta, body = fm.split(text)
+        meta["updated"] = fm.now_iso()
+        doc = self._write_page_sync(page, meta, body, old_text=old_text, actor=actor)
+        self._rescan([page])
+        self._activity(actor, "page.write", page, {"hash": doc.hash, "table_rename": True})
+        self._publish("file_changed", {"path": page, "hash": doc.hash, "actor": actor})
+
+    # ----------------------------------------------------------------- dashboards (D72)
+
+    def _dashboard(self, page: str, src: str) -> DashboardPath:
+        return dash_paths.checked(self.vault, dash_paths.parse(page, src))
+
+    async def read_dashboard(self, page: str, src: str) -> str | None:
+        """The dashboard's HTML, or None when the file does not exist yet."""
+        dashboard = self._dashboard(page, src)
+
+        def read() -> str | None:
+            target = dashboard.file(self.vault)
+            return target.read_text(encoding="utf-8") if target.is_file() else None
+
+        return await asyncio.to_thread(read)
+
+    async def write_dashboard(
+        self, page: str, src: str, html: str, actor: str, *, base: str | None | bool = False
+    ) -> str:
+        """Write `<page>/_dashboards/<name>.html`. With `base` (the HTML the writer saw, None
+        for "must not exist yet"), a file that changed meanwhile is a conflict. The old file
+        keeps a snapshot in `.graite/versions/dashboards/`."""
+        dashboard = self._dashboard(page, src)
+        if len(html.encode("utf-8")) > dash_paths.MAX_BYTES:
+            raise ValueError("A dashboard can be at most 1 MB of HTML.")
+        async with self._locks[dashboard.rel]:
+
+            def write() -> str:
+                target = dashboard.file(self.vault)
+                old = target.read_text(encoding="utf-8") if target.is_file() else None
+                if base is not False and base != old:
+                    raise ValueError(
+                        f"{dashboard.src} changed since it was read; read it again first."
+                        if old is not None
+                        else f"{dashboard.src} no longer exists."
+                        if base is not None
+                        else f"{dashboard.src} already exists; change it instead."
+                    )
+                if old == html:
+                    return dashboard.rel
+                if old is not None:
+                    self._snapshot_dashboard_sync(dashboard, old)
+                target.parent.mkdir(exist_ok=True)
+                _atomic_write(target, html)
+                self._activity(actor, "dashboard.write", dashboard.rel, {"created": old is None})
+                self._publish(
+                    "dashboard_changed", {"path": dashboard.rel, "page_path": page, "actor": actor}
+                )
+                return dashboard.rel
+
+            return await asyncio.to_thread(write)
+
+    async def remove_dashboard(self, page: str, src: str, actor: str) -> None:
+        """Remove a dashboard file (a reverted proposal that created it); a snapshot stays."""
+        dashboard = self._dashboard(page, src)
+        async with self._locks[dashboard.rel]:
+
+            def remove() -> None:
+                target = dashboard.file(self.vault)
+                if not target.is_file():
+                    return
+                self._snapshot_dashboard_sync(dashboard, target.read_text(encoding="utf-8"))
+                target.unlink()
+                self._activity(actor, "dashboard.remove", dashboard.rel, {})
+                self._publish(
+                    "dashboard_changed", {"path": dashboard.rel, "page_path": page, "actor": actor}
+                )
+
+            await asyncio.to_thread(remove)
+
+    def _snapshot_dashboard_sync(self, dashboard: DashboardPath, text: str) -> None:
+        snap = (
+            self.vault
+            / GRAITE_DIR
+            / "versions"
+            / "dashboards"
+            / hashlib.sha256(dashboard.rel.encode("utf-8")).hexdigest()[:16]
+            / f"{int(time.time() * 1000)}.html"
+        )
+        snap.parent.mkdir(parents=True, exist_ok=True)
+        snap.write_text(text, encoding="utf-8")
+
+    async def refresh_tables(self, rels: list[str], actor: str = "external") -> list[str]:
+        """Re-import tables changed outside Graite (watcher) and tell clients."""
+
+        def run() -> list[str]:
+            if self.tables is None:
+                return []
+            changed = [rel for rel in rels if self.tables.refresh(rel)]
+            for rel in changed:
+                self._table_changed(rel, actor)
+            return changed
+
+        return await asyncio.to_thread(run)
+
+    def sync_tables(self) -> None:
+        """Pages appeared, moved or vanished: their `_data/` tables did too."""
+        if self.tables is None:
+            return
+        pages = [row[0] for row in self.db.execute("SELECT path FROM pages")]
+        for rel in self.tables.sync(pages):
+            self._table_changed(rel, "system")
 
     def chat_dir(self, conversation_id: str) -> Path:
         if not re.fullmatch(r"[a-f0-9]{32}", conversation_id):

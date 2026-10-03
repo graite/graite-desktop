@@ -12,6 +12,9 @@ from starlette.responses import Response
 from graite.cloud.session import CALLBACK_PATH
 from graite.vault.request_context import REQUEST_HEADER, current_request_id
 
+# The dashboard frame (api/dashboards.py), guarded by its ticket instead of the token.
+FRAME_PATH = "/api/v1/dashboards/frame"
+
 
 def _token_matches(presented: str | None, expected: str) -> bool:
     return presented is not None and hmac.compare_digest(presented, expected)
@@ -28,6 +31,10 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
         if request.method == "GET" and request.url.path == CALLBACK_PATH:
             # The system browser returning from Graite Cloud sign-in cannot carry the token;
             # the one-time `state` of that sign-in guards this route (api/cloud.py).
+            return await call_next(request)
+        if request.method == "GET" and request.url.path == FRAME_PATH:
+            # A dashboard iframe cannot send headers either; its short-lived ticket, issued to
+            # a caller with the token, guards this route (api/dashboards.py).
             return await call_next(request)
         header = request.headers.get("authorization", "")
         presented = header.removeprefix("Bearer ").strip() if header.startswith("Bearer ") else None

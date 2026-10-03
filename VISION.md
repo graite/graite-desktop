@@ -63,8 +63,9 @@ A desktop app (Tauri shell, React UI, Python daemon) that opens a folder as a va
   open; designed to become a headless service later.
 - **Semantic search.** Local embeddings plus full-text search over every page, transcript and
   OCR'd document, from `Cmd+K` and from agent tools.
-- **Little databases and dashboards.** A page can own a SQLite database viewed as editable
-  tables, queried by agents, and charted by an HTML dashboard rendered in a sandbox.
+- **Little databases and dashboards.** A page can own tables — plain CSV files in its `_data/`
+  folder — viewed as editable, typed grids, queried by agents through a read-only SQL cache,
+  and charted by an HTML dashboard rendered in a sandbox.
 
 ## What it is not (v1)
 

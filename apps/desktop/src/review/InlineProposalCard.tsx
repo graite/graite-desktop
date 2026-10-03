@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import { Check, Pencil, ShieldCheck, FileCheck2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KIND_LABELS, type Proposal, type ReviewActions } from "@/lib/review";
 import { ReviewContent } from "./ReviewContent";
 import { TextDiff } from "./DiffView";
-import { policySource } from "./ProposalCard";
+import { RowsDiff } from "./RowsDiff";
+import { DashboardPreview, policySource } from "./ProposalCard";
 import { useProposalDecision } from "./useProposalDecision";
 import "./review.css";
 
@@ -36,7 +38,11 @@ export function InlineProposalCard({
     error,
     run,
   } = useProposalDecision(proposal);
-  const editable = proposal.kind !== "delete" && proposal.kind !== "move";
+  const editable =
+    proposal.kind !== "delete" &&
+    proposal.kind !== "move" &&
+    proposal.kind !== "rows" &&
+    proposal.kind !== "dashboard";
   const oldText = proposal.kind === "edit" ? (proposal.old_text ?? "") : "";
   const note = pageLevelNote(proposal);
   // Icons carry an explicit size class: BlockNote resets every other svg inside the editor.
@@ -67,6 +73,14 @@ export function InlineProposalCard({
           rows={Math.min(14, Math.max(3, draft.split("\n").length + 1))}
           onChange={(e) => setDraft(e.target.value)}
         />
+      )}
+      {proposal.kind === "rows" && proposal.rows && (
+        <RowsDiff rows={proposal.rows} limit={4} showTable />
+      )}
+      {proposal.kind === "dashboard" && (
+        <Suspense fallback={null}>
+          <DashboardPreview proposal={proposal} />
+        </Suspense>
       )}
       {editable && (
         <ReviewContent editing={editing} pagePreview>

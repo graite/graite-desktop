@@ -193,6 +193,58 @@ export interface PageViewBlock extends BlockBase {
   props: { view: string; group: string; show: string; settings?: string };
 }
 
+/**
+ * A view over a CSV table in a page's `_data/` (D68). Written as a ```` ```graite:table ````
+ * YAML fence, or as an Obsidian embed `![[name.csv]]` while no view state is set (`embed`).
+ * `sort` and `columns` hold the YAML value as written: `sort` is text or a JSON list, `columns`
+ * is "" when absent or a JSON list. Empty strings and `height: 0` mean the key is absent.
+ */
+export interface TableViewBlock extends BlockBase {
+  type: "tableView";
+  props: {
+    source: string;
+    view: string;
+    filter: string;
+    sort: string;
+    columns: string;
+    height: number;
+    embed: boolean;
+    /** JSON of `{ [source]: { filter?, sort?, columns? } }`: the other tabs' views. */
+    tabs: string;
+  };
+}
+
+/**
+ * A chart over a page's CSV tables (D72), written as a ```` ```graite:chart ```` YAML fence.
+ * Text keys hold their value ("" = absent); `y` is text or a JSON list; `limit` and `height`
+ * are 0 when absent; `stacked` is "" when absent, else "true" or "false".
+ */
+export interface ChartBlock extends BlockBase {
+  type: "chart";
+  props: {
+    title: string;
+    source: string;
+    sql: string;
+    type: string;
+    x: string;
+    y: string;
+    series: string;
+    filter: string;
+    sort: string;
+    limit: number;
+    stacked: string;
+    height: number;
+    /** mono/grayscale (default when ""), vivid, ocean, sunset, forest or candy. */
+    palette: string;
+  };
+}
+
+/** An HTML dashboard from the page's `_dashboards/` (D72): a ```` ```graite:dashboard ```` fence. */
+export interface DashboardBlock extends BlockBase {
+  type: "dashboard";
+  props: { src: string; height: number };
+}
+
 export type Block =
   | ColumnLayoutBlock
   | PageColumnBlock
@@ -212,7 +264,10 @@ export type Block =
   | PageLinkBlock
   | RawMarkdownBlock
   | MediaBlock
-  | DerivedTextBlock;
+  | DerivedTextBlock
+  | TableViewBlock
+  | ChartBlock
+  | DashboardBlock;
 
 export type BlockType = Block["type"];
 
@@ -252,12 +307,21 @@ export interface Callout extends Parent {
   children: BlockContent[];
 }
 
+/** An Obsidian embed, `![[target]]`, lifted out of text by our parse pass. */
+export interface Embed extends Literal {
+  type: "embed";
+  /** Everything between `![[` and `]]`, alias included. */
+  value: string;
+}
+
 declare module "mdast" {
   interface PhrasingContentMap {
     wikiLink: WikiLink;
+    embed: Embed;
   }
   interface RootContentMap {
     wikiLink: WikiLink;
+    embed: Embed;
     callout: Callout;
   }
   interface BlockContentMap {

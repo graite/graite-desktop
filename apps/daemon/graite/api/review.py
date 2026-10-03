@@ -18,6 +18,42 @@ from graite.vault.properties import PageProperty
 router = APIRouter(prefix="/ai/proposals", tags=["AI"])
 
 
+class RowColumn(BaseModel):
+    type: str = "text"
+    options: list[str] = Field(default_factory=list)
+    colors: dict[str, str] = Field(default_factory=dict)
+    currency: str | None = None
+
+
+class RowChange(BaseModel):
+    op: str
+    id: str | None = None
+    # What the reviewer calls the row: its display or first text column.
+    label: str | None = None
+    values: dict[str, Any] = Field(default_factory=dict)
+    base: dict[str, Any] | None = None
+    after: str | None = None
+
+
+class RowsChange(BaseModel):
+    table: str
+    ops: list[RowChange]
+    # Type, options and colors of the columns the ops touch (older proposals: none).
+    columns: dict[str, RowColumn] | None = None
+    applied: bool = False
+
+
+class DashboardChange(BaseModel):
+    # `_dashboards/x.html` on the page, and its vault path.
+    src: str
+    file: str
+    # Accepting also adds a graite:dashboard block to the page.
+    show: bool = False
+    # The file does not exist yet.
+    created: bool = False
+    html: str | None = None
+
+
 class Proposal(BaseModel):
     id: str
     run_id: str | None = None
@@ -47,6 +83,10 @@ class Proposal(BaseModel):
     properties: list[PageProperty] | None = None
     base_properties: list[PageProperty] | None = None
     parent_proposal_id: str | None = None
+    # A `rows` proposal: the table and its row changes (with the values each op saw).
+    rows: RowsChange | None = None
+    # A `dashboard` proposal: the HTML file it writes (D72).
+    dashboard: DashboardChange | None = None
 
 
 class AcceptBody(BaseModel):
@@ -88,7 +128,7 @@ def _queue(request: Request) -> Proposals:
 
 
 def _model(row: dict[str, Any]) -> Proposal:
-    data = {k: v for k, v in row.items() if k != "reason_delivered"}
+    data = {k: v for k, v in row.items() if k not in ("reason_delivered", "payload_json")}
     # The two property lists are stored as JSON text; clients get them typed like any other.
     for column, field in (
         ("properties_json", "properties"),

@@ -60,9 +60,9 @@ def decide(
         )
     if effective.autonomy == "auto-apply" and kind not in NEVER_AUTO:
         kinds = effective.values.get("auto_apply_kinds") or []
-        # Settings saved before properties could auto-apply list only edit; editing a page
-        # already covers its properties.
-        if kind in kinds or (kind == "properties" and "edit" in kinds):
+        # Settings saved before properties, table rows and dashboards could auto-apply list
+        # only edit; editing a page covers its properties, `_data/` tables and dashboards.
+        if kind in kinds or (kind in ("properties", "rows", "dashboard") and "edit" in kinds):
             source = str(effective.sources.get("autonomy", "vault"))
             if source in (opted or set()):
                 return Decision(

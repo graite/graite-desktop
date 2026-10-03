@@ -1,0 +1,49 @@
+{
+  "_comment": "One corpus, two parsers, like table-cases.json: blocks.test.ts asserts every valid body becomes a chart or dashboard block and every invalid one falls back to rawMarkdown; apps/daemon/tests/test_blocks.py asserts check_fences() agrees (D72). The daemon also refuses a filter it cannot compile. chart.editor_only: bodies the editor keeps as a chart (asking for a number field) but the daemon refuses from a model.",
+  "chart": {
+    "valid": [
+      "source: _data/cars.csv\nx: brand\n",
+      "source: cars\ntype: line\nx: month(bought)\ny: sum(price)\nsort: x asc\n",
+      "source: cars\nx: brand\ny:\n  - sum(price)\n  - count\nstacked: true\nheight: 320\n",
+      "source: owners\nx: car.brand\nseries: city\nfilter: city = \"Utrecht\"\nlimit: 10\ntitle: Cars\n",
+      "source: cars\ntype: number\ny: avg(price)\n",
+      "type: pie\nsql: SELECT brand, count(*) FROM cars GROUP BY brand\n",
+      "source: cars\ntype: scatter\nx: price\ny: year\n",
+      "{}\n",
+      "type: pie\ntitle: Later\n",
+      "source: cars\nx: name\ny: rating\n",
+      "source: cars\ntype: line\nx: month(bought)\ny:\n  - rating\n  - price\n",
+      "source: cars\nx: name\ny: rating\npalette: sunset\n",
+      "type: donut\npalette: ocean\n"
+    ],
+    "invalid": [
+      "x: brand\n",
+      "source: cars\nsql: SELECT 1\nx: brand\n",
+      "source: cars\n",
+      "source: cars\nx: brand\ntype: radar\n",
+      "source: cars\nx: brand\ny: median(price)\n",
+      "source: cars\nx: brand\nsort: brand\n",
+      "source: cars\nx: brand\nlimit: 0\n",
+      "source: cars\nx: brand\nheight: 50\n",
+      "source: cars\nx: brand\ncolour: red\n",
+      "source: cars\nx: brand\nseries: city\ny:\n  - count\n  - sum(price)\n",
+      "sql: SELECT 1\nx: brand\n",
+      "source: cars\nx: brand\nstacked: yes please\n",
+      "source: cars\nx: name\npalette: rainbow\n"
+    ],
+    "editor_only": ["source: cars\nx: brand\ny: sum()\n", "source: cars\nx: brand\ny: avg()\n"]
+  },
+  "dashboard": {
+    "valid": [
+      "src: _dashboards/overview.html\n",
+      "src: _dashboards/Sales 2026.html\nheight: 900\n"
+    ],
+    "invalid": [
+      "src: overview.html\n",
+      "src: _dashboards/../x.html\n",
+      "src: _dashboards/x.js\n",
+      "src: _dashboards/x.html\nwidth: 3\n",
+      "height: 300\n"
+    ]
+  }
+}

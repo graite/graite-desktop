@@ -46,6 +46,7 @@ import { Breadcrumbs } from "@/app/Breadcrumbs";
 import { PagePicker } from "./PagePicker";
 import { findNode, linkTarget, resolveTarget, type FlatPage } from "./tree-utils";
 import type { PickedPage } from "./slash-menu";
+import { sourceFor, tables } from "@/lib/tables";
 
 export interface PageEditorProps {
   settingsRequested?: boolean;
@@ -151,11 +152,13 @@ export function linksToTrash(
   return removed;
 }
 
-/** A page with a table / board / list view gets the full-width layout. */
+/** A page with a table / board / list view or a CSV table gets the full-width layout. */
 function hasPageView(blocks: GraiteBlock[]): boolean {
   return blocks.some(
     (b) =>
-      b.type === "pageView" || (!!b.children?.length && hasPageView(b.children as GraiteBlock[])),
+      b.type === "pageView" ||
+      b.type === "tableView" ||
+      (!!b.children?.length && hasPageView(b.children as GraiteBlock[])),
   );
 }
 
@@ -608,6 +611,8 @@ export function PageEditor({
           setPickerOpen(true);
         }),
       onTreeChanged: () => onTreeChangedRef.current(),
+      importTable: async (file: File) =>
+        sourceFor(pathRef.current, await tables.import(pathRef.current, file)),
     }),
     [],
   );

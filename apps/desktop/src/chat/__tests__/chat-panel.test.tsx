@@ -136,3 +136,23 @@ it("keeps earlier conversations behind a history button, newest first", async ()
   // Opening the other one restores its scope too.
   await waitFor(() => expect(pressed("& subpages")).toBe("true"));
 });
+
+it("opens a handed-off HTML request in Act mode without sending when asked to draft it", async () => {
+  render(
+    <ChatPanel
+      {...props}
+      request={{
+        id: 7,
+        prompt: "Revise the existing HTML dashboard: ",
+        mode: "act",
+        send: false,
+      }}
+    />,
+  );
+  const composer = await screen.findByLabelText("Ask about this page…");
+  await waitFor(() =>
+    expect((composer as HTMLTextAreaElement).value).toBe("Revise the existing HTML dashboard: "),
+  );
+  expect(screen.getByRole("button", { name: "Answer mode" }).textContent).toContain("Act");
+  expect(sendMessage).not.toHaveBeenCalled();
+});

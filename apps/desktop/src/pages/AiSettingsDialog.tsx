@@ -218,7 +218,7 @@ export function AiSettingsDialog({
           cloud,
           model: null,
           auto_apply_kinds:
-            autonomy === "auto-apply" ? ["append", "create", "edit", "properties"] : null,
+            autonomy === "auto-apply" ? ["append", "create", "edit", "properties", "rows"] : null,
         },
         settings.page?.hash ?? null,
       );
@@ -377,8 +377,8 @@ export function AiSettingsDialog({
                     )}
                     {activeAutonomy === "auto-apply" && (
                       <p>
-                        Edits, additions, new pages and property changes apply automatically.
-                        Deleting or moving pages still asks first.
+                        Edits, additions, new pages, property changes and table rows apply
+                        automatically. Deleting or moving pages still asks first.
                       </p>
                     )}
                   </div>

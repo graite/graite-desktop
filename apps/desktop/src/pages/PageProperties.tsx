@@ -29,7 +29,7 @@ import { DateField } from "./DateField";
 import { emptyValue } from "@/editor/views/collection";
 import "./pages.css";
 
-const propertyIcons = {
+export const propertyIcons = {
   text: AlignLeft,
   number: Hash,
   single_select: CircleChevronDown,
