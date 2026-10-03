@@ -13,15 +13,25 @@ daemon has no Node to run the real thing.
 
 from __future__ import annotations
 
+import re
 from typing import Any, get_args
 
 import yaml
 
+from graite.tables.charts import check_chart
+from graite.tables.query import QueryError, compile_filter
 from graite.vault.layouts import FENCES
 from graite.vault.properties import PageProperty, PropertyKind, from_compact
 
 VIEW_KINDS = ("table", "kanban", "list")
 VIEW_KEYS = ("view", "group", "field", "show", "settings")
+TABLE_KEYS = ("source", "view", "filter", "sort", "columns", "height", "tabs")
+# The view each other tab of a table block keeps (D71): tabs: {<source>: {filter, sort, ...}}.
+TAB_KEYS = ("filter", "sort", "columns")
+TABLE_VIEWS = ("table",)
+DASHBOARD_KEYS = ("src", "height")
+# A page's own dashboard file (D72); the frame serves nothing else.
+DASHBOARD_SRC = re.compile(r"_dashboards/[^/\\:*?\"<>|]{1,120}\.html", re.IGNORECASE)
 
 
 def _names(value: Any) -> bool:
@@ -118,6 +128,73 @@ def _check_columns(value: dict[str, Any]) -> str | None:
     return None
 
 
+def _check_table(value: dict[str, Any]) -> str | None:
+    unknown = [k for k in value if k not in TABLE_KEYS]
+    if unknown:
+        return (
+            f"{unknown[0]!r} is not a key of a graite:table fence. "
+            "Use source, view, filter, sort, columns, height or tabs."
+        )
+    tabs = value.get("tabs")
+    if tabs is not None:
+        if not isinstance(tabs, dict):
+            return "tabs: must map each table (as in source:) to its filter, sort and columns."
+        for name, tab in tabs.items():
+            if not isinstance(tab, dict) or any(k not in TAB_KEYS for k in tab):
+                return f"tabs: {name!r} may hold only filter, sort and columns."
+            problem = _check_table({"source": str(name), **tab})
+            if problem:
+                return f"tabs: {name!r}: {problem}"
+    source = value.get("source")
+    if not isinstance(source, str) or not source.strip():
+        return "A graite:table fence needs source: the CSV file, e.g. _data/expenses.csv."
+    if "view" in value and value["view"] not in TABLE_VIEWS:
+        return f"view: must be {', '.join(TABLE_VIEWS)}. Got {value['view']!r}."
+    if "filter" in value and not isinstance(value["filter"], str):
+        return 'filter: must be text, e.g. category = "Travel" and amount > 100.'
+    sort = value.get("sort")
+    if sort is not None and not (isinstance(sort, str) or _names(sort)):
+        return "sort: must be text like `date desc, amount` or a list of column names."
+    columns = value.get("columns")
+    if columns is not None and not (_names(columns) or columns == []):
+        return "columns: must be a list of column names."
+    height = value.get("height")
+    if height is not None and (
+        not isinstance(height, int) or isinstance(height, bool) or not 120 <= height <= 2000
+    ):
+        return "height: must be a whole number of pixels between 120 and 2000."
+    if isinstance(value.get("filter"), str):
+        try:
+            compile_filter(value["filter"], lambda name: ('"x"', "text"))
+        except QueryError as exc:
+            return f"The filter cannot be read: {exc}"
+    return None
+
+
+def _check_dashboard(value: dict[str, Any]) -> str | None:
+    unknown = [k for k in value if k not in DASHBOARD_KEYS]
+    if unknown:
+        return f"{unknown[0]!r} is not a key of a graite:dashboard fence. Use src or height."
+    src = value.get("src")
+    if not isinstance(src, str) or not DASHBOARD_SRC.fullmatch(src.strip()):
+        return "src: must be this page's dashboard file, e.g. _dashboards/overview.html."
+    height = value.get("height")
+    if height is not None and (
+        not isinstance(height, int) or isinstance(height, bool) or not 120 <= height <= 4000
+    ):
+        return "height: must be a whole number of pixels between 120 and 4000."
+    return None
+
+
+CHECKS = {
+    "graite:view": _check_view,
+    "graite:columns": _check_columns,
+    "graite:table": _check_table,
+    "graite:chart": check_chart,
+    "graite:dashboard": _check_dashboard,
+}
+
+
 def check_fences(markdown: str) -> str | None:
     """The first reason this body would not render as written, or None.
 
@@ -128,7 +205,7 @@ def check_fences(markdown: str) -> str | None:
             continue
         header, _, rest = part.partition("\n")
         lang = header[3:].strip()
-        if lang not in ("graite:view", "graite:columns"):
+        if lang not in CHECKS:
             continue
         try:
             value = yaml.safe_load(rest.rsplit("```", 1)[0])
@@ -136,7 +213,7 @@ def check_fences(markdown: str) -> str | None:
             return f"The {lang} fence is not valid YAML: {exc}"
         if not isinstance(value, dict):
             return f"A {lang} fence holds a YAML mapping of keys to values."
-        problem = _check_view(value) if lang == "graite:view" else _check_columns(value)
+        problem = CHECKS[lang](value)
         if problem:
             return problem
     return None

@@ -22,7 +22,7 @@ from graite.vault.paths import GRAITE_DIR, validate_rel
 KEYS = ("instructions", "autonomy", "auto_apply_kinds", "cloud", "skills", "model", "ai_scope")
 AUTONOMY = ("auto-apply", "propose", "none")  # most to least permissive
 CLOUD = ("allowed", "local-only")
-AUTO_APPLY_KINDS = ("append", "create", "edit", "properties", "delete")
+AUTO_APPLY_KINDS = ("append", "create", "edit", "properties", "rows", "delete")
 DEFAULTS: dict[str, Any] = {"autonomy": "propose", "cloud": "allowed"}
 MAX_INSTRUCTIONS = 8000
 POLICY_FILE = "AGENTS.md"
@@ -58,7 +58,8 @@ def validate(values: dict[str, Any]) -> dict[str, Any]:
         elif key == "auto_apply_kinds":
             if not isinstance(value, list) or any(v not in AUTO_APPLY_KINDS for v in value):
                 raise ValueError(
-                    "Auto-apply kinds may only contain append, create, edit, properties and delete."
+                    "Auto-apply kinds may only contain append, create, edit, properties, rows "
+                    "and delete."
                 )
             clean[key] = sorted(set(value), key=AUTO_APPLY_KINDS.index)
         elif key == "skills":

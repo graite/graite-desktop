@@ -79,7 +79,7 @@ def text_hash(title: str, heading_path: list[str], text: str) -> str:
 def _graite_fence(lang: str, body: list[str], start: int, end: int) -> list[_Block]:
     kind = lang.split(":", 1)[1]
     raw = "\n".join(body)
-    if kind in ("view", "dbview", "dashboard"):
+    if kind in ("view", "table", "chart", "dbview", "dashboard"):
         return []
     try:
         value = yaml.safe_load(raw)

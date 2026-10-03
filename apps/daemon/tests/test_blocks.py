@@ -21,6 +21,41 @@ CASES = json.loads(
 )
 
 
+TABLE_CASES = json.loads(
+    (
+        Path(__file__).resolve().parents[3] / "packages/md-convert/fixtures/table-cases.json"
+    ).read_text()
+)
+
+
+CHART_CASES = json.loads(
+    (
+        Path(__file__).resolve().parents[3] / "packages/md-convert/fixtures/chart-cases.json"
+    ).read_text()
+)
+
+
+@pytest.mark.parametrize("body", CHART_CASES["chart"]["editor_only"])
+def test_a_chart_without_its_field_is_refused_from_a_model(body: str) -> None:
+    assert "needs a number column" in str(check_fences(f"```graite:chart\n{body}```\n"))
+
+
+@pytest.mark.parametrize(
+    ("lang", "body", "ok"),
+    [
+        (f"graite:{kind}", body, ok)
+        for kind in ("chart", "dashboard")
+        for ok in (True, False)
+        for body in CHART_CASES[kind]["valid" if ok else "invalid"]
+    ],
+)
+def test_chart_and_dashboard_fences_agree_with_the_converter(
+    lang: str, body: str, ok: bool
+) -> None:
+    problem = check_fences(f"```{lang}\n{body}```\n")
+    assert (problem is None) == ok, problem
+
+
 def fence(body: str) -> str:
     return f"Some text.\n\n```graite:view\n{body}```\n"
 
@@ -49,3 +84,18 @@ def test_a_plain_code_block_is_never_inspected() -> None:
 def test_a_broken_columns_fence_is_refused_too() -> None:
     assert check_fences("```graite:columns\ncolumns:\n  - only one\n```\n")
     assert check_fences("```graite:columns\ncolumns:\n  - a\n  - b\n```\n") is None
+
+
+@pytest.mark.parametrize("body", TABLE_CASES["valid"])
+def test_table_fences_the_converter_accepts_are_not_refused(body: str) -> None:
+    assert check_fences(f"```graite:table\n{body}```\n") is None
+
+
+@pytest.mark.parametrize("body", TABLE_CASES["invalid"])
+def test_table_fences_the_converter_would_drop_are_refused(body: str) -> None:
+    assert check_fences(f"```graite:table\n{body}```\n")
+
+
+def test_a_table_filter_the_daemon_cannot_compile_is_refused() -> None:
+    problem = check_fences("```graite:table\nsource: _data/x.csv\nfilter: amount >\n```\n")
+    assert problem and "filter" in problem

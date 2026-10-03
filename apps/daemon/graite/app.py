@@ -18,15 +18,18 @@ from graite.agents.triggers import PageTriggers
 from graite.api import (
     ai,
     automation,
+    charts,
     clientlog,
     cloud,
     connections,
+    dashboards,
     events,
     feedback,
     health,
     media,
     pages,
     review,
+    tables,
     trash,
 )
 from graite.api import assistant as assistant_api
@@ -53,6 +56,7 @@ from graite.models.downloader import Downloader
 from graite.models.engines import EngineInstaller, set_installer
 from graite.models.manager import Manager
 from graite.review.proposals import Proposals
+from graite.tables.cache import TablesCache
 from graite.vault import indexer
 from graite.vault.fileops import FileOps
 from graite.vault.indexer import ScanResult
@@ -122,7 +126,10 @@ def create_app(settings: Settings) -> FastAPI:
             )
 
         app.state.fileops.on_indexed = on_indexed
+        app.state.tables = TablesCache(settings.vault, settings.graite_dir / "tables.sqlite")
+        app.state.fileops.tables = app.state.tables
         count = await app.state.fileops.rescan()
+        await asyncio.to_thread(app.state.fileops.sync_tables)
         app.state.worker = Worker(app.state.queue, HANDLERS, app.state)
         app.state.foreground = ForegroundGate(app.state.worker, app.state.queue)
         app.state.worker.gate = app.state.foreground.clear
@@ -164,6 +171,7 @@ def create_app(settings: Settings) -> FastAPI:
             await app.state.worker.stop()
             await app.state.downloads.stop()
             await app.state.models.stop()
+            app.state.tables.close()
             conn.close()
             # Here rather than after `server.run()`: uvicorn re-raises SIGTERM once the
             # lifespan has ended, which kills the process before the CLI could clean up.
@@ -204,6 +212,9 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(clientlog.router, prefix=API_PREFIX)
     app.include_router(feedback.router, prefix=API_PREFIX)
     app.include_router(pages.router, prefix=API_PREFIX)
+    app.include_router(tables.router, prefix=API_PREFIX)
+    app.include_router(charts.router, prefix=API_PREFIX)
+    app.include_router(dashboards.router, prefix=API_PREFIX)
     app.include_router(trash.router, prefix=API_PREFIX)
     app.include_router(mcp_api.router, prefix=API_PREFIX)
     app.include_router(events.router)

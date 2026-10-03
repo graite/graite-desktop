@@ -26,7 +26,7 @@ _mcp_datas = collect_data_files("jsonschema_specifications") + copy_metadata("mc
 # found by pattern, never listed by hand: a file that is missing here only fails in the
 # packaged app, where nobody is looking. tests/test_packaging.py checks the patterns cover
 # every non-Python file under graite/.
-DATA_PATTERNS = ["graite/**/*.json", "graite/**/*.sql", "graite/**/*.md"]
+DATA_PATTERNS = ["graite/**/*.json", "graite/**/*.sql", "graite/**/*.md", "graite/**/*.js"]
 _package_datas = [
     (path, os.path.dirname(path))
     for pattern in DATA_PATTERNS

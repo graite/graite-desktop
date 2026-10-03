@@ -333,7 +333,13 @@ async def fake_ask(self: Provider, messages: Any, tools: Any):  # type: ignore[n
     proposing = {
         t["function"]["name"] for t in tools if t["function"]["name"].startswith("propose")
     }
-    assert proposing == {"propose_create", "propose_append", "propose_properties"}
+    assert proposing == {
+        "propose_create",
+        "propose_append",
+        "propose_properties",
+        "propose_chart",
+        "propose_dashboard",
+    }
     assert "Ask mode: you may not edit, delete or move" in messages[0]["content"]
     assert "Otherwise just answer" in messages[0]["content"]
     yield {"content": "Hello."}
@@ -342,7 +348,13 @@ async def fake_ask(self: Provider, messages: Any, tools: Any):  # type: ignore[n
 def test_ask_mode_tools_add_but_never_rewrite() -> None:
     from graite.skills.registry import chat_tools, groups_for
 
-    propose = {"propose_create", "propose_append", "propose_properties"}
+    propose = {
+        "propose_create",
+        "propose_append",
+        "propose_properties",
+        "propose_chart",
+        "propose_dashboard",
+    }
     ask = chat_tools("ask")
     assert propose <= ask and {"read_page", "search_vault", "list_children"} <= ask
     assert not ask & {"propose_edit", "propose_delete", "propose_move"}

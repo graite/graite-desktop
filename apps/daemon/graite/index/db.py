@@ -150,6 +150,7 @@ PROPOSAL_COLUMNS = {
     "properties_json": "TEXT",
     "base_properties_json": "TEXT",
     "parent_proposal_id": "TEXT",
+    "payload_json": "TEXT",
 }
 
 PAGE_COLUMNS = {

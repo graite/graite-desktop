@@ -16,8 +16,11 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from graite.dashboards import paths as dash_paths
 from graite.events import EventBus
 from graite.index.db import transaction
+from graite.tables import paths as table_paths
+from graite.tables.edit import RowOp, TableConflict
 from graite.vault import frontmatter as fm
 from graite.vault.blocks import check_fences, view_fields
 from graite.vault.fileops import FileOps, append_markdown
@@ -25,7 +28,7 @@ from graite.vault.models import ConflictError
 from graite.vault.paths import parent_of, slugify, validate_rel
 from graite.vault.properties import PageProperty, from_compact, merge, merge_definitions
 
-KINDS = ("edit", "append", "create", "delete", "move", "properties")
+KINDS = ("edit", "append", "create", "delete", "move", "properties", "rows", "dashboard")
 
 
 def _normalise(
@@ -47,6 +50,28 @@ STATUSES = (
     "refused",
 )
 ACTOR = "agent"
+
+
+def _row_op(raw: dict[str, Any]) -> dict[str, Any]:
+    """A stored or model-written row op as `RowOp` fields."""
+    op = str(raw.get("op") or "")
+    if op not in ("insert", "update", "delete"):
+        raise ValueError("Each row change is an insert, update or delete.")
+    values = raw.get("values") or {}
+    if not isinstance(values, dict):
+        raise ValueError("values must map column names to values.")
+    row_id = raw.get("id")
+    if op != "insert" and not row_id:
+        raise ValueError(f"A row {op} needs the row's id (from read_tables or run_query_ro).")
+    base = raw.get("base")
+    return {
+        "op": op,
+        "id": str(row_id) if row_id else None,
+        "values": dict(values),
+        "base": dict(base) if isinstance(base, dict) else None,
+        "after": str(raw["after"]) if raw.get("after") else None,
+        "first": bool(raw.get("first")),
+    }
 
 
 def now() -> str:
@@ -101,6 +126,25 @@ class Proposals:
         data = dict(row)
         data["edited"] = bool(data.get("edited"))
         data["reason_delivered"] = bool(data.get("reason_delivered"))
+        if data.get("kind") == "rows" and data.get("payload_json"):
+            # Row changes, readable by clients (chat receives these rows as they are).
+            payload = json.loads(data["payload_json"])
+            data["rows"] = {
+                "table": payload.get("table"),
+                "ops": payload.get("ops") or [],
+                "columns": payload.get("columns"),
+                "applied": "revert" in payload,
+            }
+        if data.get("kind") == "dashboard" and data.get("payload_json"):
+            # A dashboard file (D72): the proposed HTML is new_text, the file before old_text.
+            payload = json.loads(data["payload_json"])
+            data["dashboard"] = {
+                "src": payload.get("src"),
+                "file": payload.get("file"),
+                "show": bool(payload.get("show")),
+                "created": payload.get("created", data.get("old_text") is None),
+                "html": data.get("new_text"),
+            }
         return data
 
     def get(self, proposal_id: str) -> dict[str, Any] | None:
@@ -226,6 +270,8 @@ class Proposals:
         title: str | None = None,
         opt_in_source: str | None = None,
         properties: list[dict[str, Any]] | None = None,
+        rows: dict[str, Any] | None = None,
+        dashboard: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if kind not in KINDS:
             raise ValueError("Unknown proposal kind.")
@@ -240,7 +286,40 @@ class Proposals:
         fields: list[dict[str, Any]] | None = None
         base_fields: list[dict[str, Any]] | None = None
         resulting: str | None = None
-        if kind in ("edit", "append", "delete", "move", "properties"):
+        payload: dict[str, Any] | None = None
+        if kind == "rows":
+            # Row edits to a table in `page_path`'s `_data/`; the page is where they are
+            # reviewed. `base_hash` is the table file's, and each op carries the values it saw.
+            if not rows or not rows.get("ops"):
+                raise ValueError("Give at least one row change.")
+            table = table_paths.parse(str(rows.get("table") or ""))
+            if table.page != page_path:
+                raise ValueError("The table must belong to the page the proposal is filed on.")
+            doc = await self.ops.read_page(page_path)
+            page_id, page_title = doc.id or None, doc.title
+            ops = [RowOp(**_row_op(o)) for o in rows["ops"]]
+            prepared, base_hash, columns = await self.ops.prepare_table_rows(table.rel, ops)
+            payload = {"table": table.rel, "ops": prepared, "columns": columns}
+            new_path = table.rel
+        elif kind == "dashboard":
+            # An HTML file in `page_path`'s `_dashboards/` (D72). old_text is the file as it
+            # was (None: new), so accepting refuses a file changed meanwhile.
+            if not dashboard or not str(dashboard.get("html") or "").strip():
+                raise ValueError("A dashboard needs its HTML.")
+            target = dash_paths.parse(page_path, str(dashboard.get("src") or ""))
+            doc = await self.ops.read_page(page_path)
+            page_id, page_title = doc.id or None, doc.title
+            old_text = await self.ops.read_dashboard(target.page, target.src)
+            new_text = str(dashboard["html"])
+            if len(new_text.encode("utf-8")) > dash_paths.MAX_BYTES:
+                raise ValueError("A dashboard can be at most 1 MB of HTML.")
+            if old_text == new_text:
+                raise ValueError("The dashboard already has exactly this HTML.")
+            show = bool(dashboard.get("show", True)) and target.src not in doc.body
+            payload = {"src": target.src, "file": target.rel, "show": show}
+            patch = _patch(old_text or "", new_text, target.rel)
+            new_path = target.rel
+        elif kind in ("edit", "append", "delete", "move", "properties"):
             doc = await self.ops.read_page(page_path)
             base_hash, page_id, page_title = doc.hash, doc.id or None, doc.title
             base_body_hash = _body_hash(doc.body)
@@ -316,8 +395,8 @@ class Proposals:
                 "INSERT INTO proposals (id, run_id, conversation_id, page_path, page_id, kind, "
                 "base_hash, old_text, new_text, patch, summary, status, policy, created_at, "
                 "page_title, new_path, base_body_hash, opt_in_source, properties_json, "
-                "base_properties_json, parent_proposal_id) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "base_properties_json, parent_proposal_id, payload_json) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     proposal_id,
                     run_id,
@@ -340,6 +419,7 @@ class Proposals:
                     json.dumps(fields) if fields is not None else None,
                     json.dumps(base_fields) if base_fields is not None else None,
                     parent_proposal_id,
+                    json.dumps(payload, ensure_ascii=False) if payload is not None else None,
                 ),
             )
         proposal = self.get(proposal_id)
@@ -435,6 +515,10 @@ class Proposals:
             )
             proposal["new_path"] = moved.path
             snapshot = proposal["page_path"]  # remember where it came from for revert
+        elif kind == "rows":
+            applied_hash = await self._apply_rows(proposal)
+        elif kind == "dashboard":
+            snapshot = await self._apply_dashboard(proposal)
         status = "auto_applied" if decided_by == "policy" else "accepted"
         updated = self._update(
             proposal_id,
@@ -450,6 +534,80 @@ class Proposals:
             new_path=proposal.get("new_path"),
         )
         return self._decided(updated)
+
+    async def _apply_dashboard(self, proposal: dict[str, Any]) -> str | None:
+        """Write the dashboard file; when asked, show it on its page (returns that page's
+        snapshot, so a revert removes the block again)."""
+        payload = json.loads(proposal.get("payload_json") or "{}")
+        page, src = proposal["page_path"], payload["src"]
+        try:
+            await self.ops.write_dashboard(
+                page, src, proposal["new_text"] or "", ACTOR, base=proposal.get("old_text")
+            )
+        except ValueError as exc:
+            updated = self._update(proposal["id"], status="conflict", reason=str(exc))
+            self._decided(updated)
+            raise ProposalConflict(updated, "") from exc
+        if not payload.get("show"):
+            return None
+        doc = await self.ops.read_page(page)
+        if src in doc.body:
+            return None
+        snapshot = await self.ops.snapshot_page(page)
+        fence = f"```graite:dashboard\nsrc: {src}\n```\n"
+        await self.ops.write_body(page, _append(doc.body, fence), doc.hash, ACTOR)
+        return snapshot
+
+    async def _apply_rows(self, proposal: dict[str, Any]) -> str:
+        """Write a rows proposal; keep the inverse ops so it can be reverted."""
+        payload = json.loads(proposal.get("payload_json") or "{}")
+        table, ops = payload["table"], payload["ops"]
+        before = await self.ops.read_table_rows(
+            table, [o["id"] for o in ops if o.get("id") and o["op"] != "insert"]
+        )
+        try:
+            result = await self.ops.write_table_rows(
+                table, [RowOp(**_row_op(o)) for o in ops], None, ACTOR
+            )
+        except TableConflict as exc:
+            changed = ", ".join(sorted({c.id for c in exc.conflicts}))
+            updated = self._update(
+                proposal["id"],
+                status="conflict",
+                reason=f"rows changed or removed since the proposal: {changed}",
+            )
+            self._decided(updated)
+            raise ProposalConflict(updated, "") from exc
+        revert: list[dict[str, Any]] = []
+        for op, row_id in zip(ops, result["ids"], strict=True):
+            if op["op"] == "insert":
+                revert.append({"op": "delete", "id": row_id, "values": {}})
+            elif op["op"] == "update":
+                # Temporary ids (`@3`) become real ones when the write adds the id column.
+                was = (before.get(op["id"]) or before.get(row_id) or {}).get("values", {})
+                revert.append(
+                    {
+                        "op": "update",
+                        "id": row_id,
+                        "values": {k: was.get(k) for k in op["values"]},
+                        "base": dict(op["values"]),
+                    }
+                )
+            else:
+                row = before.get(op["id"], {})
+                revert.append(
+                    {
+                        "op": "insert",
+                        "id": op["id"],
+                        "values": row.get("values", op.get("base") or {}),
+                        "after": row.get("after"),
+                        "first": op["id"] in before and not row.get("after"),
+                    }
+                )
+        # Undo in reverse order, so rows come back where they were.
+        payload["revert"] = list(reversed(revert))
+        self._update(proposal["id"], payload_json=json.dumps(payload, ensure_ascii=False))
+        return str(result["hash"])
 
     def _conflict(self, proposal_id: str, current_body: str) -> dict[str, Any]:
         updated = self._update(
@@ -501,7 +659,7 @@ class Proposals:
                 await self.accept(proposal["id"])
             except ProposalConflict:
                 return {"applied": applied, "stopped_at": proposal["id"]}
-            except ConflictError:
+            except (ConflictError, TableConflict):
                 # Lost a write race with another editor: leave it pending and stop here.
                 return {"applied": applied, "stopped_at": proposal["id"]}
             except (ValueError, FileNotFoundError):
@@ -549,6 +707,31 @@ class Proposals:
             origin_parent = parent_of(proposal["snapshot"] or proposal["page_path"])
             parent_doc = await self.ops.read_page(origin_parent) if origin_parent else None
             await self.ops.relocate_page(moved.id, parent_doc.id if parent_doc else None, "inside")
+        elif kind == "dashboard":
+            payload = json.loads(proposal.get("payload_json") or "{}")
+            page, src = proposal["page_path"], payload["src"]
+            if proposal.get("old_text") is None:
+                await self.ops.remove_dashboard(page, src, ACTOR)
+            else:
+                await self.ops.write_dashboard(page, src, proposal["old_text"], ACTOR)
+            if proposal.get("snapshot"):
+                text = await self.ops.read_snapshot(proposal["snapshot"])
+                _, body = fm.split(text)
+                await self.ops.write_body(page, body, None, ACTOR)
+        elif kind == "rows":
+            payload = json.loads(proposal.get("payload_json") or "{}")
+            try:
+                await self.ops.write_table_rows(
+                    payload["table"],
+                    [RowOp(**_row_op(o)) for o in payload.get("revert") or []],
+                    None,
+                    ACTOR,
+                )
+            except TableConflict as exc:
+                raise ValueError(
+                    "These rows were changed after the proposal was applied; "
+                    "undo them by hand or edit the table."
+                ) from exc
         return self._decided(self._update(proposal_id, status="reverted", decided_at=now()))
 
     # ----------------------------------------------------------------- feedback

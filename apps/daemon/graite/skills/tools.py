@@ -8,6 +8,7 @@ There is no write group and never will be (CLAUDE.md rule 2).
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import json
 import types
@@ -49,6 +50,75 @@ class PropertyInput(typing.TypedDict, total=False):
         "This page's value: one of the options for a status or select field, an ISO date "
         "(2026-10-02) for a date, true or false for a checkbox.",
     ]
+
+
+class RowOpInput(typing.TypedDict, total=False):
+    """One row change in a table."""
+
+    op: Required[Annotated[str, "insert, update or delete."]]
+    id: Annotated[
+        str,
+        "The row's id (the `id` column from read_tables or run_query_ro). Required for update "
+        "and delete; leave it out for insert.",
+    ]
+    values: Annotated[
+        Any,
+        'Column name -> new value, for insert and update, e.g. {"amount": 30, '
+        '"category": "Travel"}. Numbers as numbers, dates as 2026-10-02, checkboxes as '
+        "true/false, multi-select as a list.",
+    ]
+    after: Annotated[str, "Insert only: the id of the row to insert after; default the end."]
+
+
+class ChartInput(typing.TypedDict, total=False):
+    """A chart over a page's tables (a graite:chart fence)."""
+
+    source: Annotated[
+        str,
+        "The table, as read_tables lists it: its name on the page (cars), or its path "
+        "(Garage/_data/cars.csv). Leave out when using sql.",
+    ]
+    sql: Annotated[
+        str,
+        "Instead of source/x/y: one SELECT; the first column is the label, every other "
+        "column a series. Join relations through links(table, column, row_id, target_table, "
+        "target_id).",
+    ]
+    type: Annotated[str, "bar (default), line, area, pie, donut, scatter or number."]
+    x: Annotated[
+        str,
+        "The field along the axis (or the slices of a pie): a column, a date bucket like "
+        "month(date) (day, week, month, quarter, year), a relation column (its rows' names) "
+        "or relation.column to group by a field of the linked rows (owner.city).",
+    ]
+    y: Annotated[
+        Any,
+        "What to show: a number column (rating: its values, added up per label), count "
+        "(default), avg(col), min(col), max(col), count(col); a list draws one series each.",
+    ]
+    series: Annotated[str, "Split each bar or line by this field (like x)."]
+    filter: Annotated[str, 'Which rows count, in the table filter language: status = "Done".']
+    sort: Annotated[str, "x asc, x desc, y asc or y desc."]
+    limit: Annotated[int, "At most this many labels (1-500)."]
+    stacked: Annotated[bool, "Stack the series of a bar, line or area chart."]
+    title: Annotated[str, "The chart's title; one is made from the fields when left out."]
+    height: Annotated[int, "Height in pixels (120-2000), default 300."]
+
+
+CHART_ORDER = (
+    "title",
+    "source",
+    "sql",
+    "type",
+    "x",
+    "y",
+    "series",
+    "filter",
+    "sort",
+    "limit",
+    "stacked",
+    "height",
+)
 
 
 @dataclass(frozen=True)
@@ -475,6 +545,155 @@ async def search_memory(
     return {"memories": [m.to_dict() for m in found]}
 
 
+# ----------------------------------------------------------------------------- tables (D69)
+
+TABLE_HELP = (
+    "Query with run_query_ro using the sql_name of each table. pages(path, title, parent_path, "
+    "created, updated, tags) and page_props(path, name, value) hold the pages in scope and "
+    "their properties. Multi-select cells are text like 'a; b'. Relation cells link rows of "
+    "another table: in SQL they are text like '[[<row id>|<label>]] [[<row id>|<label>]]'; "
+    "in propose_rows give a list of the target rows' ids. Columns marked reverse are derived "
+    "from the other table and are not in SQL; change the forward column there (propose_rows "
+    "on a reverse column also works). Change rows with propose_rows."
+)
+
+
+def _tables(registry: Any) -> Any:
+    cache = getattr(registry.ops, "tables", None)
+    if cache is None:
+        raise ValueError("Tables are not available here.")
+    return cache
+
+
+def _table_alias(page: str, info: Any) -> str:
+    from graite.tables.scope import table_alias
+
+    return table_alias(page, info)
+
+
+def _sql_name(alias: str) -> str:
+    from graite.tables.scope import sql_name
+
+    return sql_name(alias)
+
+
+@tool(
+    "read",
+    "List the data tables (CSV files) of a page and its subpages: each table's SQL name, "
+    "columns with types and options, row count and a few rows with their ids. Use before "
+    "run_query_ro or propose_rows.",
+)
+async def read_tables(
+    registry: Any,
+    page_path: Annotated[str, "Vault-relative page path that has tables."],
+) -> Any:
+    rel = registry.scoped(page_path)
+    cache = _tables(registry)
+    infos = [
+        info
+        for info in await asyncio.to_thread(cache.tables)
+        if (info.page_path == rel or info.page_path.startswith(rel + "/"))
+        and registry.scope.contains(info.page_path)
+    ]
+    out = []
+    for info in infos:
+        sample = await asyncio.to_thread(cache.select, info.path, limit=3)
+        names = sample["visible"]
+        out.append(
+            {
+                "path": info.path,
+                "sql_name": _sql_name(_table_alias(rel, info)),
+                "rows": info.row_count,
+                "columns": [
+                    {
+                        "name": c.name,
+                        "type": c.type,
+                        **({"options": c.options} if c.options else {}),
+                        **(
+                            {
+                                "links_to": c.target or c.table,
+                                "cardinality": c.cardinality,
+                                **({"reverse_of": c.reverse} if c.reverse else {}),
+                            }
+                            if c.type == "relation"
+                            else {}
+                        ),
+                    }
+                    for c in info.columns
+                ],
+                "sample": [dict(zip(names, r["cells"], strict=False)) for r in sample["rows"]],
+            }
+        )
+    effective = registry.scope.policy_for(rel)
+    result: dict[str, Any] = {"page": rel, "tables": out, "help": TABLE_HELP}
+    if not out:
+        result["message"] = "This page and its subpages have no tables."
+    if effective.instructions:
+        result["ai_instructions"] = effective.instructions
+    return result
+
+
+@tool(
+    "read",
+    "Run one read-only SQL SELECT over the tables in scope and the pages table. Tables on "
+    "page_path are named by their name (expenses); others by their path "
+    '("Projects/Atlas/expenses"). pages(path, title, parent_path, created, updated, tags) and '
+    "page_props(path, name, value) hold pages and their properties. links(table, column, "
+    "row_id, target_table, target_id) holds every relation link: join a table's id to "
+    "links.row_id and links.target_id to the other table's id. At most 200 rows return.",
+)
+async def run_query_ro(
+    registry: Any,
+    page_path: Annotated[str, "The page the query is about; its tables get short names."],
+    sql: Annotated[str, "One SELECT statement (WITH ... SELECT is fine)."],
+) -> Any:
+    from graite.tables.readonly import run_query
+    from graite.tables.scope import query_pages, query_tables
+
+    rel = registry.scoped(page_path)
+    cache = _tables(registry)
+    infos = [
+        info
+        for info in await asyncio.to_thread(cache.tables)
+        if registry.scope.contains(info.page_path)
+    ]
+    tables = query_tables(rel, infos)
+    pages = query_pages(registry.ops.db, registry.scope.contains)
+    result = await asyncio.to_thread(run_query, cache.db_path, tables, pages, str(sql))
+    # Keep the answer inside the tool budget: drop rows from the end, and say so.
+    while result["rows"] and len(json.dumps(result, default=str)) > registry.result_limit:
+        result["rows"] = result["rows"][: len(result["rows"]) * 3 // 4]
+        result["truncated"] = True
+    result["row_count"] = len(result["rows"])
+    return result
+
+
+@tool(
+    "propose",
+    "Propose adding, changing or deleting rows in a data table (a CSV in a page's _data "
+    "folder). Address rows by their id from read_tables or run_query_ro. The page's AI "
+    "settings decide whether this applies at once or waits for review.",
+)
+async def propose_rows(
+    registry: Any,
+    table_path: Annotated[str, "The table's path from read_tables, e.g. Atlas/_data/expenses.csv."],
+    ops: Annotated[list[RowOpInput], "The row changes, applied in order."],
+    summary: Annotated[str, "One line saying what changes and why."],
+) -> Any:
+    from graite.tables import paths as table_paths
+
+    table = table_paths.parse(str(table_path))
+    if not ops:
+        raise ValueError("Give at least one row change.")
+    return await _propose(
+        registry,
+        "rows",
+        table.page,
+        str(summary),
+        rows={"table": table.rel, "ops": [dict(o) for o in ops]},
+    )
+
+
 # ----------------------------------------------------------------------------- proposals
 
 
@@ -612,6 +831,111 @@ async def propose_properties(
     return await _propose(
         registry, "properties", str(path), str(summary), properties=list(properties or [])
     )
+
+
+@tool(
+    "propose",
+    "Propose a chart of a page's table data (a bar, line, area, pie, donut, scatter or big "
+    "number), drawn from the page's tables, its subpages' and the tables they link to, and "
+    "updated as rows change. Read the tables with read_tables first. The chart is checked "
+    "against the data before it is filed. With `title_page`, a new page is proposed under "
+    "`page_path` for it instead.",
+)
+async def propose_chart(
+    registry: Any,
+    page_path: Annotated[str, "The page to add the chart to."],
+    chart: Annotated[ChartInput, "What to draw."],
+    summary: Annotated[str, "One line saying what the chart shows."],
+    title_page: Annotated[str | None, "Title of a new page for the chart, under page_path."] = None,
+) -> Any:
+    from graite.tables.charts import chart_data
+
+    spec = {k: chart[k] for k in CHART_ORDER if isinstance(chart, dict) and k in chart}  # type: ignore[literal-required]
+    if isinstance(spec.get("y"), list) and len(spec["y"]) == 1:
+        spec["y"] = spec["y"][0]
+    rel = registry.scoped(page_path)
+    cache = _tables(registry)
+    # Draw it once now: a wrong column or relation comes back as words to fix, not as a
+    # broken block on the page.
+    data_spec = {k: v for k, v in spec.items() if k not in ("title", "height")}
+    await asyncio.to_thread(chart_data, cache, registry.ops.db, rel, data_spec)
+    fence = "```graite:chart\n" + yaml.safe_dump(spec, sort_keys=False, allow_unicode=True)
+    fence += "```\n"
+    problem = check_fences(fence)
+    if problem:
+        raise ValueError(problem)
+    if title_page:
+        return await _propose(
+            registry, "create", rel, str(summary), title=str(title_page), new_text=fence
+        )
+    return await _propose(registry, "append", rel, str(summary), new_text="\n" + fence)
+
+
+@tool(
+    "propose",
+    "Propose an HTML dashboard for a page: a file in its _dashboards folder, shown on the "
+    "page in a sandboxed frame with no network. In the HTML, window.graite gives the data: "
+    "await graite.query(sql) returns rows as objects (read-only SQL over the page's tables, "
+    "its subpages' and the tables they link to, plus links and pages); "
+    "graite.chart(element, spec) draws a chart spec like propose_chart's (or any ECharts "
+    "option) that redraws itself; graite.onChange(fn) runs when the data changes; "
+    "graite.format(n, currency) formats numbers; CSS variables --graite-fg, --graite-muted, "
+    "--graite-border, --graite-bg and --graite-color-1..9 follow the app's theme. ECharts is "
+    "loaded as `echarts`. Load the charts-and-dashboards skill for a full example. Giving "
+    "the name of an existing dashboard replaces its HTML (read it first).",
+)
+async def propose_dashboard(
+    registry: Any,
+    page_path: Annotated[str, "The page the dashboard belongs to."],
+    name: Annotated[str, "The file name without .html, e.g. overview."],
+    html: Annotated[str, "The whole HTML document."],
+    summary: Annotated[str, "One line saying what the dashboard shows."],
+    show_on_page: Annotated[
+        bool, "Also add the dashboard block to the page when it is not shown there yet."
+    ] = True,
+) -> Any:
+    from graite.dashboards import paths as dash_paths
+    from graite.dashboards.validation import check_html
+
+    text = str(html)
+    check_html(text)
+    rel = registry.scoped(page_path)
+    target = dash_paths.parse(rel, str(name))
+    if "propose_edit" not in registry.allowed and await registry.ops.read_dashboard(
+        target.page, target.src
+    ):
+        # Ask mode adds things but never rewrites them: a new name, or Act mode, to change it.
+        raise ValueError(
+            f"{target.src} already exists. In this chat mode you can add a new dashboard "
+            "(another name); switching to Act lets you change this one."
+        )
+    return await _propose(
+        registry,
+        "dashboard",
+        rel,
+        str(summary),
+        dashboard={"src": target.src, "html": text, "show": bool(show_on_page)},
+    )
+
+
+@tool(
+    "read",
+    "Read a page's dashboard HTML (a file in its _dashboards folder), before changing it "
+    "with propose_dashboard.",
+)
+async def read_dashboard(
+    registry: Any,
+    page_path: Annotated[str, "The page the dashboard belongs to."],
+    name: Annotated[str, "The file name without .html, e.g. overview."],
+) -> Any:
+    from graite.dashboards import paths as dash_paths
+
+    rel = registry.scoped(page_path)
+    target = dash_paths.parse(rel, str(name))
+    html = await registry.ops.read_dashboard(target.page, target.src)
+    if html is None:
+        raise ValueError(f"{target.rel} does not exist; propose_dashboard creates it.")
+    return {"path": target.rel, "src": target.src, "html": html[: registry.result_limit]}
 
 
 @tool(

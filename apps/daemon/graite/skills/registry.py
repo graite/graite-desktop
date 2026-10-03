@@ -19,6 +19,7 @@ from graite.retrieval.search import Searcher
 from graite.review.proposals import ProposalConflict
 from graite.skills import tools as tool_module
 from graite.skills.library import discover
+from graite.tables.edit import TableConflict
 from graite.vault.fileops import FileOps
 from graite.vault.instructions import safe_file
 from graite.vault.models import ConflictError
@@ -31,9 +32,18 @@ DEFAULT_GROUPS = frozenset({"read", "search", "meta"})
 PROPOSE_GROUPS = frozenset({"read", "search", "meta", "propose"})
 # Draft mode may only create new pages; Act mode gets every propose tool.
 DRAFT_TOOLS = frozenset({"propose_create"})
-# Chat in Ask mode may add things when asked (a page, an entry, a card, property values) but
-# never rewrites, deletes or moves existing content. Every call is still a reviewed proposal.
-ASK_TOOLS = frozenset({"propose_create", "propose_append", "propose_properties"})
+# Chat in Ask mode may add things when asked (a page, an entry, a card, property values, a
+# chart, a new dashboard) but never rewrites, deletes or moves existing content. Every call
+# is still a reviewed proposal.
+ASK_TOOLS = frozenset(
+    {
+        "propose_create",
+        "propose_append",
+        "propose_properties",
+        "propose_chart",
+        "propose_dashboard",
+    }
+)
 # Chat modes whose propose group is narrowed to a subset; Act is not narrowed.
 MODE_TOOLS: dict[str, frozenset[str]] = {"ask": ASK_TOOLS, "draft": DRAFT_TOOLS}
 # Tools for MCP clients, which see no page tree or page-name hints in a prompt of ours.
@@ -130,7 +140,10 @@ class Registry:
     def parallel_safe(self, name: str) -> bool:
         # Searcher has per-search mutable state; skill loading changes tool permissions.
         # Writes, searches and meta tools are barriers between independent reads.
-        return name in {"read_page", "list_children"} and name in self.allowed
+        return (
+            name in {"read_page", "list_children", "read_tables", "run_query_ro"}
+            and name in self.allowed
+        )
 
     def narrow(self, names: frozenset[str] | set[str], *, group: str) -> None:
         """Keep only `names` from one group (Draft mode: create pages, nothing else)."""
@@ -256,3 +269,5 @@ class Registry:
             )
         except ConflictError:
             return json.dumps({"error": "The page changed while applying; try again."})
+        except TableConflict:
+            return json.dumps({"error": "The table changed while applying; read it and try again."})
