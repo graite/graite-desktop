@@ -25,6 +25,7 @@ apps/desktop/src-tauri/resources/llama/
 
 # Test vaults' derived state (the daemon regenerates all of it on open)
 **/.graite/index.sqlite*
+**/.graite/tables.sqlite*
 **/.graite/versions/
 **/.graite/trash/
 examples/vault/.graite/
