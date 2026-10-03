@@ -21,6 +21,7 @@ Companion to `VISION.md` (why) and `ROADMAP.md` (when). Specs: `docs/vault-forma
 │ review/     proposals · policy         jobs/  queue · worker · handlers · cron          │
 │ models/     catalog · downloader · llama_server · manager · providers/                  │
 │ media/      decode (audio · pdf · image) · ocr · speech                                 │
+│ tables/     CSV io · schema · edits · filter language · cache (.graite/tables.sqlite)   │
 └───────┬──────────────────────┬──────────────────────────┬──────────────────────────────┘
         ▼                      ▼                          ▼
   llama-server (chat)    llama-server (embed / vision, TTL)     Vault on disk
@@ -268,11 +269,11 @@ index in the system prompt.
 |---|---|---|---|
 | `read_page(path, section?)` | `search_vault(query, scope?, k)` | `propose_edit(path, old, new, summary)` | `load_skill(name)` |
 | `read_navigation(deep)` | `find_page(title_or_alias)` | `propose_append(path, text, summary)` | `schedule(when, instructions)` |
-| `read_attachment_text(path)` | `run_query_ro(page_path, sql)` | `propose_create(path, body, frontmatter?, summary)` | `list_proposals(status)` |
+| `read_attachment_text(path)`, `read_tables(page_path)` | `run_query_ro(page_path, sql)` | `propose_create(path, body, frontmatter?, summary)` | `list_proposals(status)` |
 | `list_children(path)` | | `propose_delete(path, summary)` | |
 | | | `propose_move(path, new_path, summary)` | |
 | | | `propose_attach(path, tmp, filename, summary)` | |
-| | | `propose_db(page_path, sql, summary)` | |
+| | | `propose_rows(table_path, ops, summary)` | |
 
 There is no `write_*` tool anywhere in the registry. `schedule` creates a job row (a job is
 not a vault write). Later phases add read-only `browse`, `web_search`, `transcribe`, `ocr`.
@@ -331,6 +332,14 @@ dialog per folder the first time it would fire. `delete` and `move` are never au
 Auto-applied proposals still exist as rows (`auto_applied`) with snapshots and appear in the
 Review view under "Applied automatically" with one-click revert.
 
+**Table rows** (D69). A `rows` proposal holds row ops for a CSV table (`payload_json`: ops with
+the values each saw, a label per row, the touched columns' types). It is filed on the table's
+owning page, so it is reviewed there; accepting checks every row (one changed by hand
+meanwhile is a conflict) and keeps inverse ops for revert. `rows` auto-applies where listed,
+or where `edit` is. The UI shows it as a change list (`review/RowsDiff.tsx`): each row by
+name, only the fields that change, pills and money as the table shows them, long text
+clamped, the first few changes with "Show all".
+
 **UI** (`apps/desktop/src/review/`). A Review view grouped by conversation/job; a
 `ProposalCard` built on
 `react-diff-viewer-continued` (split view, word-level highlight), listed as toggles that open
@@ -360,6 +369,28 @@ all (`reject-batch`).
   outside the vault, honors `Range` (video/audio seeking, PDF.js). Read-only.
 - **Uploads.** BlockNote `uploadFile` → `POST /media/upload?page=<path>` (multipart) → returns
   the `vault://` URL.
+- **Table blocks** (`editor/tables/`, D68, D70). A `graite:table` fence renders a
+  glide-data-grid canvas that pages rows from `/api/v1/tables/rows` (filter, sort and paging
+  run in SQL on the daemon). The block is `selectable: false`, so ProseMirror ignores events
+  inside it; nothing in the block may stop pointer or clipboard events, because the grid
+  listens for them on `window`.
+  The tables of the block's `_data/` folder show as tabs (`TableTabs`; each tab's view is kept
+  in the fence's `tabs:`). Relation cells (D71) are pills drawn on the canvas; a click opens
+  the linked row in `RowPanel`, and editing opens `RelationPicker` over the target's rows.
+  The daemon keeps every link in the cache's `_links` table (rebuilt with its source table),
+  which serves live labels, reverse columns and broken-link counts; `fileops` writes the
+  forward side of reverse edits and rewrites labels in linking tables.
+- **Charts and dashboards** (`editor/charts/`, `editor/dashboards/`, D72).
+  - A `graite:chart` block posts its spec to `/api/v1/charts/data`; `tables/charts.py`
+    compiles it to read-only SQL over the page's scope (`tables/scope.py`). The block draws
+    the result with ECharts (loaded lazily) and redraws on `table_changed` for the tables the
+    answer lists. The builder edits the fence props.
+  - A `graite:dashboard` block asks `/dashboards/ticket` for a frame URL and shows the page's
+    HTML file in `<iframe sandbox="allow-scripts">`. The CSP gains `frame-src
+    http://127.0.0.1:*`.
+  - `DashboardFrame` answers the inlined bridge's `postMessage` calls (`/tables/query`,
+    `/charts/data`, theme) and forwards table changes.
+  - Dashboard proposals show the same frame with `proposal=` as a live preview.
 - **Native.** `tauri-plugin-dialog` for Open Vault: the shell remembers the current and
   recent vault folders in `vaults.json` (app-config dir), shows a picker when none is
   remembered, and switches vaults by restarting the sidecar (`open_vault`, event
@@ -378,8 +409,8 @@ all (`reject-batch`).
   `agent:<job-id>`).
 - Update manifests and the model catalog are signed (Tauri updater key, minisign); every
   download is sha256-checked before use.
-- Agents: no write tools; `read_*` limited to the vault; `run_query_ro` opens page databases
-  read-only; `propose_*` cannot target paths outside the vault or under `.graite/`.
+- Agents: no write tools; `read_*` limited to the vault; `run_query_ro` queries the derived table
+  cache (`.graite/tables.sqlite`) read-only; `propose_*` cannot target paths outside the vault or under `.graite/`.
 - `vault://` and `/media` reject traversal; dashboards run sandboxed with no network.
 - Cloud keys in the OS keychain; catalog downloads sha256-verified; llama.cpp binaries pinned
   to a release tag and verified.

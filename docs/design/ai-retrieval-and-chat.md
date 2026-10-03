@@ -197,7 +197,9 @@ are still only covered by CI.
   move.
 - Cloud providers are gated per page by `cloud`, but the daemon cannot verify what a provider
   does with text it receives.
-- Structured search covers page properties and tags only; page databases arrive with M6.
+- Structured search covers page properties and tags; data tables are read with `read_tables`
+  and `run_query_ro` (read-only SQL, also over page properties) and changed only through
+  `propose_rows` (D69).
 - The research loop is bounded (4–5 rounds, 12 tool calls) and deliberately does not run for
   simple questions.
 - Model state (`installed`) is recorded per vault, so a vault that has never seen a model

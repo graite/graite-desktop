@@ -119,7 +119,7 @@ Three readings of "sync", in increasing cost:
 - **A. Thin client, no offline.** The PWA over the tunnel. Covered by §2.
 - **B. Third-party file sync.** Syncthing, iCloud, Dropbox or git syncs the vault folder;
   a mobile client opens the local copy. Graite already tolerates external changes
-  (watcher, hashes, `sync_safe`). `.graite/` must be excluded from sync since it is
+  (watcher, hashes; tables are plain CSV with stable row ids, D68). `.graite/` must be excluded from sync since it is
   per-device state. Conflicts are the sync tool's problem, and the mobile app would need
   its own editor and converter with no daemon.
 - **C. Graite sync, daemon as hub (recommended end state).** The desktop daemon is the

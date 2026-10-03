@@ -28,6 +28,8 @@ or `cargo license --manifest-path apps/desktop/src-tauri/Cargo.toml`.
 | `diff` | BSD-3-Clause | |
 | `emoji-picker-react`, `sonner`, `@tanstack/react-store` | MIT | |
 | `react-markdown`, `remark-*`, `mdast-util-*`, `unified`, `remark-wiki-link` | MIT | |
+| `@glideapps/glide-data-grid` 6.0.3 and its peers `lodash`, `marked`, `react-responsive-carousel` | MIT | Table blocks (D68). |
+| `echarts` 6.1.0 (Apache-2.0) and its dependency `zrender` (BSD-3-Clause) | Apache-2.0, BSD-3-Clause | Chart blocks and dashboards (D72); `dist/echarts.min.js` is also vendored in `apps/daemon/graite/dashboards/static/` for the dashboard frame. |
 | `@tauri-apps/api`, `@tauri-apps/plugin-dialog` | MIT OR Apache-2.0 | |
 
 No font files are bundled. Full list: `pnpm licenses list --prod`.
