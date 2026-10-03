@@ -1,6 +1,9 @@
 import { BlockNoteSchema, defaultBlockSpecs, defaultInlineContentSpecs } from "@blocknote/core";
 import { ColumnLayout, PageColumn } from "./blocks/ColumnsBlock";
 import { PageView } from "./blocks/PageViewBlock";
+import { TableView } from "./blocks/TableViewBlock";
+import { Chart } from "./blocks/ChartBlock";
+import { Dashboard } from "./blocks/DashboardBlock";
 import { LocalMedia, DerivedText } from "./blocks/MediaBlock";
 import { PageLink } from "./blocks/PageLinkBlock";
 import { Wikilink } from "./blocks/WikilinkInline";
@@ -18,6 +21,9 @@ export const schema = BlockNoteSchema.create({
     columnLayout: ColumnLayout(),
     pageColumn: PageColumn(),
     pageView: PageView(),
+    tableView: TableView(),
+    chart: Chart(),
+    dashboard: Dashboard(),
     pageLink: PageLink(),
     localMedia: LocalMedia(),
     derivedText: DerivedText(),

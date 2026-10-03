@@ -10,6 +10,7 @@
  * `***x***` as emphasis(strong)). Other nestings normalize to that order.
  */
 import type { PhrasingContent } from "mdast";
+import { splitEmbeds } from "./markdown";
 import type { InlineContent, LinkInline, Styles, TextInline, WikiLinkData } from "./types";
 
 type StyleName = keyof Styles;
@@ -54,6 +55,10 @@ function walk(nodes: PhrasingContent[], styles: Styles, out: InlineContent[]): b
         out.push({ type: "link", href: node.url, content: mergeText(inner) as TextInline[] });
         break;
       }
+      case "embed":
+        // Prose keeps an inline `![[x]]` as its text; `fromInline` turns it back into an embed.
+        out.push(text(`![[${node.value}]]`, styles));
+        break;
       case "wikiLink": {
         const data = node.data as WikiLinkData | undefined;
         const alias = data?.alias && data.alias !== node.value ? data.alias : "";
@@ -148,7 +153,7 @@ function build(atoms: Atom[]): PhrasingContent[] {
     }
     const styles = activeStyles(atom);
     if (styles.length === 0) {
-      out.push({ type: "text", value: atom.text });
+      out.push(...(splitEmbeds(atom.text) ?? [{ type: "text", value: atom.text }]));
       i++;
       continue;
     }

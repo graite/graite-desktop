@@ -1,0 +1,236 @@
+/* HTML blocks (graite:dashboard, D72/D74): uploaded files or AI work proposed in page chat. */
+.dashboard-view {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  margin: 6px 0;
+}
+.dashboard-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+.dashboard-name {
+  color: var(--foreground);
+  font-weight: 600;
+}
+.dashboard-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.dashboard-view:hover .dashboard-actions,
+.dashboard-actions:focus-within {
+  opacity: 1;
+}
+.dashboard-frame {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+}
+
+/* The lightweight block left behind the modal, matching other “add” rows on a page. */
+.dashboard-add-anchor {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  gap: 9px;
+  margin: 6px 0;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--muted) 48%, var(--background));
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+
+/* “Add HTML”: upload, or hand the artifact to the page-scoped side chat. */
+.dashboard-add-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-width: none;
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+  border-color: color-mix(in srgb, var(--border) 88%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--background) 96%, var(--muted));
+}
+.dashboard-add-head {
+  padding: 15px 18px 13px;
+  border-bottom: 1px solid var(--border);
+}
+.dashboard-add-head [data-slot="dialog-title"] {
+  font-size: 14px;
+  font-weight: 650;
+}
+.dashboard-add-head [data-slot="dialog-description"] {
+  margin-top: 5px;
+  font-size: 12px;
+}
+.dashboard-upload {
+  display: flex;
+  min-height: 132px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  margin: 13px;
+  border: 1px dashed color-mix(in srgb, var(--border) 90%, var(--foreground));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--muted) 42%, transparent);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    color 0.15s;
+}
+.dashboard-upload:hover,
+.dashboard-upload.dragging {
+  border-color: color-mix(in srgb, var(--foreground) 42%, var(--border));
+  background: var(--accent);
+  color: var(--foreground);
+}
+.dashboard-upload > svg {
+  margin-bottom: 3px;
+}
+.dashboard-upload strong {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 600;
+}
+.dashboard-upload span {
+  font-size: 12px;
+}
+.dashboard-upload:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+.dashboard-create-ai {
+  padding: 2px 13px 13px;
+}
+.dashboard-add-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 9px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.dashboard-ai-types {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.dashboard-ai-types > button {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+  padding: 9px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--background);
+  text-align: left;
+  cursor: pointer;
+}
+.dashboard-ai-types > button:hover {
+  background: var(--accent);
+}
+.dashboard-ai-types > button > span {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+}
+.dashboard-ai-types [data-tone="dashboard"] {
+  background: color-mix(in srgb, #a855f7 22%, var(--background));
+  color: #a855f7;
+}
+.dashboard-ai-types [data-tone="report"] {
+  background: color-mix(in srgb, #ef4444 20%, var(--background));
+  color: #ef4444;
+}
+.dashboard-ai-types div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.dashboard-ai-types strong {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 600;
+}
+.dashboard-ai-types small {
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dashboard-idea {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 9px;
+  padding: 4px 4px 4px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--background);
+  color: var(--muted-foreground);
+}
+.dashboard-idea:focus-within {
+  border-color: color-mix(in srgb, var(--foreground) 38%, var(--border));
+}
+.dashboard-idea input {
+  min-width: 0;
+  height: 30px;
+  flex: 1;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 12.5px;
+  outline: none;
+}
+.dashboard-idea button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--foreground);
+  color: var(--background);
+  cursor: pointer;
+}
+.dashboard-idea button:disabled {
+  cursor: default;
+  opacity: 0.25;
+}
+.dashboard-add-error {
+  margin: -3px 13px 13px;
+  color: var(--destructive);
+  font-size: 12px;
+}
+.dashboard-spin {
+  animation: dashboard-spin 0.9s linear infinite;
+}
+@keyframes dashboard-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 520px) {
+  .dashboard-ai-types {
+    grid-template-columns: 1fr;
+  }
+}

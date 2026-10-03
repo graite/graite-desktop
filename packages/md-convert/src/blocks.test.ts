@@ -9,7 +9,7 @@ import {
   toBlocksSafe,
   toBlocksWithSpans,
 } from "./index";
-import type { MediaBlock, TableBlock } from "./types";
+import type { Block, MediaBlock, TableBlock } from "./types";
 
 const fixturesDir = join(import.meta.dirname, "..", "fixtures");
 const blocksDir = join(fixturesDir, "blocks");
@@ -254,6 +254,102 @@ describe("graite:view fences", () => {
 
   it.each(cases.invalid)("falls back to plain text for %j", (body) => {
     expect(toBlocks("```graite:view\n" + body + "```\n")[0]?.type).toBe("rawMarkdown");
+  });
+});
+
+describe("graite:chart and graite:dashboard", () => {
+  // Same corpus as apps/daemon/tests/test_blocks.py (D72).
+  const cases = JSON.parse(read(fixturesDir, "chart-cases.json")) as Record<
+    "chart" | "dashboard",
+    { valid: string[]; invalid: string[]; editor_only?: string[] }
+  >;
+
+  it.each(cases.chart.editor_only ?? [])("keeps a chart that lost its field: %j", (body) => {
+    expect(toBlocks("```graite:chart\n" + body + "```\n")[0]?.type).toBe("chart");
+  });
+
+  for (const kind of ["chart", "dashboard"] as const) {
+    it.each(cases[kind].valid)(`renders a ${kind} block for %j`, (body) => {
+      expect(toBlocks("```graite:" + kind + "\n" + body + "```\n")[0]?.type).toBe(kind);
+    });
+    it.each(cases[kind].invalid)(`keeps an invalid ${kind} fence as text: %j`, (body) => {
+      expect(toBlocks("```graite:" + kind + "\n" + body + "```\n")[0]?.type).toBe("rawMarkdown");
+    });
+  }
+
+  it("reads the chart keys into props", () => {
+    const blocks = toBlocks(read(blocksDir, "chart.md"));
+    expect(blocks.map((b) => b.type)).toEqual(["heading", "chart", "chart", "chart", "dashboard"]);
+    expect(blocks[2]).toMatchObject({
+      props: {
+        type: "line",
+        x: "month(date)",
+        y: '["sum(amount)","count"]',
+        limit: 24,
+        stacked: "true",
+      },
+    });
+    expect(blocks[4]).toMatchObject({ props: { src: "_dashboards/overview.html", height: 900 } });
+  });
+});
+
+describe("graite:table", () => {
+  // Same corpus as apps/daemon/tests/test_blocks.py (see view-cases.json above).
+  const tableCases = JSON.parse(read(fixturesDir, "table-cases.json")) as {
+    valid: string[];
+    invalid: string[];
+  };
+
+  it.each(tableCases.valid)("renders a table view for %j", (body) => {
+    expect(toBlocks("```graite:table\n" + body + "```\n")[0]?.type).toBe("tableView");
+  });
+
+  it.each(tableCases.invalid)("falls back to plain text for %j", (body) => {
+    expect(toBlocks("```graite:table\n" + body + "```\n")[0]?.type).toBe("rawMarkdown");
+  });
+
+  it("reads fences and csv embeds into tableView blocks", () => {
+    const blocks = toBlocks(read(blocksDir, "table-view.md"));
+    expect(blocks.map((b) => b.type)).toEqual([
+      "heading",
+      "tableView",
+      "tableView",
+      "tableView",
+      "tableView",
+      "tableView",
+      "paragraph",
+      "paragraph",
+      "paragraph",
+    ]);
+    expect(blocks[2]).toMatchObject({
+      props: {
+        filter: 'category = "Travel" and amount > 100',
+        sort: "date desc",
+        columns: JSON.stringify(["date", "description", "amount", "category"]),
+        height: 480,
+        embed: false,
+      },
+    });
+    expect(blocks[3]).toMatchObject({ props: { sort: '["-age","name"]', columns: "[]" } });
+    expect(JSON.parse((blocks[4]!.props as { tabs: string }).tabs)).toEqual({
+      "_data/people.csv": { filter: "age > 30", sort: ["-age"], columns: ["name"] },
+      "People/_data/teams.csv": { sort: "name" },
+    });
+    expect(blocks[5]).toMatchObject({ props: { source: "expenses.csv", embed: true } });
+  });
+
+  it("writes an embed with view state as a fence", () => {
+    const [embed] = toBlocks("![[expenses.csv]]\n");
+    const edited = { ...embed!, props: { ...embed!.props, filter: "amount > 1" } } as Block;
+    expect(fromBlocks([edited])).toBe(
+      "```graite:table\nsource: expenses.csv\nfilter: amount > 1\n```\n",
+    );
+  });
+
+  it("keeps Obsidian embeds unescaped", () => {
+    expect(canonical("See ![[a.png]] and ![[b.pdf|300]].\n")).toBe(
+      "See ![[a.png]] and ![[b.pdf|300]].\n",
+    );
   });
 });
 

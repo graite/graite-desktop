@@ -1,0 +1,895 @@
+/* CSV table blocks (graite:table). Toolbar, menus and filter pills reuse views.css; the grid
+   itself is a Glide canvas themed in theme.ts, with page-style pills drawn in cells.tsx. */
+.table-view .table-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 13px;
+}
+.table-view .table-title svg {
+  color: var(--muted-foreground);
+}
+.table-grid {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.table-input {
+  width: 100%;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+  font-size: 13px;
+  outline: none;
+}
+.table-input:focus,
+.table-input:focus-visible {
+  border-color: var(--ring);
+  outline: none;
+  box-shadow: none;
+}
+.table-input.mono {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  resize: vertical;
+}
+.table-sort-chip {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+/* Column menu and new-field form */
+.table-column-menu {
+  width: 240px;
+}
+.table-column-menu form {
+  margin-bottom: 4px;
+}
+.table-menu-value {
+  margin-left: auto;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  background: transparent;
+}
+.table-menu-separator {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--border);
+}
+.view-menu-item.danger,
+.view-menu-item.danger svg,
+.view-button.danger {
+  color: var(--destructive);
+}
+.table-type-menu {
+  width: 200px;
+}
+.table-field-menu {
+  width: 250px;
+}
+.table-new-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.table-new-field small {
+  padding: 4px 2px 0;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.table-type-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 264px;
+  overflow-y: auto;
+}
+.table-type-list .view-menu-item {
+  padding: 5px 8px;
+  font-size: 13px;
+}
+.table-type-list .view-menu-item[aria-selected="true"] {
+  background: var(--accent);
+}
+.table-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.table-button {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.table-button.ghost {
+  color: var(--muted-foreground);
+}
+.table-button.ghost:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.table-button.solid {
+  background: var(--foreground);
+  color: var(--background);
+}
+.table-button.solid:hover {
+  opacity: 0.88;
+}
+.table-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.table-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0;
+  padding: 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--destructive) 8%, var(--background));
+  font-size: 12px;
+  line-height: 1.45;
+}
+.table-confirm .table-form-actions {
+  border-top: none;
+  padding-top: 0;
+}
+.table-menu-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--destructive);
+}
+
+/* The "+" after the last column and the "+ New" row under the grid: quiet until hovered. */
+.table-add-field {
+  position: absolute;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-foreground);
+  opacity: 0.7;
+}
+.table-add-field:hover {
+  opacity: 1;
+  color: var(--foreground);
+  background: var(--muted);
+}
+.table-new-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.table-new-row:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.table-selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.table-selection-bar span {
+  margin-right: 4px;
+}
+.table-selection-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+.table-selection-bar button:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.table-selection-bar .danger:hover {
+  color: var(--destructive);
+}
+
+/* Filters */
+.table-custom-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.table-custom-filter small {
+  color: var(--muted-foreground);
+}
+.table-custom-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* Select / status cell editor (inside Glide's overlay) */
+.table-tags-editor {
+  background: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+}
+
+/* Messages, empty states and the table picker */
+.table-warning,
+.table-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--muted-foreground);
+}
+.table-warning {
+  font-size: 12px;
+}
+.table-empty {
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--muted-foreground);
+}
+.table-empty.error {
+  color: var(--destructive);
+}
+.table-picker {
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+.table-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.table-picker-label {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  margin: 4px 0;
+}
+.table-picker-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 8px;
+  border-radius: 6px;
+  text-align: left;
+}
+.table-picker-item:hover {
+  background: var(--muted);
+}
+
+/* AI row changes waiting for review (their rows are tinted amber in the grid). */
+.table-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #a86a2c;
+  background: color-mix(in srgb, #c37932 10%, var(--background));
+}
+.table-pending:hover {
+  background: color-mix(in srgb, #c37932 18%, var(--background));
+}
+
+/* Tabs: the tables of one _data/ folder (D71) */
+.table-tabs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  min-width: 0;
+}
+.table-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.table-tab:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.table-tab.active {
+  color: var(--foreground);
+  font-weight: 600;
+  background: var(--muted);
+  cursor: default;
+}
+.table-tab.active svg {
+  color: var(--muted-foreground);
+}
+.table-tab-menu {
+  display: inline-flex;
+  align-items: center;
+  margin-right: -3px;
+  padding: 2px;
+  border-radius: 4px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.table-tab.active:hover .table-tab-menu,
+.table-tab-menu:focus-visible,
+.table-tab-menu[data-state="open"] {
+  opacity: 1;
+}
+.table-tab-menu:hover {
+  background: var(--accent);
+}
+.table-tab-add,
+.table-tab-all {
+  padding: 0 6px;
+}
+.table-tab-input {
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--ring);
+  border-radius: 6px;
+  background: var(--background);
+  font-size: 13px;
+  outline: none;
+}
+.table-all-tables {
+  min-width: 240px;
+}
+.table-folder small {
+  display: block;
+  padding: 4px 8px 2px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.table-all-tables {
+  max-height: 360px;
+  overflow-y: auto;
+}
+.table-menu-note.info {
+  color: var(--muted-foreground);
+}
+
+/* Relations: pills, the row picker, the setup form and the row panel */
+.table-relation-picker {
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+  max-width: 90vw;
+  padding: 6px;
+}
+.table-relation-selected,
+.table-row-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.table-relation-selected {
+  padding: 2px 2px 6px;
+}
+.table-relation-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 18px;
+  background: color-mix(in srgb, #808080 16%, var(--background));
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+button.table-relation-pill:not(:disabled) {
+  cursor: pointer;
+}
+button.table-relation-pill:not(:disabled):hover {
+  background: color-mix(in srgb, #808080 30%, var(--background));
+}
+.table-relation-pill.broken {
+  background: color-mix(in srgb, #bf625a 16%, var(--background));
+  color: color-mix(in srgb, #bf625a 85%, var(--foreground));
+  text-decoration: line-through;
+}
+.table-relation-pill button {
+  display: inline-flex;
+  padding: 1px;
+  border-radius: 3px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.table-relation-pill button:hover {
+  background: var(--accent);
+}
+.table-relation-search {
+  font-size: 12px;
+  padding: 7px 6px;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  outline: none;
+  margin-bottom: 4px;
+}
+.table-relation-results {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.table-relation-option {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.table-relation-option.active {
+  background: var(--accent);
+}
+.table-relation-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.table-relation-secondary {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.table-relation-empty {
+  padding: 8px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.table-row-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgb(0 0 0 / 0.18);
+}
+.table-row-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(460px, 100vw);
+  padding: 20px 22px;
+  overflow-y: auto;
+  border-left: 1px solid var(--border);
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: -12px 0 32px rgb(0 0 0 / 0.12);
+  outline: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* Only a slide: if animations never run, the panel is still fully there. */
+  .table-row-panel[data-state="open"] {
+    animation: table-row-in 0.16s ease-out;
+  }
+}
+@keyframes table-row-in {
+  from {
+    transform: translateX(24px);
+  }
+}
+.table-row-close {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 5px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.table-row-close:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.table-row-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.table-row-panel-table {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.table-row-panel-title {
+  font-size: 22px;
+  font-weight: 700;
+}
+.table-row-panel-secondary {
+  min-height: 0;
+  font-size: 13px;
+}
+.table-row-fields {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+.table-row-field {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  /* Long text grows downwards; names stay level with its first line. */
+  align-items: start;
+  gap: 8px;
+  min-height: 34px;
+  font-size: 13px;
+}
+.table-row-field-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.table-row-field-value input:not([type="checkbox"]) {
+  width: 100%;
+  padding: 4px 6px;
+  border-radius: 5px;
+  background: transparent;
+  outline: none;
+}
+.table-row-field-value input:not([type="checkbox"]):hover,
+.table-row-field-value input:not([type="checkbox"]):focus {
+  background: var(--accent);
+}
+/* The relation field's Add / Edit chip: quiet until the field is hovered. */
+.table-row-link-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  opacity: 0.75;
+  transition:
+    opacity 0.12s,
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
+}
+.table-row-field:hover .table-row-link-edit,
+.table-row-link-edit:focus-visible,
+.table-row-link-edit[data-state="open"] {
+  opacity: 1;
+}
+.table-row-link-edit:hover,
+.table-row-link-edit[data-state="open"] {
+  border-style: solid;
+  border-color: color-mix(in srgb, #4285b6 45%, var(--border));
+  background: color-mix(in srgb, #4285b6 8%, var(--background));
+  color: color-mix(in srgb, #4285b6 85%, var(--foreground));
+}
+.table-row-link-edit:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.table-row-picker {
+  padding: 0;
+  width: auto;
+}
+
+/* The active tab's menu */
+.table-tab-settings {
+  min-width: 230px;
+}
+.table-tab-fields {
+  min-width: 200px;
+  max-height: 320px;
+}
+.table-menu-label {
+  padding: 6px 8px 2px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+.table-menu-current {
+  margin-left: auto;
+  padding-left: 12px;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.table-menu-hint {
+  max-width: 220px;
+  padding: 4px 8px 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+}
+.table-menu-icon-gap {
+  width: 14px;
+}
+.table-menu-two-line {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+.table-menu-two-line small {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+
+/* Relation setup: pick a table, then the options (RelationSetup.tsx) */
+.relation-setup-popover {
+  width: 340px;
+  padding: 0;
+}
+.view-menu:has(.relation-setup) {
+  width: 340px;
+}
+.relation-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  font-size: 13px;
+}
+.table-new-field .relation-setup {
+  padding: 4px 2px 2px;
+}
+.relation-setup-title {
+  font-weight: 600;
+}
+.relation-setup-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted-foreground);
+}
+.relation-setup-search:focus-within {
+  border-color: var(--ring);
+}
+.relation-setup-search input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  outline: none;
+  color: var(--foreground);
+}
+.relation-setup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.relation-setup-folder-name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.relation-setup-table {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+}
+.relation-setup-table:hover,
+.relation-setup-table:focus-visible {
+  background: var(--accent);
+  outline: none;
+}
+.relation-setup-table > svg:first-child {
+  color: var(--muted-foreground);
+}
+.relation-setup-table-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.relation-setup-tag {
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--muted);
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.relation-setup-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.relation-setup-chevron {
+  color: var(--muted-foreground);
+  opacity: 0;
+}
+.relation-setup-table:hover .relation-setup-chevron {
+  opacity: 1;
+}
+.relation-setup-empty {
+  padding: 10px 8px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.relation-setup-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.relation-setup-back {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 5px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.relation-setup-back:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.relation-setup-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.relation-setup-chip svg {
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}
+.relation-setup-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.relation-setup-option-title {
+  font-weight: 500;
+}
+.relation-setup-option-hint {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+}
+.relation-setup-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.relation-setup-error {
+  color: var(--destructive);
+}
+.relation-setup-summary {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+.relation-setup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* Link pills (relation cells in the panel and picker): blue with a link icon, like the grid */
+.table-relation-pill.link {
+  background: color-mix(in srgb, #4285b6 10%, var(--background));
+  color: color-mix(in srgb, #4285b6 85%, var(--foreground));
+}
+.table-relation-pill.link svg {
+  flex-shrink: 0;
+}
+button.table-relation-pill.link:not(:disabled):hover {
+  background: color-mix(in srgb, #4285b6 22%, var(--background));
+  text-decoration: underline;
+}
+.table-relation-pill.link.broken {
+  background: color-mix(in srgb, #bf625a 16%, var(--background));
+  color: color-mix(in srgb, #bf625a 85%, var(--foreground));
+}
+
+/* Row panel fields: long text wraps onto lines; checkboxes match the grid's */
+.table-row-field-name {
+  min-height: 30px;
+}
+.table-row-field-value {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+}
+.table-row-text {
+  width: 100%;
+  padding: 5px 6px;
+  border-radius: 5px;
+  background: transparent;
+  font: inherit;
+  line-height: 1.5;
+  resize: none;
+  overflow: hidden;
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.table-row-text:hover,
+.table-row-text:focus {
+  background: var(--accent);
+}
+.table-row-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+  border: 1.5px solid var(--foreground);
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--background);
+  cursor: pointer;
+}
+.table-row-check[aria-checked="true"] {
+  background: var(--foreground);
+}
+.table-row-check:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}

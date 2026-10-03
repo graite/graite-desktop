@@ -9,7 +9,12 @@ import {
   Mic,
   ScanText,
   NotebookPen,
+  Table2,
+  FileUp,
+  BarChart3,
+  Code2,
 } from "lucide-react";
+import { toast } from "sonner";
 import type { GraiteEditor } from "./schema";
 
 export interface PickedPage {
@@ -27,6 +32,8 @@ export interface SlashMenuDeps {
   pickPage: () => Promise<PickedPage | null>;
   /** Called after the tree changed so the sidebar can refresh. */
   onTreeChanged: () => void;
+  /** Copies a CSV into this page's `_data/`; resolves with the block `source` for it. */
+  importTable?: (file: File) => Promise<string>;
 }
 
 /** Default items we do not offer: toggle headings (we offer plain toggles only). */
@@ -153,7 +160,7 @@ export function getSlashMenuItems(
   }));
   const views: DefaultReactSuggestionItem[] = (
     [
-      ["table", "Table", "Nested pages with their properties as columns"],
+      ["table", "Table", "A table of this page's subpages and their properties"],
       ["kanban", "Board", "Nested pages as cards grouped by a status"],
       ["list", "List", "Nested pages as a simple list"],
     ] as const
@@ -167,6 +174,65 @@ export function getSlashMenuItems(
       insertOrUpdateBlockForSlashMenu(editor, { type: "pageView", props: { view } });
     },
   }));
+  const tableItem: DefaultReactSuggestionItem = {
+    title: "Database table",
+    subtext: "Typed columns saved as a CSV in this page; filter, sort and edit like a spreadsheet",
+    aliases: ["csv", "table", "database", "spreadsheet", "data", "grid", "rows"],
+    group: "Views",
+    icon: <Table2 size={16} />,
+    onItemClick: () => {
+      insertOrUpdateBlockForSlashMenu(editor, { type: "tableView", props: { source: "" } });
+    },
+  };
+  const chartItem: DefaultReactSuggestionItem = {
+    title: "Chart",
+    subtext: "Bar, line, pie or a number from this page's tables, updated as rows change",
+    aliases: ["chart", "graph", "plot", "bar", "line", "pie", "kpi", "visual"],
+    group: "Views",
+    icon: <BarChart3 size={16} />,
+    onItemClick: () => {
+      insertOrUpdateBlockForSlashMenu(editor, { type: "chart", props: { source: "" } });
+    },
+  };
+  const dashboardItem: DefaultReactSuggestionItem = {
+    title: "HTML",
+    subtext: "Upload an HTML file or create a report or dashboard with the page’s AI chat",
+    aliases: ["dashboard", "html", "report", "overview", "kpi", "panel"],
+    group: "Views",
+    icon: <Code2 size={16} />,
+    onItemClick: () => {
+      insertOrUpdateBlockForSlashMenu(editor, { type: "dashboard", props: { src: "" } });
+    },
+  };
+  const importItem: DefaultReactSuggestionItem | null = deps.importTable
+    ? {
+        title: "Import CSV",
+        subtext: "Turn a .csv file into a table on this page",
+        aliases: ["csv", "import", "spreadsheet", "excel", "upload"],
+        group: "Views",
+        icon: <FileUp size={16} />,
+        onItemClick: () => {
+          // Insert now (BlockNote loses the position after an await), then choose the file.
+          const inserted = insertOrUpdateBlockForSlashMenu(editor, {
+            type: "tableView",
+            props: { source: "" },
+          });
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = ".csv,text/csv";
+          input.onchange = () => {
+            const file = input.files?.[0];
+            if (!file) return;
+            deps.importTable!(file).then(
+              (source) => editor.updateBlock(inserted, { type: "tableView", props: { source } }),
+              (e: Error) => toast.error(e.message),
+            );
+          };
+          // Still inside the click, so the browser lets the file dialog open.
+          input.click();
+        },
+      }
+    : null;
   const calloutItem: DefaultReactSuggestionItem = {
     title: "Callout",
     subtext: "Highlighted note (Obsidian callout)",
@@ -183,7 +249,18 @@ export function getSlashMenuItems(
     basic < 0
       ? [...defaults, calloutItem]
       : [...defaults.slice(0, basic + 1), calloutItem, ...defaults.slice(basic + 1)];
-  return [pageItem, linkItem, ...mediaItems, ...layouts, ...views, ...withCallout];
+  return [
+    pageItem,
+    linkItem,
+    ...mediaItems,
+    ...layouts,
+    ...views,
+    tableItem,
+    ...(importItem ? [importItem] : []),
+    chartItem,
+    dashboardItem,
+    ...withCallout,
+  ];
 }
 
 export function filterSlashItems(items: DefaultReactSuggestionItem[], query: string) {

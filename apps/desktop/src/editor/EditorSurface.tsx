@@ -12,6 +12,7 @@ import {
 } from "@blocknote/react";
 import "@blocknote/shadcn/style.css";
 import "./editor.css";
+import { TableExtendButton } from "./TableExtendButton";
 import type { GraiteEditor } from "./schema";
 import { getSlashMenuItems, filterSlashItems, type SlashMenuDeps } from "./slash-menu";
 import { MediaContext } from "./media/context";
@@ -152,7 +153,7 @@ export function EditorSurface({
           )
         }
       />
-      <TableHandlesController />
+      <TableHandlesController extendButton={TableExtendButton} />
       <SideMenuController
         sideMenu={(props) => (
           <SideMenu

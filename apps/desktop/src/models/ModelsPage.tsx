@@ -25,6 +25,7 @@ import {
   type SavedModel,
 } from "@/lib/connections";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import "./ai.css";
 import "@/settings/settings.css";
 import { ConnectionsCard } from "./ConnectionsCard";
@@ -245,14 +246,11 @@ export function ModelsPage({
                           or my own llama-server.
                         </small>
                       </span>
-                      <button
+                      <Switch
                         id="ai-tech-mode-switch"
-                        type="button"
-                        role="switch"
-                        className="ai-switch"
-                        aria-checked={techMode}
+                        checked={techMode}
                         aria-describedby="ai-tech-mode-hint"
-                        onClick={() => setTechMode(!techMode)}
+                        onCheckedChange={setTechMode}
                       />
                     </div>
                     {techMode && (

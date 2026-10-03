@@ -1,0 +1,27 @@
+{
+  "_comment": "One corpus, two parsers, like view-cases.json: blocks.test.ts asserts every `valid` body becomes a tableView block and every `invalid` one falls back to rawMarkdown; apps/daemon/tests/test_blocks.py asserts check_fences() agrees. The daemon also refuses a filter it cannot compile (graite/tables/query.py); the editor shows such a block with the error instead.",
+  "valid": [
+    "source: _data/expenses.csv\n",
+    "source: _data/expenses.csv\nview: table\n",
+    "source: _data/expenses.csv\nview: table\nfilter: category = \"Travel\" and amount > 100\nsort: date desc\ncolumns:\n  - date\n  - description\n  - amount\n  - category\n",
+    "source: People/_data/people.csv\nsort:\n  - -age\n  - name\nheight: 480\n",
+    "source: expenses.csv\ncolumns: []\n",
+    "source: a.csv\ntabs:\n  b.csv:\n    filter: x = 1\n"
+  ],
+  "invalid": [
+    "view: table\n",
+    "source: ''\n",
+    "source:\n  - a.csv\n",
+    "source: _data/x.csv\nview: gallery\n",
+    "source: _data/x.csv\ntable: tasks\n",
+    "source: _data/x.csv\nfilter:\n  amount: 1\n",
+    "source: _data/x.csv\nsort: 3\n",
+    "source: _data/x.csv\ncolumns: date\n",
+    "source: _data/x.csv\ncolumns:\n  - ''\n",
+    "source: _data/x.csv\nheight: tall\n",
+    "source: _data/x.csv\nheight: 20\n",
+    "- source: _data/x.csv\n",
+    "source: a.csv\ntabs:\n  - b.csv\n",
+    "source: a.csv\ntabs:\n  b.csv:\n    height: 300\n"
+  ]
+}

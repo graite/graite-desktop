@@ -21,6 +21,7 @@ const TOOLS = [
   ["propose_edit", "Propose edits"],
   ["propose_append", "Propose additions"],
   ["propose_create", "Propose new pages"],
+  ["propose_rows", "Propose table rows"],
   ["propose_delete", "Propose deletions"],
   ["propose_move", "Propose moves"],
   ["list_proposals", "Read proposals"],

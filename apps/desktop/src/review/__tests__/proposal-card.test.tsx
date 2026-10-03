@@ -177,3 +177,38 @@ it("decides from the collapsed row in quick mode; rejecting opens the card for a
   fireEvent.click(screen.getByRole("button", { name: "Reject" }));
   expect(screen.getByLabelText("Reason for rejecting")).toBeTruthy();
 });
+
+it("shows a table's row changes and offers no text edit for them", async () => {
+  const acts = actions();
+  const rows: Proposal = {
+    ...PROPOSAL,
+    kind: "rows",
+    page_path: "Projects/Atlas",
+    new_path: "Projects/Atlas/_data/expenses.csv",
+    old_text: null,
+    new_text: null,
+    patch: "",
+    summary: "Add the taxi",
+    rows: {
+      table: "Projects/Atlas/_data/expenses.csv",
+      applied: false,
+      ops: [
+        { op: "insert", values: { description: "Taxi", amount: 30 } },
+        { op: "update", id: "2", values: { amount: 14 }, base: { amount: 12 } },
+        { op: "delete", id: "1", values: {}, base: { description: "Train" } },
+      ],
+    },
+  };
+  render(<ProposalCard proposal={rows} actions={acts} />);
+  expect(screen.getByText(/expenses ·/).textContent).toContain("Notes");
+  const list = screen.getByLabelText("Changes to expenses");
+  expect(list.querySelector("header")?.textContent).toBe("1 new · 1 edited · 1 deleted");
+  const [insert, update, remove] = list.querySelectorAll(".rows-change");
+  expect(insert?.textContent).toContain("Taxi");
+  expect(update?.querySelector(".rows-change-was")?.textContent).toBe("12");
+  expect(update?.textContent).toContain("14");
+  expect(remove?.getAttribute("data-op")).toBe("delete");
+  expect(screen.queryByRole("button", { name: /Edit/ })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /Accept/ }));
+  await waitFor(() => expect(acts.accept).toHaveBeenCalledWith("p_1", undefined));
+});

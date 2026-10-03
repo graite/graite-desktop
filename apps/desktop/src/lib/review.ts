@@ -64,6 +64,8 @@ export const KIND_LABELS: Record<string, string> = {
   delete: "Delete",
   move: "Move",
   properties: "Properties",
+  rows: "Table rows",
+  dashboard: "Dashboard",
 };
 
 export const STATUS_LABELS: Record<string, string> = {

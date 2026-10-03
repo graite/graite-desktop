@@ -20,7 +20,7 @@ import type {
   RootContent,
   Text,
 } from "mdast";
-import type { Callout, WikiLink } from "./types";
+import type { Callout, Embed, WikiLink } from "./types";
 
 export const WIKI_LINK_OPTIONS = {
   aliasDivider: "|",
@@ -75,6 +75,15 @@ const calloutToMarkdown: ToMarkdownOptions = {
   },
 };
 
+/** `![[target]]` is written back as is; as plain text its brackets would be escaped. */
+const embedToMarkdown: ToMarkdownOptions = {
+  handlers: {
+    embed(node: Embed) {
+      return `![[${node.value}]]`;
+    },
+  },
+};
+
 /** Pinned serializer options. Changing these is a migration (see docs/design/editor-roundtrip.md §2). */
 export const SERIALIZER_OPTIONS: ToMarkdownOptions = {
   bullet: "-",
@@ -89,6 +98,7 @@ export const SERIALIZER_OPTIONS: ToMarkdownOptions = {
     frontmatterToMarkdown(["yaml"]),
     wikiLinkToMarkdown(WIKI_LINK_OPTIONS.aliasDivider),
     calloutToMarkdown,
+    embedToMarkdown,
   ],
 };
 
@@ -101,7 +111,43 @@ const parser = unified()
 export function parse(markdown: string): Root {
   const tree = parser.parse(markdown) as Root;
   liftCallouts(tree);
+  liftEmbeds(tree);
   return tree;
+}
+
+const EMBED_RE = /!\[\[([^[\]\n]+)\]\]/g;
+
+/** Text with every `![[target]]` split out as an `embed` node; null when there is none. */
+export function splitEmbeds(value: string): PhrasingContent[] | null {
+  if (!value.includes("![[")) return null;
+  const out: PhrasingContent[] = [];
+  let last = 0;
+  for (const match of value.matchAll(EMBED_RE)) {
+    if (match.index > last) out.push({ type: "text", value: value.slice(last, match.index) });
+    out.push({ type: "embed", value: match[1]! });
+    last = match.index + match[0].length;
+  }
+  if (last === 0) return null;
+  if (last < value.length) out.push({ type: "text", value: value.slice(last) });
+  return out;
+}
+
+/** Split `![[target]]` out of text nodes into `embed` nodes (Obsidian embeds). */
+function liftEmbeds(node: { children?: RootContent[] }): void {
+  if (!node.children) return;
+  const out: RootContent[] = [];
+  let changed = false;
+  for (const child of node.children) {
+    const parts = child.type === "text" ? splitEmbeds(child.value) : null;
+    if (parts) {
+      out.push(...parts);
+      changed = true;
+    } else {
+      liftEmbeds(child as { children?: RootContent[] });
+      out.push(child);
+    }
+  }
+  if (changed) node.children = out;
 }
 
 /** Recursively replace blockquotes that start with `[!type]` by `callout` nodes. */

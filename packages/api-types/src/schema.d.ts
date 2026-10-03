@@ -998,6 +998,44 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/charts/ai": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * From Words
+     * @description A chart spec from words, made by the configured model and checked against the data.
+     *     The block applies it as the user's own edit (D73).
+     */
+    post: operations["from_words_api_v1_charts_ai_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/charts/data": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Data */
+    post: operations["data_api_v1_charts_data_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/client-log": {
     parameters: {
       query?: never;
@@ -1094,6 +1132,58 @@ export interface paths {
     get: operations["status_api_v1_cloud_status_get"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/dashboards": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read */
+    get: operations["read_api_v1_dashboards_get"];
+    /** Write */
+    put: operations["write_api_v1_dashboards_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/dashboards/list": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Dashboards */
+    get: operations["list_dashboards_api_v1_dashboards_list_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/dashboards/ticket": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Ticket */
+    post: operations["ticket_api_v1_dashboards_ticket_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1527,6 +1617,255 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/tables": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Tables */
+    get: operations["list_tables_api_v1_tables_get"];
+    put?: never;
+    /** Create */
+    post: operations["create_api_v1_tables_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/tables/check-type": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Check Type
+     * @description How a column's current values would read as `type` (for a relation: as rows of
+     *     `target`), before the user switches to it.
+     */
+    get: operations["check_type_api_v1_tables_check_type_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/tables/columns": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Alter Columns */
+    post: operations["alter_columns_api_v1_tables_columns_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/tables/ensure-ids": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Ensure Ids */
+    post: operations["ensure_ids_api_v1_tables_ensure_ids_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/tables/import": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Import Csv
+     * @description Copy an uploaded CSV (request body) into the page's `_data/`, adding ids.
+     */
+    post: operations["import_csv_api_v1_tables_import_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/tables/link-labels": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Refresh Link Labels
+     * @description Write this table's current display values into the links other tables hold to it.
+     */
+    post: operations["refresh_link_labels_api_v1_tables_link_labels_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/tables/options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Change Option
+     * @description Rename or remove a select option in every row and in the schema file.
+     */
+    post: operations["change_option_api_v1_tables_options_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/tables/query": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Query
+     * @description Read-only SQL for charts and dashboards: writes are refused, at most 5000 rows.
+     */
+    post: operations["query_api_v1_tables_query_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/tables/relations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Add Relation
+     * @description Make a column a relation to another table, with an optional reverse column there.
+     */
+    post: operations["add_relation_api_v1_tables_relations_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/tables/rename": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Rename
+     * @description Rename the CSV (and schema) file; relations, fences and embeds that name it follow.
+     */
+    post: operations["rename_api_v1_tables_rename_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/tables/resolve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Resolve
+     * @description The table a block on `page_path` means by `source` (`_data/x.csv`, a vault path, or a
+     *     bare name as in `![[x.csv]]`).
+     */
+    get: operations["resolve_api_v1_tables_resolve_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/tables/rows": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Rows */
+    get: operations["rows_api_v1_tables_rows_get"];
+    put?: never;
+    /** Write Rows */
+    post: operations["write_rows_api_v1_tables_rows_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/tables/schema": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Patch Schema */
+    patch: operations["patch_schema_api_v1_tables_schema_patch"];
+    trace?: never;
+  };
   "/api/v1/trash": {
     parameters: {
       query?: never;
@@ -1917,6 +2256,23 @@ export interface components {
        */
       text: string;
     };
+    /** AddRelation */
+    AddRelation: {
+      /**
+       * Cardinality
+       * @default many
+       * @enum {string}
+       */
+      cardinality: "one" | "many";
+      /** Column */
+      column: string;
+      /** Path */
+      path: string;
+      /** Reverse */
+      reverse?: string | null;
+      /** Target */
+      target: string;
+    };
     /** AgentBody */
     AgentBody: {
       /**
@@ -2009,6 +2365,15 @@ export interface components {
         [key: string]: unknown;
       };
       page?: components["schemas"]["PageDocModel"] | null;
+    };
+    /** AlterColumns */
+    AlterColumns: {
+      /** Base Hash */
+      base_hash?: string | null;
+      /** Ops */
+      ops: components["schemas"]["ColumnOpModel"][];
+      /** Path */
+      path: string;
     };
     /** Archive */
     Archive: {
@@ -2264,6 +2629,84 @@ export interface components {
       /** Verified Llama */
       verified_llama: string | null;
     };
+    /** ChartAIReply */
+    ChartAIReply: {
+      /** Message */
+      message: string;
+      /** Spec */
+      spec: {
+        [key: string]: unknown;
+      };
+    };
+    /** ChartAIRequest */
+    ChartAIRequest: {
+      /** Current */
+      current?: {
+        [key: string]: unknown;
+      } | null;
+      /** Page Path */
+      page_path: string;
+      /** Prompt */
+      prompt: string;
+    };
+    /** ChartData */
+    ChartData: {
+      /**
+       * Categories
+       * @default []
+       */
+      categories: string[];
+      /**
+       * Format
+       * @default number
+       */
+      format: string;
+      /** Label */
+      label?: string | null;
+      /**
+       * Points
+       * @default []
+       */
+      points: unknown[][];
+      /**
+       * Series
+       * @default []
+       */
+      series: components["schemas"]["ChartSeries"][];
+      /**
+       * Tables
+       * @default []
+       */
+      tables: string[];
+      /**
+       * Truncated
+       * @default false
+       */
+      truncated: boolean;
+      /** Value */
+      value?: number | null;
+    };
+    /** ChartRequest */
+    ChartRequest: {
+      /** Page Path */
+      page_path: string;
+      /** Spec */
+      spec: {
+        [key: string]: unknown;
+      };
+    };
+    /** ChartSeries */
+    ChartSeries: {
+      /** Data */
+      data: unknown[];
+      /**
+       * Format
+       * @default number
+       */
+      format: string;
+      /** Name */
+      name: string;
+    };
     /** ChatAttachment */
     ChatAttachment: {
       /** Conversation Id */
@@ -2404,6 +2847,59 @@ export interface components {
       /** Used */
       used: number;
     };
+    /** ColumnModel */
+    ColumnModel: {
+      /** Cardinality */
+      cardinality?: string | null;
+      /** Colors */
+      colors?: {
+        [key: string]: string;
+      };
+      /** Currency */
+      currency?: string | null;
+      /**
+       * Invalid
+       * @default 0
+       */
+      invalid: number;
+      /** Name */
+      name: string;
+      /** Options */
+      options?: string[];
+      /** Reverse */
+      reverse?: string | null;
+      /** Table */
+      table?: string | null;
+      /** Table Id */
+      table_id?: string | null;
+      /** Target */
+      target?: string | null;
+      /** Type */
+      type: string;
+      /** Via */
+      via?: string | null;
+      /** Width */
+      width?: number | null;
+      /**
+       * Wrap
+       * @default false
+       */
+      wrap: boolean;
+    };
+    /** ColumnOpModel */
+    ColumnOpModel: {
+      /** Index */
+      index?: number | null;
+      /** Name */
+      name: string;
+      /**
+       * Op
+       * @enum {string}
+       */
+      op: "add" | "rename" | "delete" | "move";
+      /** To */
+      to?: string | null;
+    };
     /** ConflictBody */
     ConflictBody: {
       /** Body */
@@ -2494,6 +2990,52 @@ export interface components {
        * @default Untitled
        */
       title: string;
+    };
+    /** CreateTable */
+    CreateTable: {
+      /** Columns */
+      columns?: string[];
+      /** Name */
+      name: string;
+      /** Page Path */
+      page_path: string;
+    };
+    /** Dashboard */
+    Dashboard: {
+      /** Html */
+      html?: string | null;
+      /** Page Path */
+      page_path: string;
+      /** Path */
+      path: string;
+      /** Src */
+      src: string;
+    };
+    /** DashboardChange */
+    DashboardChange: {
+      /**
+       * Created
+       * @default false
+       */
+      created: boolean;
+      /** File */
+      file: string;
+      /** Html */
+      html?: string | null;
+      /**
+       * Show
+       * @default false
+       */
+      show: boolean;
+      /** Src */
+      src: string;
+    };
+    /** DashboardInfo */
+    DashboardInfo: {
+      /** Name */
+      name: string;
+      /** Src */
+      src: string;
     };
     /** DiscoveredModel */
     DiscoveredModel: {
@@ -2612,6 +3154,29 @@ export interface components {
       variants?: components["schemas"]["Variant"][];
       /** Version */
       version: string;
+    };
+    /** EnsureIds */
+    EnsureIds: {
+      /**
+       * Duplicates
+       * @default false
+       */
+      duplicates: boolean;
+      /** Path */
+      path: string;
+    };
+    /** EnsureIdsResult */
+    EnsureIdsResult: {
+      /** Hash */
+      hash: string;
+      /** Ids */
+      ids?: string[];
+      /** Path */
+      path: string;
+      /** Reassigned */
+      reassigned?: {
+        [key: string]: string[];
+      };
     };
     /** ErrorBody */
     ErrorBody: {
@@ -3079,6 +3644,17 @@ export interface components {
       /** Source */
       source: string;
     };
+    /** OptionChange */
+    OptionChange: {
+      /** Column */
+      column: string;
+      /** New */
+      new?: string | null;
+      /** Old */
+      old: string;
+      /** Path */
+      path: string;
+    };
     /** PageDoc */
     PageDoc: {
       /** Body */
@@ -3195,6 +3771,15 @@ export interface components {
       /** Title */
       title?: string | null;
     };
+    /** PatchSchema */
+    PatchSchema: {
+      /** Path */
+      path: string;
+      /** Schema */
+      schema: {
+        [key: string]: unknown;
+      };
+    };
     /** PreviewBody */
     PreviewBody: {
       /** Cfg */
@@ -3234,6 +3819,7 @@ export interface components {
       conversation_id?: string | null;
       /** Created At */
       created_at: string;
+      dashboard?: components["schemas"]["DashboardChange"] | null;
       /** Decided At */
       decided_at?: string | null;
       /** Decided By */
@@ -3271,6 +3857,7 @@ export interface components {
       properties?: components["schemas"]["PageProperty"][] | null;
       /** Reason */
       reason?: string | null;
+      rows?: components["schemas"]["RowsChange"] | null;
       /** Run Id */
       run_id?: string | null;
       /** Snapshot */
@@ -3316,6 +3903,22 @@ export interface components {
     PutResult: {
       /** Hash */
       hash: string;
+    };
+    /** QueryBody */
+    QueryBody: {
+      /** Page Path */
+      page_path: string;
+      /** Sql */
+      sql: string;
+    };
+    /** QueryResult */
+    QueryResult: {
+      /** Columns */
+      columns: string[];
+      /** Rows */
+      rows: unknown[][];
+      /** Truncated */
+      truncated: boolean;
     };
     /** Question */
     Question: {
@@ -3370,6 +3973,13 @@ export interface components {
       /** Url */
       url: string;
     };
+    /** RenameTable */
+    RenameTable: {
+      /** Name */
+      name: string;
+      /** Path */
+      path: string;
+    };
     /** RenameVoice */
     RenameVoice: {
       /** Name */
@@ -3385,10 +3995,142 @@ export interface components {
       /** Path */
       path: string;
     };
+    /** Resolved */
+    Resolved: {
+      /** Path */
+      path: string;
+    };
     /** RestoreRequest */
     RestoreRequest: {
       /** Target Path */
       target_path?: string | null;
+    };
+    /** RowChange */
+    RowChange: {
+      /** After */
+      after?: string | null;
+      /** Base */
+      base?: {
+        [key: string]: unknown;
+      } | null;
+      /** Id */
+      id?: string | null;
+      /** Label */
+      label?: string | null;
+      /** Op */
+      op: string;
+      /** Values */
+      values?: {
+        [key: string]: unknown;
+      };
+    };
+    /** RowColumn */
+    RowColumn: {
+      /** Colors */
+      colors?: {
+        [key: string]: string;
+      };
+      /** Currency */
+      currency?: string | null;
+      /** Options */
+      options?: string[];
+      /**
+       * Type
+       * @default text
+       */
+      type: string;
+    };
+    /** RowConflictModel */
+    RowConflictModel: {
+      /** Column */
+      column?: string | null;
+      /** Id */
+      id: string;
+      /**
+       * Reason
+       * @enum {string}
+       */
+      reason: "missing" | "changed";
+    };
+    /** RowModel */
+    RowModel: {
+      /** Cells */
+      cells: unknown[];
+      /** Id */
+      id: string;
+    };
+    /** RowOpModel */
+    RowOpModel: {
+      /** After */
+      after?: string | null;
+      /** Base */
+      base?: {
+        [key: string]: unknown;
+      } | null;
+      /** Id */
+      id?: string | null;
+      /**
+       * Op
+       * @enum {string}
+       */
+      op: "insert" | "update" | "delete";
+      /** Values */
+      values?: {
+        [key: string]: unknown;
+      };
+    };
+    /** RowsChange */
+    RowsChange: {
+      /**
+       * Applied
+       * @default false
+       */
+      applied: boolean;
+      /** Columns */
+      columns?: {
+        [key: string]: components["schemas"]["RowColumn"];
+      } | null;
+      /** Ops */
+      ops: components["schemas"]["RowChange"][];
+      /** Table */
+      table: string;
+    };
+    /** RowsPage */
+    RowsPage: {
+      /** Columns */
+      columns: components["schemas"]["ColumnModel"][];
+      /** Display */
+      display?: string | null;
+      /** Display Secondary */
+      display_secondary?: string | null;
+      /** Hash */
+      hash: string;
+      /** Label Column */
+      label_column?: string | null;
+      /** Name */
+      name: string;
+      /** Offset */
+      offset: number;
+      /** Page Path */
+      page_path: string;
+      /** Path */
+      path: string;
+      /** Primary Key */
+      primary_key: string;
+      /** Row Count */
+      row_count: number;
+      /** Rows */
+      rows: components["schemas"]["RowModel"][];
+      /** Secondary Column */
+      secondary_column?: string | null;
+      /** Table Id */
+      table_id?: string | null;
+      /** Total */
+      total: number;
+      /** Visible */
+      visible: string[];
+      /** Warnings */
+      warnings?: string[];
     };
     /** RunDetail */
     RunDetail: {
@@ -3720,6 +4462,66 @@ export interface components {
       instructions?: string | null;
       scope?: components["schemas"]["ScopeBody"] | null;
     };
+    /** TableConflictBody */
+    TableConflictBody: {
+      /** Conflicts */
+      conflicts: components["schemas"]["RowConflictModel"][];
+      /**
+       * Detail
+       * @default conflict
+       */
+      detail: string;
+      /** Hash */
+      hash: string;
+    };
+    /** TableModel */
+    TableModel: {
+      /** Columns */
+      columns: components["schemas"]["ColumnModel"][];
+      /** Display */
+      display?: string | null;
+      /** Display Secondary */
+      display_secondary?: string | null;
+      /** Hash */
+      hash: string;
+      /** Label Column */
+      label_column?: string | null;
+      /** Name */
+      name: string;
+      /** Page Path */
+      page_path: string;
+      /** Path */
+      path: string;
+      /** Primary Key */
+      primary_key: string;
+      /** Row Count */
+      row_count: number;
+      /** Secondary Column */
+      secondary_column?: string | null;
+      /** Table Id */
+      table_id?: string | null;
+      /** Warnings */
+      warnings?: string[];
+    };
+    /** TablePathBody */
+    TablePathBody: {
+      /** Path */
+      path: string;
+    };
+    /** TicketRequest */
+    TicketRequest: {
+      /** Page Path */
+      page_path: string;
+      /** Proposal Id */
+      proposal_id?: string | null;
+      /** Src */
+      src?: string | null;
+    };
+    /** TicketResult */
+    TicketResult: {
+      /** Url */
+      url: string;
+    };
     /** TrashEntryModel */
     TrashEntryModel: {
       /** File */
@@ -3778,6 +4580,15 @@ export interface components {
       path: string;
       /** Title */
       title: string;
+    };
+    /** TypeCheck */
+    TypeCheck: {
+      /** Examples */
+      examples: string[];
+      /** Invalid */
+      invalid: number;
+      /** Total */
+      total: number;
     };
     /** UpgradeResult */
     UpgradeResult: {
@@ -3890,6 +4701,38 @@ export interface components {
       schedule?: string | null;
       /** Steps */
       steps: components["schemas"]["StepBody"][];
+    };
+    /** WriteDashboard */
+    WriteDashboard: {
+      /**
+       * Create
+       * @default false
+       */
+      create: boolean;
+      /** Html */
+      html: string;
+      /** Page Path */
+      page_path: string;
+      /** Src */
+      src: string;
+    };
+    /** WriteResult */
+    WriteResult: {
+      /** Hash */
+      hash: string;
+      /** Ids */
+      ids?: string[];
+      /** Path */
+      path: string;
+    };
+    /** WriteRows */
+    WriteRows: {
+      /** Base Hash */
+      base_hash?: string | null;
+      /** Ops */
+      ops: components["schemas"]["RowOpModel"][];
+      /** Path */
+      path: string;
     };
     /** OptInResult */
     graite__api__assistant__OptInResult: {
@@ -6005,6 +6848,72 @@ export interface operations {
       };
     };
   };
+  from_words_api_v1_charts_ai_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ChartAIRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ChartAIReply"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  data_api_v1_charts_data_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ChartRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ChartData"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   client_log_api_v1_client_log_post: {
     parameters: {
       query?: never;
@@ -6147,6 +7056,135 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["CloudStatus"];
+        };
+      };
+    };
+  };
+  read_api_v1_dashboards_get: {
+    parameters: {
+      query: {
+        page_path: string;
+        src: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Dashboard"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  write_api_v1_dashboards_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WriteDashboard"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Dashboard"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_dashboards_api_v1_dashboards_list_get: {
+    parameters: {
+      query: {
+        page_path: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DashboardInfo"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  ticket_api_v1_dashboards_ticket_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TicketRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TicketResult"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };
@@ -7293,6 +8331,521 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ErrorBody"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_tables_api_v1_tables_get: {
+    parameters: {
+      query?: {
+        page_path?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TableModel"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_api_v1_tables_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateTable"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TableModel"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  check_type_api_v1_tables_check_type_get: {
+    parameters: {
+      query: {
+        path: string;
+        column: string;
+        type: string;
+        target?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TypeCheck"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  alter_columns_api_v1_tables_columns_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AlterColumns"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WriteResult"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TableConflictBody"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  ensure_ids_api_v1_tables_ensure_ids_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EnsureIds"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EnsureIdsResult"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  import_csv_api_v1_tables_import_post: {
+    parameters: {
+      query: {
+        page_path: string;
+        name: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TableModel"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  refresh_link_labels_api_v1_tables_link_labels_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TablePathBody"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TableModel"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  change_option_api_v1_tables_options_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["OptionChange"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WriteResult"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  query_api_v1_tables_query_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["QueryBody"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["QueryResult"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  add_relation_api_v1_tables_relations_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AddRelation"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TableModel"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  rename_api_v1_tables_rename_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RenameTable"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TableModel"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  resolve_api_v1_tables_resolve_get: {
+    parameters: {
+      query: {
+        page_path: string;
+        source: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Resolved"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  rows_api_v1_tables_rows_get: {
+    parameters: {
+      query: {
+        path: string;
+        filter?: string | null;
+        sort?: string | null;
+        columns?: string[] | null;
+        search?: string | null;
+        ids?: string[] | null;
+        offset?: number;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RowsPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  write_rows_api_v1_tables_rows_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WriteRows"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WriteResult"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TableConflictBody"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  patch_schema_api_v1_tables_schema_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PatchSchema"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TableModel"];
         };
       };
       /** @description Validation Error */

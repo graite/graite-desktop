@@ -661,3 +661,176 @@
 .ai-message .property-diff-row dd {
   gap: 4px;
 }
+
+/* Row changes of a table (RowsDiff): a quiet list, one entry per changed row. */
+.rows-changes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+.rows-changes > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px 4px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.rows-change-table {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--foreground);
+  font-weight: 500;
+}
+.rows-change-page {
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+.rows-change-counts {
+  margin-left: auto;
+}
+.rows-changes > ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+.rows-change {
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--border);
+}
+.rows-change-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.rows-change-glyph {
+  width: 12px;
+  flex-shrink: 0;
+  text-align: center;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+.rows-change[data-op="insert"] .rows-change-glyph {
+  color: #3e9470;
+}
+.rows-change[data-op="delete"] .rows-change-glyph {
+  color: #bf625a;
+}
+.rows-change-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.rows-change[data-op="delete"] .rows-change-label {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+.rows-change-op {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.rows-change-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 5px 0 0 20px;
+}
+.rows-change-field {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+}
+.rows-change-field dt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.rows-change-field dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.rows-change-field dd.rows-change-stacked {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 2px;
+}
+.rows-change-was,
+.rows-change-clamp[data-was] {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--muted-foreground) 60%, transparent);
+}
+.rows-change-arrow {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.rows-change-clamp {
+  display: block;
+  min-width: 0;
+}
+.rows-change-clamp-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-line;
+}
+.rows-change-clamp-text[data-open] {
+  display: block;
+}
+.rows-change-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.rows-change-empty {
+  color: var(--muted-foreground);
+  font-style: italic;
+  font-size: 12px;
+}
+.rows-change-link {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.rows-change-link:hover {
+  color: var(--foreground);
+}
+.rows-change-all {
+  align-self: flex-start;
+  margin: 6px 2px 0;
+}
+
+/* Dashboard proposals: the proposed HTML running live, then its source. */
+.review-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+.review-dashboard .dashboard-frame {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+}
+.review-dashboard-code summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}

@@ -35,6 +35,14 @@ import "@/ai/ai-page.css";
 
 export { splitThinking };
 
+export interface ChatRequest {
+  id: number;
+  prompt: string;
+  mode?: ChatMode;
+  /** False opens the panel with this text in the composer instead of sending it immediately. */
+  send?: boolean;
+}
+
 /** "Ask AI": a chat panel beside the open page, scoped to that page or its subtree. */
 export function ChatPanel({
   path,
@@ -44,6 +52,7 @@ export function ChatPanel({
   onNavigate,
   settingsVersion,
   selection = "",
+  request,
 }: {
   path: string;
   title: string;
@@ -53,6 +62,8 @@ export function ChatPanel({
   settingsVersion: number;
   /** Text currently selected in the editor, offered as a source for the next question. */
   selection?: string;
+  /** A request from elsewhere in the app, handled once per `id`. */
+  request?: ChatRequest | null;
 }) {
   const [modelVersion, setModelVersion] = useState(0);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -160,6 +171,21 @@ export function ChatPanel({
     setUseSelection(false);
     await chat.send(text, { mode, attachments: files.take(), selection: attached, pagePath: path });
   };
+
+  // Send a request handed over by a block once the panel knows whether a model is set up;
+  // without one, it waits in the composer.
+  const handled = useRef<number | null>(null);
+  useEffect(() => {
+    if (!request || loading || handled.current === request.id) return;
+    if (request.mode && request.mode !== mode) {
+      setMode(request.mode);
+      return;
+    }
+    handled.current = request.id;
+    if (request.send === false || !configured) setDraft(request.prompt);
+    else void send(request.prompt);
+    // `send` reads the latest state; it only has to run when a new request arrives.
+  }, [request, loading, configured, mode]);
 
   return (
     <aside className="ai-chat" aria-label="Ask AI">
