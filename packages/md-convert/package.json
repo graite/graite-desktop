@@ -17,10 +17,10 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "mdast-util-from-markdown": "^2.0.2",
+    "mdast-util-from-markdown": "^2.1.0",
     "mdast-util-frontmatter": "^2.0.1",
     "mdast-util-gfm": "^3.1.0",
-    "mdast-util-to-markdown": "^2.1.2",
+    "mdast-util-to-markdown": "^2.2.0",
     "remark-frontmatter": "^5.0.0",
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
@@ -33,7 +33,7 @@
     "@types/node": "^24.0.0",
     "eslint": "^9.30.0",
     "typescript": "^5.9.0",
-    "typescript-eslint": "^8.35.0",
+    "typescript-eslint": "^8.71.0",
     "vitest": "^3.2.0"
   }
 }
