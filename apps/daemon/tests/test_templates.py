@@ -75,6 +75,12 @@ def test_the_catalog_lists_every_template(client: TestClient) -> None:
         assert t["category"] in catalog.CATEGORIES and t["description"] and t["tables"]
 
 
+def test_template_file_names_work_on_windows() -> None:
+    # Windows can't check out or bundle a name with these characters (the release build).
+    names = [p.relative_to(catalog.BUILTIN).as_posix() for p in catalog.BUILTIN.rglob("*")]
+    assert [n for n in names if re.search(r'[<>:"|?*\\]', n)] == []
+
+
 @pytest.mark.parametrize("slug", SLUGS)
 def test_template_makes_a_working_tree(client: TestClient, settings: Settings, slug: str) -> None:
     doc = use(client, slug)

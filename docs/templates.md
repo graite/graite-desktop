@@ -82,7 +82,7 @@ Files are copied with these filled in, so every use gets its own ids and current
 
 | Placeholder | Becomes |
 | --- | --- |
-| `{{id:key}}` | a new row id, the same everywhere `key` is used (rows, links, file names) |
+| `{{id:key}}` | a new row id, the same everywhere `key` is used (rows, links); in file names write `{{id=key}}`, as Windows forbids `:` |
 | `{{table:name}}` | a new table id (`schema.json` `id`, relation `table_id`) |
 | `{{page:key}}` | the path of the page whose frontmatter has `template_key: key` |
 | `{{date:-30}}`, `{{month:-2}}` | a date relative to today (YYYY-MM-DD) |

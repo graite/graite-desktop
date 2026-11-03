@@ -17,7 +17,8 @@ Placeholders, so every use gets fresh ids and current dates:
     {{monday:-1}}      the Monday of a week relative to this one, as YYYY-MM-DD
     {{title}}          the title the user gave the template's top page
 
-File names may hold placeholders too, e.g. a row's document `_data/deals/{{id:pilot}}.md`.
+File names may hold placeholders too, written with `=` since Windows forbids `:` in file names,
+e.g. a row's document `_data/deals/{{id=pilot}}.md`.
 
 A page's frontmatter may hold `template_key` (for `{{page:…}}`) and `template_sample: true`
 (left out without sample data); both are dropped from the written page. Placeholders in
@@ -43,7 +44,7 @@ BUILTIN = Path(__file__).parent / "builtin"
 CATEGORIES = ("Business", "Finance", "Work", "Personal")
 TEXT_SUFFIXES = (".md", ".csv", ".json", ".html")
 _PLACEHOLDER = re.compile(
-    r"\{\{\s*(id|table|page|date|month|quarter|week|monday|title)(?::\s*([-\w]+))?\s*\}\}"
+    r"\{\{\s*(id|table|page|date|month|quarter|week|monday|title)(?:[:=]\s*([-\w]+))?\s*\}\}"
 )
 # A row's document (D80): `_data/<table>/<row id>.md`.
 _ROW_DOC = re.compile(r"(?:^|/)_data/([^/]+)/[^/]+\.md$")
