@@ -10,6 +10,21 @@ A data table is a CSV file in a page's `_data/` folder, for example
 ` ```graite:table ` block. This is different from a board or table **of pages** (a
 `graite:view` fence over child pages — see the page-views skill).
 
+## Where tables live
+
+A table often lives on a parent page and is only *shown* on its subpages: the CRM template
+keeps `CRM/_data/companies.csv` and shows it on `CRM/Companies` in the views "All companies"
+and "By status". `read_tables(page_path)` lists the tables a page holds **or shows**;
+`read_tables("")` lists every database in scope and the pages that show it.
+
+## Read rows
+
+`read_rows(table)` reads rows with their ids, 50 at a time (`next_offset` continues):
+
+- `read_rows(table="companies")` or `read_rows(table="CRM/_data/companies.csv")`
+- `read_rows(page_path="CRM/Companies", view="By status")`: the rows as that view shows them
+- `filter`, `sort` and `search` narrow it; `id` returns one row and its document
+
 ## Read
 
 Call `read_tables(page_path)` first. For each table it returns the `path`, the `sql_name`

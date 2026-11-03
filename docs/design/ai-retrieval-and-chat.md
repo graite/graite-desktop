@@ -43,6 +43,11 @@ agents all call the same code with a different scope.
 3. **Strategy.** `retrieval/strategy.py` reads the question: quoted phrases, identifiers and
    dates favour exact search; "list/all/every/with status" adds a structured pass over page
    properties and tags; comparisons and multi-part questions allow a longer research loop.
+   **Databases first (D84).** The data catalog (`tables/scope.py`) lists every table in
+   scope and the pages that show it. When the question names one (`match_tables`: a table
+   name, the title of a page showing it, or one of its select values), its rows are read with
+   `read_rows` before generating and lead the prompt; page search is cut to 6 passages and
+   no research round starts. Every prompt ends with a short "Your databases" map.
 4. **Retrieve.** `retrieval/search.py` runs FTS5 (bm25, porter stemming) and, when an
    embedding model is installed, a sqlite-vec KNN over the same scope, then fuses them with
    reciprocal rank fusion. Titles and pages linked from the top hits get a small boost.

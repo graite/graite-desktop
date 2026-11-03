@@ -5,7 +5,7 @@ import type { ActivityStep, Source } from "@/lib/ai";
 import type { Proposal, ReviewActions } from "@/lib/review";
 import { ChatProposals } from "./ChatProposals";
 import { Sources } from "./Sources";
-import { LiveStep, TaskProgress, lastLines } from "./TaskProgress";
+import { TaskProgress, lastLines } from "./TaskProgress";
 import { TOOL_LABELS } from "./useChatStream";
 
 /** The assistant bubble while an answer streams, shared by the Studio and the page panel. */
@@ -36,8 +36,7 @@ export function StreamingAnswer({
       <div className="ai-message-author">
         <Orbit size={12} /> Graite
       </div>
-      <TaskProgress steps={activity} hideRunning />
-      <LiveStep text={live} />
+      <TaskProgress steps={activity} hideRunning live={live} />
       <div className="ai-prose markdown">
         <MarkdownAnswer content={parts.answer} onNavigate={onNavigate} />
       </div>

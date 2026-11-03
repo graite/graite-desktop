@@ -269,7 +269,7 @@ index in the system prompt.
 |---|---|---|---|
 | `read_page(path, section?)` | `search_vault(query, scope?, k)` | `propose_edit(path, old, new, summary)` | `load_skill(name)` |
 | `read_navigation(deep)` | `find_page(title_or_alias)` | `propose_append(path, text, summary)` | `schedule(when, instructions)` |
-| `read_attachment_text(path)`, `read_tables(page_path)` | `run_query_ro(page_path, sql)` | `propose_create(path, body, frontmatter?, summary)` | `list_proposals(status)` |
+| `read_attachment_text(path)`, `read_tables(page_path)`, `read_rows(table, view?)` | `run_query_ro(page_path, sql)` | `propose_create(path, body, frontmatter?, summary)` | `list_proposals(status)` |
 | `list_children(path)` | | `propose_delete(path, summary)` | |
 | | | `propose_move(path, new_path, summary)` | |
 | | | `propose_attach(path, tmp, filename, summary)` | |

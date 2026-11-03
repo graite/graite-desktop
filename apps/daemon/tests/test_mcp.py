@@ -358,3 +358,24 @@ def test_an_appimage_hands_out_its_own_file_not_the_mount(
     monkeypatch.setenv("APPDIR", str(mount))
     image.unlink()
     assert stdio_launch(home) == (str(sidecar), ["mcp"])
+
+
+def test_databases_and_their_views_are_readable(client: TestClient) -> None:
+    made = client.post(
+        "/api/v1/templates/crm/use", json={"parent_path": None, "title": "CRM", "sample_data": True}
+    )
+    assert made.status_code == 201, made.text
+    catalog, failed = call(client, "read_tables", page_path="")
+    assert not failed and "companies" in {t["name"] for t in catalog["tables"]}
+    view, failed = call(client, "read_rows", page_path="CRM/Companies", view="All companies")
+    assert not failed and view["rows"] and view["view"]["sort"] == "name asc"
+    names = [r["name"] for r in view["rows"]]
+    assert names == sorted(names)
+    query, failed = call(client, "run_query_ro", page_path="", sql="SELECT count(*) FROM deals")
+    assert not failed and query["rows"][0][0] > 0
+    # A local-only CRM is not there for a cloud client.
+    saved = client.put("/api/v1/pages/CRM/ai-settings", json={"values": {"cloud": "local-only"}})
+    assert saved.status_code == 200, saved.text
+    hidden, _ = call(client, "read_rows", table="companies")
+    assert "error" in hidden
+    assert not call(client, "read_tables", page_path="")[0]["tables"]

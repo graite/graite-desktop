@@ -103,6 +103,8 @@ class Registry:
         self.pending_events: list[dict[str, Any]] = []
         # Paths the model got slightly wrong in this tool call, and what they resolved to.
         self.corrections: dict[str, str] = {}
+        # (vault epoch, databases in scope), filled by `tools.catalog` or the pipeline.
+        self.data_catalog: tuple[int, list[Any]] | None = None
         self._epoch = ops.epoch
 
     def refresh(self) -> None:
@@ -141,7 +143,7 @@ class Registry:
         # Searcher has per-search mutable state; skill loading changes tool permissions.
         # Writes, searches and meta tools are barriers between independent reads.
         return (
-            name in {"read_page", "list_children", "read_tables", "run_query_ro"}
+            name in {"read_page", "list_children", "read_tables", "read_rows", "run_query_ro"}
             and name in self.allowed
         )
 
