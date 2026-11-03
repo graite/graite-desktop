@@ -25,7 +25,7 @@ $version = "$($conf.version).0"
 function Get-Setting([string]$name, [string]$placeholder) {
   $value = [Environment]::GetEnvironmentVariable($name)
   if ([string]::IsNullOrWhiteSpace($value)) {
-    Write-Output "::warning::$name is not set; using a placeholder. The Store will refuse this package."
+    Write-Host "::warning::$name is not set; using a placeholder. The Store will refuse this package."
     return $placeholder
   }
   return $value.Trim()
