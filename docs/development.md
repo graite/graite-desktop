@@ -170,6 +170,26 @@ artifacts, no release.
 3. Review the draft release, write the notes there, publish. Tags with a suffix
    (e.g. `v0.2.0-rc.1`) are marked as pre-releases; use them for test builds.
 
+### Microsoft Store (MSIX)
+
+The Windows job also packs the release build into an **unsigned** `.msix`
+(`scripts/build-msix.ps1`, manifest template `packaging/msix/AppxManifest.xml.in`). It is
+attached to the draft release (dry run: in the artifact) as `Graite_<version>.0_x64.msix`.
+Upload that file in Partner Center under the submission's **Packages**; the Store signs it.
+
+- The package identity must match Partner Center > Product management > **Product identity**.
+  Set it as repository variables (Settings > Secrets and variables > Actions > Variables):
+  `MSIX_IDENTITY_NAME` (`Package/Identity/Name`), `MSIX_PUBLISHER` (`Package/Identity/Publisher`,
+  the `CN=...` string) and `MSIX_PUBLISHER_DISPLAY_NAME`. Without them the build uses a
+  placeholder identity and warns; the Store refuses such a package.
+- The MSIX version is the `tauri.conf.json` version plus `.0`; the Store needs the 4th part to be 0
+  and every submission to have a higher version than the last.
+- Local test on Windows (Developer Mode on): `Add-AppxPackage -Register <layout>\AppxManifest.xml`
+  installs the unpacked layout without signing.
+- Known gap: an MSIX installs into a versioned folder under `WindowsApps`, so MCP client configs
+  that store the daemon's full path break after a Store update. The manifest declares the
+  `graite-daemon.exe` execution alias for this; pointing the Windows MCP command at it is a follow-up.
+
 ### Known limits of the preview builds
 
 - **Unsigned.** macOS users must run `xattr -cr /Applications/Graite.app`; Windows shows the
