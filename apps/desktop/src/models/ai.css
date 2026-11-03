@@ -660,6 +660,31 @@
   color: #857247;
   cursor: pointer;
 }
+.ai-prose.markdown .ai-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 10px 0 12px;
+}
+.ai-prose.markdown table {
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 18px;
+}
+.ai-prose.markdown th,
+.ai-prose.markdown td {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.ai-prose.markdown th {
+  background: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ai-prose.markdown del {
+  color: var(--muted-foreground);
+}
 .ai-prose.markdown blockquote {
   border-left: 2px solid #b8ad92;
   padding-left: 12px;

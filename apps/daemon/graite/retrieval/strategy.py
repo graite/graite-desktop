@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
 _QUOTED = re.compile(r'"([^"]{2,120})"|“([^”]{2,120})”')
 _IDENTIFIER = re.compile(r"\b(?:[A-Z]{2,}-\d+|[a-z0-9_]+\.[a-z0-9_.]+|#\d+|v?\d+\.\d+(?:\.\d+)?)\b")
@@ -57,3 +58,48 @@ def classify(question: str) -> Plan:
         plan.research = True
         plan.max_rounds = 5
     return plan
+
+
+_WORD = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
+
+
+def _stem(word: str) -> str:
+    word = word.lower()
+    for suffix, repl in (("ies", "y"), ("ses", "s"), ("s", "")):
+        if word.endswith(suffix) and len(word) - len(suffix) >= 3:
+            return word[: -len(suffix)] + repl
+    return word
+
+
+def _stems(text: str) -> set[str]:
+    return {_stem(w) for w in _WORD.findall(text.replace("_", " ").replace("-", " "))}
+
+
+def match_tables(question: str, catalog: list[Any], limit: int = 2) -> list[Any]:
+    """The databases a question is about, best first, so their rows are read before any page
+    passage. A table matches by its name or the title of a page that shows it ("companies"),
+    weaker by one of its select values ("customers" -> status Customer); the page that holds
+    it ("crm") only breaks ties."""
+    words = _stems(question)
+    if not words:
+        return []
+    scored: list[tuple[float, int, Any]] = []
+    for order, entry in enumerate(catalog):
+        names = _stems(entry.name) | {
+            s
+            for page in entry.shown_on
+            if page != entry.page  # the page holding it ("CRM") only breaks ties, below
+            for s in _stems(page.rpartition("/")[2])
+        }
+        score = 2.0 * len(words & names)
+        if not score:
+            score = 1.0 * min(1, len(words & {s for o in entry.options for s in _stems(o)}))
+        if not score:
+            continue
+        score += 0.5 * min(1, len(words & _stems(entry.page.replace("/", " "))))
+        scored.append((score, order, entry))
+    if not scored:
+        return []
+    scored.sort(key=lambda t: (-t[0], t[1]))
+    best = scored[0][0]
+    return [e for s, _, e in scored if s >= min(best, 2.0)][:limit]

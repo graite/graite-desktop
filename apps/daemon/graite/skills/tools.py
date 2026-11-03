@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
+import re
 import types
 import typing
 from collections.abc import Awaitable, Callable
@@ -283,6 +284,33 @@ async def _board_fields(registry: Any, doc: Any) -> tuple[str, list[dict[str, An
     return None
 
 
+async def _page_databases(registry: Any, rel: str) -> list[dict[str, Any]]:
+    """The databases a page shows, briefly, so a model knows the rows are one call away."""
+    from graite.tables.scope import shown_tables
+
+    cache = getattr(registry.ops, "tables", None)
+    if cache is None:
+        return []
+    out = []
+    for shown in await asyncio.to_thread(shown_tables, cache, registry.ops.vault, rel):
+        try:
+            info = await asyncio.to_thread(cache.info, shown.path)
+        except (FileNotFoundError, ValueError, OSError):
+            continue
+        if not registry.scope.contains(info.page_path):
+            continue
+        out.append(
+            {
+                "table": info.path,
+                "name": info.name,
+                "rows": info.row_count,
+                "columns": [c.name for c in info.columns],
+                **({"views": [v["name"] for v in shown.views]} if shown.views else {}),
+            }
+        )
+    return out
+
+
 @tool("read", "Read a page or section. If truncated, read again with next_offset to continue.")
 async def read_page(
     registry: Any,
@@ -320,6 +348,13 @@ async def read_page(
         "changes": effective.autonomy,
         "properties": doc.frontmatter.get("properties", []),
     }
+    databases = await _page_databases(registry, doc.path)
+    if databases:
+        result["databases"] = databases
+        result["databases_note"] = (
+            "This page shows databases; their rows are not in body. Read them with read_rows "
+            "(table and optionally view) or run_query_ro."
+        )
     board = await _board_fields(registry, doc)
     if board is not None:
         # Reuse these names and options on new cards; add an option for a genuinely new value.
@@ -511,7 +546,63 @@ async def search_vault(
             chunk_ids=[c.chunk_id],
         )
         results.append(entry)
-    return results
+    rows = await _search_rows(registry, query)
+    return {"passages": results, "rows": rows} if rows else results
+
+
+async def _search_rows(registry: Any, query: str, limit: int = 5) -> list[dict[str, Any]]:
+    """Database rows whose cells contain the query (or, failing that, all its words)."""
+    cache = getattr(registry.ops, "tables", None)
+    if cache is None:
+        return []
+    try:
+        entries = await catalog(registry)
+    except (ValueError, OSError):
+        return []
+    words = [w for w in re.findall(r"[\w'-]{3,}", query) if w.lower() not in _STOP]
+    tries = [query.strip('"\u201c\u201d ')] + ([w for w in words] if len(words) > 1 else [])
+    hits: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for text in tries:
+        for entry in entries:
+            if len(hits) >= limit:
+                break
+            try:
+                found = await asyncio.to_thread(
+                    cache.select, entry.path, search=text, limit=limit - len(hits)
+                )
+            except (ValueError, OSError):
+                continue
+            for row in found["rows"]:
+                if (entry.path, row["id"]) in seen:
+                    continue
+                seen.add((entry.path, row["id"]))
+                cells = dict(zip(found["visible"], map(_cell, row["cells"]), strict=False))
+                hit = {
+                    "table": entry.path,
+                    "page": (entry.shown_on or [entry.page])[0],
+                    "id": row["id"],
+                    "cells": cells,
+                }
+                registry.note_source(
+                    kind="table",
+                    page_path=hit["page"],
+                    title=f"{entry.name} ({entry.path})",
+                    heading_path=[],
+                    text=json.dumps({"id": row["id"], **cells}, ensure_ascii=False, default=str),
+                    hash=f"row:{entry.path}:{row['id']}",
+                    result=hit,
+                )
+                hits.append(hit)
+        if hits:
+            break
+    return hits
+
+
+_STOP = frozenset(
+    "the and for with what which who are all list show from that this have has my our your "
+    "there their them about into how many much any some".split()
+)
 
 
 @tool(
@@ -548,14 +639,17 @@ async def search_memory(
 # ----------------------------------------------------------------------------- tables (D69)
 
 TABLE_HELP = (
-    "Query with run_query_ro using the sql_name of each table. pages(path, title, parent_path, "
-    "created, updated, tags) and page_props(path, name, value) hold the pages in scope and "
-    "their properties. Multi-select cells are text like 'a; b'. Relation cells link rows of "
-    "another table: in SQL they are text like '[[<row id>|<label>]] [[<row id>|<label>]]'; "
-    "in propose_rows give a list of the target rows' ids. Columns marked reverse are derived "
-    "from the other table and are not in SQL; change the forward column there (propose_rows "
-    "on a reverse column also works). Change rows with propose_rows."
+    "A database (data table) is a CSV in some page's _data folder; other pages show it in "
+    "views, so a table often lives on a parent page (CRM/_data/companies.csv is shown on "
+    "CRM/Companies). read_rows reads rows, optionally as one of a page's views; run_query_ro "
+    "runs SQL using each table's sql_name. pages(path, title, parent_path, created, updated, "
+    "tags) and page_props(path, name, value) hold the pages in scope and their properties. "
+    "Multi-select cells are text like 'a; b'. Relation cells link rows of another table: in "
+    "SQL they are text like '[[<row id>|<label>]]'; in propose_rows give a list of the target "
+    "rows' ids. Columns marked reverse are derived from the other table and are not in SQL. "
+    "Change rows with propose_rows, using ids from read_rows or run_query_ro."
 )
+ROWS_PAGE = 50
 
 
 def _tables(registry: Any) -> Any:
@@ -577,92 +671,380 @@ def _sql_name(alias: str) -> str:
     return sql_name(alias)
 
 
+async def catalog(registry: Any) -> list[Any]:
+    """Every database in this turn's scope (cached on the registry until the vault changes)."""
+    from graite.tables.scope import data_catalog
+
+    cache = _tables(registry)
+    registry.refresh()
+    cached = getattr(registry, "data_catalog", None)
+    if cached is not None and cached[0] == registry.ops.epoch:
+        return list(cached[1])
+    pages = [(r[0], r[1]) for r in registry.ops.db.execute("SELECT path, file_hash FROM pages")]
+    found = await asyncio.to_thread(
+        data_catalog, cache, pages, registry.ops.vault, registry.scope.contains
+    )
+    registry.data_catalog = (registry.ops.epoch, found)
+    return list(found)
+
+
+def _column_json(c: Any) -> dict[str, Any]:
+    return {
+        "name": c.name,
+        "type": c.type,
+        **({"options": c.options} if c.options else {}),
+        **(
+            {"formula": c.formula, "format": c.format, "read_only": True}
+            if c.type == "formula"
+            else {}
+        ),
+        **(
+            {
+                "links_to": c.target or c.table,
+                "cardinality": c.cardinality,
+                **({"reverse_of": c.reverse} if c.reverse else {}),
+            }
+            if c.type == "relation"
+            else {}
+        ),
+    }
+
+
+def _cell(value: Any) -> Any:
+    """A cell as a model reads it: links and pages shrink to their label (and id)."""
+    if isinstance(value, list) and value and all(isinstance(v, dict) for v in value):
+        out = []
+        for item in value:
+            if "path" in item:
+                out.append({"path": item["path"], "title": item.get("title", item["path"])})
+            elif "id" in item:
+                out.append({"id": item["id"], "label": item.get("label", "")})
+            else:
+                out.append(item)
+        return out
+    return value
+
+
+def _near(
+    registry: Any, rel: str, entries: list[Any], infos: dict[str, Any]
+) -> tuple[list[str], list[str], set[str]]:
+    """The tables `rel` owns, the ones it (or a subpage) shows, and those plus relations."""
+    from graite.tables.scope import in_subtree, related
+
+    own = [p for p, i in infos.items() if in_subtree(rel, i.page_path)]
+    shown = [
+        e.path
+        for e in entries
+        if e.path not in own and any(in_subtree(rel, page) for page in e.shown_on)
+    ]
+    return own, shown, related(infos, own + shown)
+
+
 @tool(
     "read",
-    "List the data tables (CSV files) of a page and its subpages: each table's SQL name, "
-    "columns with types and options, row count and a few rows with their ids. Use before "
-    "run_query_ro or propose_rows.",
+    "List the databases (data tables). With a page path: the tables that page and its "
+    "subpages hold or show (a table often lives on a parent page), with SQL names, columns, "
+    "views and a few rows. With an empty path: every database in scope and where it is "
+    "shown. Use before read_rows, run_query_ro or propose_rows.",
 )
 async def read_tables(
     registry: Any,
-    page_path: Annotated[str, "Vault-relative page path that has tables."],
+    page_path: Annotated[
+        str, "A page path, or an empty string to list every database in scope."
+    ] = "",
 ) -> Any:
-    rel = registry.scoped(page_path)
+    from graite.tables.scope import aliases, shown_tables
+
     cache = _tables(registry)
-    infos = [
-        info
-        for info in await asyncio.to_thread(cache.tables)
-        if (info.page_path == rel or info.page_path.startswith(rel + "/"))
-        and registry.scope.contains(info.page_path)
-    ]
-    out = []
-    for info in infos:
-        sample = await asyncio.to_thread(cache.select, info.path, limit=3)
-        names = sample["visible"]
-        out.append(
+    entries = await catalog(registry)
+    if not str(page_path or "").strip():
+        tables = [
             {
-                "path": info.path,
-                "sql_name": _sql_name(_table_alias(rel, info)),
-                "rows": info.row_count,
-                "columns": [
-                    {
-                        "name": c.name,
-                        "type": c.type,
-                        **({"options": c.options} if c.options else {}),
-                        **(
-                            {"formula": c.formula, "format": c.format, "read_only": True}
-                            if c.type == "formula"
-                            else {}
-                        ),
-                        **(
-                            {
-                                "links_to": c.target or c.table,
-                                "cardinality": c.cardinality,
-                                **({"reverse_of": c.reverse} if c.reverse else {}),
-                            }
-                            if c.type == "relation"
-                            else {}
-                        ),
-                    }
-                    for c in info.columns
-                ],
-                "sample": [dict(zip(names, r["cells"], strict=False)) for r in sample["rows"]],
+                "path": e.path,
+                "name": e.name,
+                "rows": e.rows,
+                "columns": e.columns,
+                "shown_on": e.shown_on,
+                **({"views": e.views} if e.views else {}),
             }
-        )
+            for e in entries
+        ]
+        result: dict[str, Any] = {"page": "", "tables": tables, "help": TABLE_HELP}
+        if not tables:
+            result["message"] = "There are no databases in scope."
+        return result
+    rel = registry.scoped(page_path)
+    infos = {
+        info.path: info
+        for info in await asyncio.to_thread(cache.tables)
+        if registry.scope.contains(info.page_path)
+    }
+    own, shown, near = _near(registry, rel, entries, infos)
+    names = aliases(rel, list(infos.values()), near)
+    by_path = {e.path: e for e in entries}
+    views = {
+        s.path: s.views
+        for s in await asyncio.to_thread(shown_tables, cache, registry.ops.vault, rel)
+    }
+    order = [*own, *shown, *sorted(near - set(own) - set(shown))]
+    out = []
+    for path in order:
+        info = infos.get(path)
+        if info is None:
+            continue
+        role = "own" if path in own else "shown" if path in shown else "related"
+        item: dict[str, Any] = {
+            "path": info.path,
+            "name": info.name,
+            "sql_name": _sql_name(names[info.path]),
+            "role": role,
+            "rows": info.row_count,
+            "columns": [_column_json(c) for c in info.columns],
+        }
+        entry = by_path.get(path)
+        if entry is not None and entry.shown_on:
+            item["shown_on"] = entry.shown_on
+        if views.get(path):
+            item["views"] = views[path]
+        elif entry is not None and entry.views:
+            item["views"] = entry.views
+        if role != "related":
+            sample = await asyncio.to_thread(cache.select, info.path, limit=3)
+            item["sample"] = [
+                {
+                    "id": r["id"],
+                    **dict(zip(sample["visible"], map(_cell, r["cells"]), strict=False)),
+                }
+                for r in sample["rows"]
+            ]
+        out.append(item)
     effective = registry.scope.policy_for(rel)
-    result: dict[str, Any] = {"page": rel, "tables": out, "help": TABLE_HELP}
+    result = {"page": rel, "tables": out, "help": TABLE_HELP}
     if not out:
-        result["message"] = "This page and its subpages have no tables."
+        result["message"] = (
+            "This page neither holds nor shows a database. Call read_tables with an empty "
+            "path to list every database."
+        )
     if effective.instructions:
         result["ai_instructions"] = effective.instructions
     return result
 
 
+def _showing_page(entries: list[Any], rel: str, default: str) -> str:
+    """The page a citation of `rel` opens: the first page that shows it."""
+    entry = next((e for e in entries if e.path == rel), None)
+    return entry.shown_on[0] if entry is not None and entry.shown_on else default
+
+
+async def _find_table(
+    registry: Any, table: str, page: str | None, view: str | None
+) -> tuple[str, dict[str, Any] | None]:
+    """The table (and view) a read_rows call means."""
+    from graite.tables import paths as table_paths
+    from graite.tables.scope import shown_tables
+
+    cache = _tables(registry)
+    entries = await catalog(registry)
+    table = str(table or "").strip()
+    rel: str | None = None
+    if "/_data/" in table.replace("\\", "/"):
+        parsed = table_paths.parse(table)
+        registry.scoped(parsed.page)
+        rel = parsed.rel
+    elif table:
+        if page is not None:
+            try:
+                rel = await asyncio.to_thread(cache.resolve, page, table)
+            except (FileNotFoundError, ValueError):
+                rel = None
+        if rel is None:
+            wanted = table.lower().removesuffix(".csv").strip()
+            matches = [e for e in entries if e.name.lower() == wanted] or [
+                e
+                for e in entries
+                if any(p.rpartition("/")[2].lower() == wanted for p in e.shown_on)
+            ]
+            if len(matches) > 1:
+                raise ValueError(
+                    f"Several databases are called {table!r}: "
+                    + ", ".join(m.path for m in matches)
+                    + ". Give the path."
+                )
+            if not matches:
+                raise ValueError(
+                    f"There is no database {table!r} in scope. Databases: "
+                    + (", ".join(e.name for e in entries) or "none")
+                    + "."
+                )
+            rel = matches[0].path
+    pages = [page] if page is not None else []
+    if rel is not None:
+        entry = next((e for e in entries if e.path == rel), None)
+        if entry is None:
+            raise ValueError(f"The database {rel} is not in scope.")
+        pages += [p for p in entry.shown_on if p not in pages]
+    shown = []
+    for p in pages:
+        shown += [
+            (p, s) for s in await asyncio.to_thread(shown_tables, cache, registry.ops.vault, p)
+        ]
+    if view:
+        wanted_view = view.strip().lower()
+        for p, s in shown:
+            if rel is not None and s.path != rel:
+                continue
+            for v in s.views:
+                if v["name"].lower() == wanted_view:
+                    return s.path, {**v, "page": p}
+        names = sorted(
+            {v["name"] for p, s in shown for v in s.views if rel is None or s.path == rel}
+        )
+        raise ValueError(
+            f"There is no view {view!r}" + (f"; views: {', '.join(names)}." if names else ".")
+        )
+    if rel is None:
+        candidates = list(dict.fromkeys(s.path for _, s in shown))
+        if page is not None and not candidates:
+            from graite.tables.scope import in_subtree
+
+            candidates = [e.path for e in entries if in_subtree(page, e.page)]
+        if len(candidates) != 1:
+            raise ValueError(
+                "Name the table: "
+                + (", ".join(candidates) if candidates else "this page shows no database")
+                + ". read_tables lists them."
+            )
+        rel = candidates[0]
+    return rel, None
+
+
 @tool(
     "read",
-    "Run one read-only SQL SELECT over the tables in scope and the pages table. Tables on "
-    "page_path are named by their name (expenses); others by their path "
-    '("Projects/Atlas/expenses"). pages(path, title, parent_path, created, updated, tags) and '
-    "page_props(path, name, value) hold pages and their properties. links(table, column, "
-    "row_id, target_table, target_id) holds every relation link: join a table's id to "
-    "links.row_id and links.target_id to the other table's id. At most 200 rows return.",
+    "Read the rows of a database, with their ids: all of them, one of a page's views (its "
+    "filter, sort and columns, as the user sees it), or filtered, sorted or searched. With "
+    "id, one row and its document. Results page by 50; continue with next_offset.",
+)
+async def read_rows(
+    registry: Any,
+    table: Annotated[
+        str,
+        "The table's path (CRM/_data/companies.csv) or name (companies); "
+        "may be empty with page_path.",
+    ] = "",
+    page_path: Annotated[str, "A page that shows the table; needed to name one of its views."] = "",
+    view: Annotated[str | None, "A view's name on that page, for example 'By status'."] = None,
+    filter: Annotated[str | None, 'Filter such as status = "Customer" and amount > 100.'] = None,
+    sort: Annotated[str | None, "Sort such as 'name asc' or 'date desc, amount'."] = None,
+    search: Annotated[str | None, "Text to find in any cell."] = None,
+    id: Annotated[str | None, "One row's id: return that row and its document."] = None,
+    offset: Annotated[int, "Skip this many rows; use next_offset to continue."] = 0,
+) -> Any:
+    if not isinstance(offset, int) or offset < 0:
+        raise ValueError("offset must be a non-negative integer.")
+    cache = _tables(registry)
+    page = registry.scoped(page_path) if str(page_path or "").strip() else None
+    rel, picked = await _find_table(registry, table, page, view)
+    entries = await catalog(registry)
+    info = await asyncio.to_thread(cache.info, rel)
+    if not registry.scope.contains(info.page_path):
+        raise ValueError(f"The database {rel} is not in scope.")
+    filters = [
+        f for f in ((picked or {}).get("filter"), filter) if isinstance(f, str) and f.strip()
+    ]
+    where: str | None = (
+        " and ".join(f"({f})" for f in filters) if len(filters) > 1 else next(iter(filters), None)
+    )
+    columns = (picked or {}).get("columns")
+    if not (isinstance(columns, list) and columns) or id:
+        columns = None
+    page_rows = await asyncio.to_thread(
+        cache.select,
+        rel,
+        filter=where,
+        sort=sort or (picked or {}).get("sort"),
+        columns=columns,
+        search=search,
+        ids=[str(id)] if id else None,
+        offset=offset,
+        limit=ROWS_PAGE,
+    )
+    names = page_rows["visible"]
+    rows = [
+        {"id": r["id"], **dict(zip(names, map(_cell, r["cells"]), strict=False))}
+        for r in page_rows["rows"]
+    ]
+    result: dict[str, Any] = {
+        "table": rel,
+        "name": info.name,
+        "total": page_rows["total"],
+        "offset": offset,
+        "rows": rows,
+    }
+    if picked:
+        result["view"] = {k: v for k, v in picked.items() if k != "page"}
+        result["page"] = picked["page"]
+    if id:
+        if not rows:
+            raise ValueError(f"There is no row {id!r} in {rel}.")
+        try:
+            doc = await registry.ops.read_row_doc(rel, str(id))
+        except (ValueError, FileNotFoundError):
+            doc = None
+        if doc and doc.get("exists") and doc.get("body", "").strip():
+            result["document"] = doc["body"][: registry.result_limit // 2]
+    while result["rows"] and len(json.dumps(result, default=str)) > registry.result_limit:
+        result["rows"] = result["rows"][: max(1, len(result["rows"]) * 3 // 4)]
+        if (
+            len(result["rows"]) == 1
+            and len(json.dumps(result, default=str)) > registry.result_limit
+        ):
+            break
+    shown = len(result["rows"])
+    if offset + shown < page_rows["total"]:
+        result["truncated"] = True
+        result["next_offset"] = offset + shown
+    lines = [json.dumps(r, ensure_ascii=False, default=str) for r in result["rows"]]
+    registry.note_source(
+        kind="table",
+        page_path=(picked or {}).get("page") or page or _showing_page(entries, rel, info.page_path),
+        title=f"{info.name} ({rel})" + (f", view {picked['name']}" if picked else ""),
+        heading_path=[],
+        text="\n".join(lines),
+        hash=f"{info.file_hash}:{where}:{search}:{id}:{offset}",
+        result=result,
+    )
+    return result
+
+
+@tool(
+    "read",
+    "Run one read-only SQL SELECT over the databases in scope and the pages table. Use each "
+    "table's sql_name from read_tables: tables page_path holds or shows are named by their "
+    'name (companies); others by their path ("Projects/Atlas/expenses"). pages(path, title, '
+    "parent_path, created, updated, tags) and page_props(path, name, value) hold pages and "
+    "their properties. links(table, column, row_id, target_table, target_id) holds every "
+    "relation link. At most 200 rows return.",
 )
 async def run_query_ro(
     registry: Any,
-    page_path: Annotated[str, "The page the query is about; its tables get short names."],
+    page_path: Annotated[
+        str, "The page the query is about; tables it holds or shows get short names."
+    ],
     sql: Annotated[str, "One SELECT statement (WITH ... SELECT is fine)."],
 ) -> Any:
     from graite.tables.readonly import run_query
     from graite.tables.scope import query_pages, query_tables
 
-    rel = registry.scoped(page_path)
+    rel = registry.scoped(page_path) if str(page_path or "").strip() else ""
     cache = _tables(registry)
-    infos = [
-        info
+    entries = await catalog(registry)
+    infos = {
+        info.path: info
         for info in await asyncio.to_thread(cache.tables)
         if registry.scope.contains(info.page_path)
-    ]
-    tables = query_tables(rel, infos)
+    }
+    near = _near(registry, rel, entries, infos)[2] if rel else {e.path for e in entries}
+    tables = query_tables(rel, list(infos.values()), near)
     pages = query_pages(registry.ops.db, registry.scope.contains)
     result = await asyncio.to_thread(run_query, cache.db_path, tables, pages, str(sql))
     # Keep the answer inside the tool budget: drop rows from the end, and say so.
@@ -670,6 +1052,8 @@ async def run_query_ro(
         result["rows"] = result["rows"][: len(result["rows"]) * 3 // 4]
         result["truncated"] = True
     result["row_count"] = len(result["rows"])
+    if "error" not in result and not result["rows"]:
+        result["note"] = "No rows matched. read_tables lists each table's sql_name and rows."
     return result
 
 

@@ -9,7 +9,10 @@ as a run.
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
+import sqlite3
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -28,9 +31,10 @@ from graite.retrieval.contextset import ContextSet
 from graite.retrieval.scope import ResolvedScope, Scope
 from graite.retrieval.scope import resolve as resolve_scope
 from graite.retrieval.search import Searcher
-from graite.retrieval.strategy import classify
+from graite.retrieval.strategy import classify, match_tables
 from graite.skills.registry import MODE_TOOLS, Registry, chat_groups_for, groups_for
 from graite.skills.tools import TOOLS
+from graite.tables.scope import data_catalog
 
 PROVIDER_LABELS = {
     "local": "the local model",
@@ -291,6 +295,49 @@ def resolve_for(ctx: TurnContext) -> ResolvedScope:
     )
 
 
+log = logging.getLogger(__name__)
+
+
+async def _databases(state: Any, scope: ResolvedScope, query: str) -> tuple[list[Any], list[Any]]:
+    """The databases in scope, and the ones this question is about (read first)."""
+    ops = getattr(state, "fileops", None)
+    cache = getattr(ops, "tables", None)
+    if ops is None or cache is None:
+        return [], []
+    try:
+        pages = [(r[0], r[1]) for r in state.db.execute("SELECT path, file_hash FROM pages")]
+        catalog = await asyncio.to_thread(data_catalog, cache, pages, ops.vault, scope.contains)
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        log.warning("could not list databases: %s", exc)
+        return [], []
+    return catalog, match_tables(query, catalog)
+
+
+def databases_section(catalog: list[Any], read: set[int], limit: int) -> str:
+    """The data map next to the page map: which databases exist and where they are shown."""
+    head = (
+        "\n## Your databases\nRecords (companies, contacts, tasks, invoices…) live in these "
+        "databases, not in page text. Read them with read_rows (table, or a page and one of "
+        "its views) or run_query_ro; change rows with propose_rows when this mode allows it. "
+        + (
+            "The rows of the database this question is about are already in the sources. "
+            if read
+            else ""
+        )
+        + "\n"
+    )
+    lines: list[str] = []
+    size = len(head)
+    for entry in catalog:
+        line = entry.line()
+        if size + len(line) + 1 > limit:
+            lines.append(f"- … {len(catalog) - len(lines)} more: read_tables lists them all")
+            break
+        lines.append(line)
+        size += len(line) + 1
+    return head + "\n".join(lines) + "\n"
+
+
 def _source_from(data: dict[str, Any]) -> Source:
     return Source(
         0,
@@ -359,7 +406,14 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             from graite.agents.knowledge import linked_sources
 
             context.add_many(linked_sources(state, ctx.task or ctx.persona or ctx.question, scope))
+        catalog, data_hits = await _databases(state, scope, query)
         plan = classify(query)
+        if data_hits:
+            # The question is about records: their rows answer it, so a handful of passages
+            # is context enough, and no research round has to dig for what a table holds.
+            plan.k = min(plan.k, 6)
+            plan.research = False
+            plan.max_rounds = min(plan.max_rounds, 3)
         decision = followup.decide(query, ctx.history, context.texts())
         budget = answering.source_budget(ctx.config.context_size, ctx.task or ctx.question)
         candidates = []
@@ -389,6 +443,8 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             max_rounds = research.rounds(
                 candidates, plan, semantic_available=searcher.semantic_available
             )
+            if data_hits:
+                is_weak, max_rounds = False, plan.max_rounds
         else:
             step = recorder.step("followup", decision.reason, question=query[:500])
             recorder.finish_step(step, reused=len(context))
@@ -430,6 +486,28 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             return number
 
         registry.on_source = note_source
+        registry.data_catalog = (state.fileops.epoch, catalog)
+        data_numbers: set[int] = set()
+        if data_hits and "read_rows" in registry.allowed:
+            normal_limit = registry.result_limit
+            registry.result_limit = max(normal_limit, min(10000, budget // max(1, len(data_hits))))
+            try:
+                for hit in data_hits:
+                    step = recorder.step("tool", "read_rows", table=hit.path)
+                    yield {"type": "status", "text": f"Reading {hit.name}…"}
+                    result = json.loads(
+                        await registry.invoke("read_rows", json.dumps({"table": hit.path}))
+                    )
+                    recorder.finish_step(
+                        step,
+                        "failed" if result.get("error") else "succeeded",
+                        **_tool_output({"path": hit.path}, result),
+                        rows=len(result.get("rows") or []),
+                    )
+                    if result.get("source"):
+                        data_numbers.add(int(result["source"]))
+            finally:
+                registry.result_limit = normal_limit
         prefetched = 0
         if (
             ctx.retrieve == "on_demand"
@@ -471,7 +549,12 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             current = extra_numbers | read_numbers
             prompt_sources = [s for s in context.sources if s.n in current]
         else:
-            prompt_sources = context.fit(budget, preferred_paths=ctx.preferred_paths)
+            prompt_sources = context.fit(
+                budget,
+                preferred_paths=ctx.preferred_paths,
+                first=data_numbers,
+                earlier=4 if data_numbers else None,
+            )
         if ctx.persona is not None and ctx.memory_root:
             # These notes already have their own budgeted memory section. Duplicating them
             # as old search hits used to outweigh the current request and its corrections.
@@ -556,6 +639,10 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                 "Requests for a board, table, list or content on this page belong in its body. "
                 "Use its direct children for cards; create a separate board page only when "
                 "the user explicitly requests one. Read the page before changing it.\n"
+            )
+        if catalog and {"read_rows", "run_query_ro"} & registry.allowed:
+            prompt[0]["content"] += databases_section(
+                catalog, data_numbers, min(2400, max(600, budget // 10))
             )
         context.keep_only([s.n for s in prompt_sources[:included]])
         context.drop_unseen()

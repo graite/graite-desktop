@@ -199,16 +199,27 @@ class ContextSet:
 
     # ----------------------------------------------------------------- prompt selection
 
-    def fit(self, budget_bytes: int, *, preferred_paths: list[str] | None = None) -> list[Source]:
+    def fit(
+        self,
+        budget_bytes: int,
+        *,
+        preferred_paths: list[str] | None = None,
+        first: set[int] | None = None,
+        earlier: int | None = None,
+    ) -> list[Source]:
         """Choose which sources go into this turn's prompt, newest first, within the budget.
 
+        `first` (the database reads a question is about) go in before anything else and lead
+        the prompt; `earlier` caps how many sources from earlier turns come along.
         Evicted sources stay in the set: a citation to them still resolves, they just are not
         shown to the model this turn.
         """
         preferred = set(preferred_paths or [])
+        first = first or set()
         ordered = sorted(
             self.entries,
             key=lambda e: (
+                0 if e.source.n in first else 1,
                 0 if e.source.page_path in preferred else 1,
                 0 if e.added_turn == self.turn else 1,
                 -e.last_cited_turn,
@@ -218,7 +229,16 @@ class ContextSet:
         )
         remaining = budget_bytes
         chosen: set[int] = set()
+        old = 0
         for entry in ordered:
+            if (
+                earlier is not None
+                and entry.added_turn != self.turn
+                and entry.source.n not in first
+            ):
+                if old >= earlier:
+                    continue
+                old += 1
             size = len(entry.source.prompt_block().encode("utf-8")) + 2
             if size > remaining:
                 if not chosen and entry.added_turn == self.turn:
@@ -230,8 +250,10 @@ class ContextSet:
         for entry in self.entries:
             entry.in_prompt = entry.source.n in chosen
         sources = self.prompt_sources()
-        if preferred:
-            sources.sort(key=lambda s: 0 if s.page_path in preferred else 1)
+        if preferred or first:
+            sources.sort(
+                key=lambda s: (0 if s.n in first else 1, 0 if s.page_path in preferred else 1)
+            )
         return sources
 
     def prompt_sources(self) -> list[Source]:

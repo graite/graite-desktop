@@ -1,4 +1,5 @@
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 /** `[3]` citations become clickable markers; `graite:` links open pages. Never loads remote images. */
 export function withCitationLinks(content: string): string {
@@ -25,9 +26,16 @@ export function MarkdownAnswer({
 }) {
   return (
     <Markdown
+      remarkPlugins={[remarkGfm]}
       urlTransform={(url) => (/^(graite:|graite-cite:|https?:|mailto:)/i.test(url) ? url : "")}
       components={{
         img: ({ alt }) => <span>{alt}</span>,
+        // A wide table scrolls inside the answer instead of widening the thread.
+        table: ({ children }) => (
+          <div className="ai-table-scroll">
+            <table>{children}</table>
+          </div>
+        ),
         a: ({ href, children }) =>
           href?.startsWith("graite-cite:") ? (
             <button

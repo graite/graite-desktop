@@ -464,6 +464,7 @@ it("shows the running step inline with a shimmer while the answer streams", asyn
   await waitFor(() =>
     expect(screen.getByRole("status").textContent).toBe("Reading a page · Pricing"),
   );
-  expect(screen.getByText("Thought")).toBeTruthy();
+  // The finished thought and the running step share one line.
+  expect(screen.getByRole("button", { name: /^Thought · Reading a page · Pricing/ })).toBeTruthy();
   release();
 });

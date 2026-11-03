@@ -916,12 +916,53 @@
   border-radius: 9px;
 }
 
-/* Finished steps: one compact line each; a thought opens to its full text. */
+/* All steps of a turn on one line; clicking it lists them, a thought opens to its text. */
 .ai-task-progress {
   margin: 4px 0 8px;
   display: flex;
   flex-direction: column;
   gap: 1px;
+  min-width: 0;
+}
+.ai-task-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+.ai-task-summary:hover {
+  color: var(--foreground);
+}
+.ai-task-summary-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-task-failed {
+  flex-shrink: 0;
+  color: var(--destructive);
+}
+.ai-task-chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.ai-task-summary[aria-expanded="true"] .ai-task-chevron {
+  transform: rotate(90deg);
+}
+.ai-task-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px 0 2px 16px;
 }
 .ai-step {
   font-size: 11px;
