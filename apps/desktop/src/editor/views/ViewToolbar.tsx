@@ -17,6 +17,7 @@ import { ArrangeItems } from "./ArrangeItems";
 import { groupValue } from "./collection";
 import { orderedNames, type ViewSettings } from "./settings";
 import { AddViewFilter, ViewFilterPills } from "./ViewFilters";
+import { SortButton } from "./SortButton";
 import { ViewSearch } from "./ViewSearch";
 import type { Collection } from "./useCollection";
 
@@ -158,6 +159,12 @@ export function ViewToolbar({
       <div className="view-actions">
         <ViewSearch query={query} onQuery={onQuery} />
         {!filters.length && <AddViewFilter fields={fields} onAdd={addFilter} />}
+        <SortButton
+          fields={["$title", ...fields.map((f) => f.name)]}
+          label={(name) => (name === "$title" ? "Title" : name)}
+          value={settings.sort ?? null}
+          onChange={(sort) => onSettings({ ...settings, sort: sort ?? undefined })}
+        />
         {view === "kanban" && groupField && (
           <Popover>
             <PopoverTrigger className="view-button">

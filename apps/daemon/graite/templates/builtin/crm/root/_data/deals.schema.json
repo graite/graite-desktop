@@ -1,0 +1,105 @@
+{
+  "id": "{{table:deals}}",
+  "display": "name",
+  "columns": {
+    "company": {
+      "type": "relation",
+      "table": "companies",
+      "table_id": "{{table:companies}}",
+      "cardinality": "one"
+    },
+    "contacts": {
+      "type": "relation",
+      "table": "contacts",
+      "table_id": "{{table:contacts}}",
+      "cardinality": "many",
+      "panel": {
+        "as": "auto",
+        "show": [
+          "title",
+          "role",
+          "email"
+        ]
+      }
+    },
+    "stage": {
+      "type": "status",
+      "options": [
+        "Lead",
+        "Qualified",
+        "Proposal",
+        "Negotiation",
+        "Won",
+        "Lost"
+      ],
+      "colors": {
+        "Lead": "gray",
+        "Qualified": "blue",
+        "Proposal": "purple",
+        "Negotiation": "orange",
+        "Won": "green",
+        "Lost": "red"
+      }
+    },
+    "value": {
+      "type": "currency",
+      "currency": "EUR"
+    },
+    "probability": {
+      "type": "percent"
+    },
+    "weighted": {
+      "type": "formula",
+      "formula": "value * probability / 100",
+      "format": "currency",
+      "currency": "EUR"
+    },
+    "expected_close": {
+      "type": "date"
+    },
+    "closed_on": {
+      "type": "date"
+    },
+    "source": {
+      "type": "single_select",
+      "options": [
+        "Inbound",
+        "Referral",
+        "Outbound",
+        "Event",
+        "Partner"
+      ]
+    },
+    "activities": {
+      "type": "relation",
+      "table": "activities",
+      "table_id": "{{table:activities}}",
+      "reverse": "deal",
+      "panel": {
+        "as": "list",
+        "show": [
+          "type",
+          "date",
+          "due",
+          "done"
+        ]
+      }
+    }
+  },
+  "order": [
+    "id",
+    "name",
+    "company",
+    "contacts",
+    "stage",
+    "value",
+    "probability",
+    "weighted",
+    "expected_close",
+    "owner",
+    "source",
+    "closed_on",
+    "lost_reason",
+    "activities"
+  ]
+}

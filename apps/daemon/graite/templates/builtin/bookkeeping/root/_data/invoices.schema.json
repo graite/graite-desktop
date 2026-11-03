@@ -1,0 +1,96 @@
+{
+  "id": "{{table:invoices}}",
+  "display": "number",
+  "display_secondary": "description",
+  "columns": {
+    "customer": {
+      "type": "relation",
+      "table": "parties",
+      "table_id": "{{table:parties}}",
+      "cardinality": "one"
+    },
+    "issue_date": {
+      "type": "date"
+    },
+    "due_date": {
+      "type": "date"
+    },
+    "category": {
+      "type": "relation",
+      "table": "categories",
+      "table_id": "{{table:categories}}",
+      "cardinality": "one"
+    },
+    "net": {
+      "type": "currency",
+      "currency": "EUR"
+    },
+    "vat_rate": {
+      "type": "percent"
+    },
+    "vat": {
+      "type": "formula",
+      "formula": "round(net * vat_rate / 100, 2)",
+      "format": "currency",
+      "currency": "EUR"
+    },
+    "total": {
+      "type": "formula",
+      "formula": "net + vat",
+      "format": "currency",
+      "currency": "EUR"
+    },
+    "days_to_pay": {
+      "type": "formula",
+      "formula": "days_between(issue_date, paid_on)",
+      "format": "number"
+    },
+    "status": {
+      "type": "status",
+      "options": [
+        "Draft",
+        "Sent",
+        "Overdue",
+        "Paid",
+        "Void"
+      ],
+      "colors": {
+        "Draft": "gray",
+        "Sent": "blue",
+        "Overdue": "red",
+        "Paid": "green",
+        "Void": "brown"
+      }
+    },
+    "paid_on": {
+      "type": "date"
+    },
+    "account": {
+      "type": "relation",
+      "table": "accounts",
+      "table_id": "{{table:accounts}}",
+      "cardinality": "one"
+    },
+    "document": {
+      "type": "file"
+    }
+  },
+  "order": [
+    "id",
+    "number",
+    "customer",
+    "issue_date",
+    "due_date",
+    "description",
+    "category",
+    "net",
+    "vat_rate",
+    "vat",
+    "total",
+    "status",
+    "paid_on",
+    "days_to_pay",
+    "account",
+    "document"
+  ]
+}

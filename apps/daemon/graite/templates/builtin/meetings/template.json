@@ -1,0 +1,18 @@
+{
+  "name": "Meeting notes",
+  "description": "Meetings with their notes, and every action item with an owner and a due date, linked to its meeting.",
+  "icon": "🗓️",
+  "category": "Work",
+  "order": 70,
+  "tags": [
+    "meetings",
+    "notes",
+    "actions"
+  ],
+  "highlights": [
+    "Every meeting as a record with its own notes (agenda, notes, decisions)",
+    "Action items linked to their meeting, with an owner and a due date",
+    "Open actions per person, and the latest meetings"
+  ],
+  "keep_rows": []
+}

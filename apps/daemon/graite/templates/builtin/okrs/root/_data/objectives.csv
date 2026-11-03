@@ -1,0 +1,4 @@
+id;title;quarter;owner;status;why
+{{id:ob_customers}};Win customers who stay;{{quarter:0}};Sam;On track;
+{{id:ob_product}};Make the product fast and dependable;{{quarter:0}};Alex;At risk;
+{{id:ob_team}};Grow a team that works well together;{{quarter:0}};Noor;On track;

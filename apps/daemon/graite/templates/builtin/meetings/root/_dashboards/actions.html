@@ -1,0 +1,157 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Meeting notes</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 4px 2px 12px; color: var(--graite-fg); font: 13px/1.45 var(--graite-font, system-ui, sans-serif); }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 0 2px 16px; flex-wrap: wrap; }
+  .eyebrow { margin: 0 0 4px; color: var(--graite-muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  h1 { margin: 0; font-size: 21px; line-height: 1.2; letter-spacing: -.03em; }
+  h2 { margin: 0 0 2px; font-size: 13px; font-weight: 650; letter-spacing: -.01em; }
+  .sub { margin: 4px 0 0; color: var(--graite-muted); font-size: 12px; }
+  .controls { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  select, input[type=date] { font: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid var(--graite-border); border-radius: 8px; background: var(--graite-bg); color: var(--graite-fg); }
+  .grid { display: grid; gap: 10px; }
+  .kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-top: 10px; }
+  .card { min-width: 0; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--graite-border) 86%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--graite-bg) 97%, var(--graite-accent)); box-shadow: 0 1px 2px rgb(0 0 0 / 3%), 0 10px 28px -26px rgb(0 0 0 / 28%); }
+  .card.wide { margin-top: 10px; }
+  .kpi-label { color: var(--graite-muted); font-size: 10px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; }
+  .kpi { margin-top: 8px; font-size: 24px; font-weight: 650; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .kpi-note { margin-top: 2px; color: var(--graite-muted); font-size: 11px; }
+  .chart { width: 100%; height: 260px; margin-top: 6px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+  th { text-align: left; color: var(--graite-muted); font-weight: 600; font-size: 11px; padding: 6px 6px; border-bottom: 1px solid var(--graite-border); }
+  td { padding: 6px 6px; border-bottom: 1px solid color-mix(in srgb, var(--graite-border) 60%, transparent); vertical-align: top; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.total td { font-weight: 650; border-bottom: none; border-top: 1px solid var(--graite-border); }
+  tr.section td { padding-top: 12px; font-weight: 650; color: var(--graite-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  .empty { color: var(--graite-muted); font-size: 12px; padding: 10px 0 2px; }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; background: var(--graite-accent); color: var(--graite-muted); font-size: 11px; }
+  .ok { color: var(--graite-color-2); }
+  .warn { color: #c0563f; }
+  .bar { height: 6px; border-radius: 3px; background: var(--graite-accent); overflow: hidden; margin-top: 4px; }
+  .bar i { display: block; height: 100%; background: var(--graite-fg); opacity: .75; }
+  .bar i.over { background: #c0563f; opacity: 1; }
+  @media (max-width: 520px) { .kpis { grid-template-columns: 1fr 1fr; } .two { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="head">
+  <div>
+    <p class="eyebrow">Meeting notes</p>
+    <h1>Overview</h1>
+    <p class="sub">What is open, who has it, and the latest meetings.</p>
+  </div>
+  <div class="controls"></div>
+</header>
+<section class="grid kpis">
+<article class="card"><div class="kpi-label">Open actions</div><div class="kpi" id="open">—</div></article>
+<article class="card"><div class="kpi-label">Overdue</div><div class="kpi" id="overdue">—</div></article>
+<article class="card"><div class="kpi-label">Due this week</div><div class="kpi" id="week">—</div></article>
+<article class="card"><div class="kpi-label">Meetings this month</div><div class="kpi" id="month">—</div></article>
+</section>
+<section class="grid two">
+  <article class="card"><h2>Per person</h2><div id="owners"></div></article>
+  <article class="card"><h2>Latest meetings</h2><div id="meetings"></div></article>
+</section>
+<script>
+  // The SQL behind this dashboard. Tables are named as on the page; `links` joins relations
+  // and `page_links` joins page columns. $NAME variables are dates filled in below.
+  const QUERIES = {
+  "counts": "SELECT\n  count(CASE WHEN status != 'Done' THEN 1 END) AS open,\n  count(CASE WHEN status != 'Done' AND due < '$TODAY' THEN 1 END) AS overdue,\n  count(CASE WHEN status != 'Done' AND due >= '$TODAY' AND due <= '$WEEK_END' THEN 1 END) AS this_week,\n  (SELECT count(*) FROM meetings WHERE date >= '$MONTH_START') AS meetings_month\nFROM actions",
+  "owners": "SELECT coalesce(owner, 'Nobody') AS owner, count(*) AS open,\n  count(CASE WHEN due < '$TODAY' THEN 1 END) AS late\nFROM actions WHERE status != 'Done' GROUP BY owner ORDER BY open DESC",
+  "meetings": "SELECT m.title, m.date, m.type,\n  (SELECT count(*) FROM links l JOIN actions a ON a.id = l.row_id\n   WHERE l.\"table\" = 'actions' AND l.column = 'meeting' AND l.target_id = m.id AND a.status != 'Done') AS open\nFROM meetings m ORDER BY m.date DESC LIMIT 6"
+};
+
+  const $ = (selector) => document.querySelector(selector);
+  const esc = (text) =>
+    String(text ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const eur = (value) => graite.format(Number(value) || 0, "EUR");
+  const num = (value, digits = 0) =>
+    new Intl.NumberFormat(undefined, { maximumFractionDigits: digits }).format(Number(value) || 0);
+  const pct = (value) => (value === null || value === undefined ? "—" : `${num(value, 0)}%`);
+  /** A date as YYYY-MM-DD in local time. */
+  const iso = (date) => {
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+  };
+  const addDays = (date, days) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+  const today = new Date();
+  /** Run one of QUERIES with $NAME variables filled in (dates only, so quoting is enough). */
+  async function q(key, vars = {}) {
+    let sql = QUERIES[key];
+    for (const [name, value] of Object.entries(vars))
+      sql = sql.split("$" + name).join(String(value).replace(/'/g, "''"));
+    return graite.query(sql);
+  }
+  /** Rows as an HTML table: columns are [label, key, format?] with format "eur", "num", "pct", "date". */
+  function grid(rows, columns, empty = "Nothing here yet.") {
+    if (!rows.length) return `<div class="empty">${esc(empty)}</div>`;
+    const cell = (row, [, key, format]) => {
+      const value = typeof key === "function" ? key(row) : row[key];
+      if (format === "eur") return `<td class="num">${esc(eur(value))}</td>`;
+      if (format === "num") return `<td class="num">${esc(num(value, 1))}</td>`;
+      if (format === "pct") return `<td class="num">${esc(pct(value))}</td>`;
+      if (format === "html") return `<td>${value ?? ""}</td>`;
+      return `<td>${esc(value ?? "")}</td>`;
+    };
+    const head = columns
+      .map(([label, , format]) => `<th class="${["eur", "num", "pct"].includes(format) ? "num" : ""}">${esc(label)}</th>`)
+      .join("");
+    const body = rows.map((row) => `<tr>${columns.map((c) => cell(row, c)).join("")}</tr>`).join("");
+    return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  }
+  /** Theme colors for hand-made ECharts options. */
+  const ink = () => {
+    const t = graite.theme();
+    return { fg: t.colors.foreground, muted: t.colors.muted, border: t.colors.border, palette: t.colors.palette };
+  };
+  function barOption(categories, series, { stacked = false, horizontal = false, money = true } = {}) {
+    const c = ink();
+    const value = { type: "value", axisLabel: { color: c.muted, formatter: (v) => (money ? eur(v) : num(v)) }, splitLine: { lineStyle: { color: c.border } } };
+    const cat = { type: "category", data: categories, axisLabel: { color: c.muted }, axisTick: { show: false }, axisLine: { lineStyle: { color: c.border } } };
+    return {
+      grid: { left: 4, right: 12, top: 26, bottom: 4, containLabel: true },
+      legend: series.length > 1 ? { top: 0, textStyle: { color: c.muted } } : undefined,
+      tooltip: { trigger: "axis", valueFormatter: (v) => (money ? eur(v) : num(v, 1)) },
+      xAxis: horizontal ? value : cat,
+      yAxis: horizontal ? cat : value,
+      series: series.map((s, i) => ({
+        type: s.type || "bar",
+        name: s.name,
+        data: s.data,
+        stack: stacked ? "all" : undefined,
+        smooth: true,
+        barMaxWidth: 28,
+        itemStyle: { borderRadius: stacked ? 0 : 3, color: s.color || c.palette[i * 2 % c.palette.length] },
+        lineStyle: s.type === "line" ? { width: 2 } : undefined,
+      })),
+    };
+  }
+
+async function render() {
+    const monday = addDays(today, -((today.getDay() + 6) % 7));
+    const vars = {
+      TODAY: iso(today), WEEK_END: iso(addDays(monday, 6)),
+      MONTH_START: iso(new Date(today.getFullYear(), today.getMonth(), 1)),
+    };
+    const [c] = await q("counts", vars);
+    $("#open").textContent = c.open;
+    $("#overdue").innerHTML = c.overdue ? `<span class="warn">${c.overdue}</span>` : "0";
+    $("#week").textContent = c.this_week;
+    $("#month").textContent = c.meetings_month;
+    $("#owners").innerHTML = grid(await q("owners", vars), [
+      ["Person", "owner"], ["Open", "open", "num"], ["Late", "late", "num"],
+    ], "Nobody has open actions.");
+    $("#meetings").innerHTML = grid(await q("meetings", vars), [
+      ["Date", "date"], ["Meeting", "title"], ["Type", "type"], ["Open actions", "open", "num"],
+    ], "No meetings yet.");
+  }
+  render();
+  graite.onChange(render);
+</script>
+</body>
+</html>

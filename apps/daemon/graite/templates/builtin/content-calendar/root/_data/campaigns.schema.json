@@ -1,0 +1,39 @@
+{
+  "id": "{{table:campaigns}}",
+  "display": "name",
+  "columns": {
+    "start": {
+      "type": "date"
+    },
+    "end": {
+      "type": "date"
+    },
+    "status": {
+      "type": "status",
+      "options": [
+        "Planned",
+        "Active",
+        "Done"
+      ],
+      "colors": {
+        "Planned": "gray",
+        "Active": "blue",
+        "Done": "green"
+      }
+    },
+    "content": {
+      "type": "relation",
+      "table": "content",
+      "table_id": "{{table:content}}",
+      "reverse": "campaign",
+      "panel": {
+        "as": "auto",
+        "show": [
+          "channel",
+          "status",
+          "publish_date"
+        ]
+      }
+    }
+  }
+}

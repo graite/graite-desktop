@@ -1,0 +1,13 @@
+id;type;title;description;date;due;done;company;contact;deal;notes;attachments
+{{id:a1}};Call;Discovery call with Lena;"Three spreadsheets for order tracking; wants one dashboard for the warehouse before the busy season.";{{date:-6}};;;[[{{id:co_northwind}}|Northwind Traders]];[[{{id:ct_lena}}|Lena Hart]];[[{{id:dl_nw_dash}}|Warehouse dashboard]];[[{{page:note_northwind}}|Discovery call Northwind]];
+{{id:a2}};Email;Proposal sent;Two options: a fixed-scope dashboard or a phased rollout. Lena forwards it to finance.;{{date:-2}};;;[[{{id:co_northwind}}|Northwind Traders]];[[{{id:ct_lena}}|Lena Hart]];[[{{id:dl_nw_dash}}|Warehouse dashboard]];;
+{{id:a3}};Meeting;On-site visit, Eindhoven plant;"Walked line 3 with Ines; the pilot covers that line first.";{{date:-12}};;;[[{{id:co_acme}}|Acme Robotics]];[[{{id:ct_ines}}|Ines Duarte]];[[{{id:dl_acme_pilot}}|Line monitoring pilot]];;
+{{id:a4}};Meeting;Demo for the data team;"They liked the lineage view; questions about access rights.";{{date:-3}};;;[[{{id:co_bluefjord}}|Blue Fjord Analytics]];[[{{id:ct_jon}}|Jon Berg]];[[{{id:dl_bf_migration}}|Data platform migration]];;
+{{id:a5}};Note;Met Mara at the retail fair;"Interested after the summer; small team, owner decides.";{{date:-40}};;;[[{{id:co_cedar}}|Cedar & Pine Interiors]];[[{{id:ct_mara}}|Mara Willems]];[[{{id:dl_cedar_shop}}|Webshop analytics]];;
+{{id:a6}};Email;Tender documents received;"Deadline in six weeks; three lots, we bid on reporting.";{{date:-20}};;;[[{{id:co_helix}}|Helix Health]];[[{{id:ct_tom}}|Tom Visser]];[[{{id:dl_helix_tender}}|Reporting tender]];;
+{{id:a7}};Call;Kai: building it in-house;"They hired two engineers; open to talk again next year.";{{date:-110}};;;[[{{id:co_orbit}}|Orbit Logistics]];[[{{id:ct_kai}}|Kai Neumann]];[[{{id:dl_orbit_renewal}}|Fleet reporting renewal]];;
+{{id:t1}};Task;Book a demo with the warehouse lead;;{{date:-6}};{{date:5}};false;[[{{id:co_northwind}}|Northwind Traders]];[[{{id:ct_omar}}|Omar Haddad]];[[{{id:dl_nw_dash}}|Warehouse dashboard]];;
+{{id:t2}};Task;Send the pilot contract;;{{date:-12}};{{date:1}};false;[[{{id:co_acme}}|Acme Robotics]];[[{{id:ct_ines}}|Ines Duarte]];[[{{id:dl_acme_pilot}}|Line monitoring pilot]];;
+{{id:t3}};Task;Plan the scoping workshop;;{{date:-3}};{{date:9}};false;[[{{id:co_bluefjord}}|Blue Fjord Analytics]];[[{{id:ct_jon}}|Jon Berg]];[[{{id:dl_bf_migration}}|Data platform migration]];;
+{{id:t4}};Task;First call with Mara;;{{date:-40}};{{date:-5}};false;[[{{id:co_cedar}}|Cedar & Pine Interiors]];[[{{id:ct_mara}}|Mara Willems]];[[{{id:dl_cedar_shop}}|Webshop analytics]];;
+{{id:t5}};Task;Submit the tender answers;;{{date:-20}};{{date:20}};false;[[{{id:co_helix}}|Helix Health]];[[{{id:ct_tom}}|Tom Visser]];[[{{id:dl_helix_tender}}|Reporting tender]];;

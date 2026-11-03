@@ -1,0 +1,19 @@
+{
+  "name": "OKRs",
+  "description": "Objectives and measurable key results per quarter, with progress computed from start, target and current, and weekly check-ins.",
+  "icon": "🎯",
+  "category": "Work",
+  "order": 80,
+  "tags": [
+    "goals",
+    "OKR",
+    "strategy"
+  ],
+  "highlights": [
+    "Objectives with key results that measure them",
+    "Progress computed from start, target and current value",
+    "Weekly check-ins with confidence",
+    "Progress per objective and confidence over time"
+  ],
+  "keep_rows": []
+}

@@ -35,10 +35,17 @@ const monthIndex = (name: string) =>
 const monthName = (m: number) =>
   LONG[m - 1] ? LONG[m - 1][0].toUpperCase() + LONG[m - 1].slice(1) : String(m);
 
-/** "2026-09-15" → "September 15, 2026". Anything that is not an ISO date is returned unchanged. */
-export function formatDate(value: string): string {
+/** "2026-09-15" → "September 15, 2026": for screen readers, where the full month reads better. */
+function longDate(value: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
   return m ? `${monthName(Number(m[2]))} ${Number(m[3])}, ${m[1]}` : value;
+}
+
+/** "2026-09-15" → "Sep 15, 2026" (months as three letters). Anything that is not an ISO
+ *  date is returned unchanged. */
+export function formatDate(value: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  return m ? `${monthName(Number(m[2])).slice(0, 3)} ${Number(m[3])}, ${m[1]}` : value;
 }
 
 /** Typed dates → ISO: "September 15, 2026", "15 sept 2026", "15/9/2026", "2026-09-15", "today". */
@@ -75,7 +82,7 @@ function monthCells(year: number, month: number): (number | null)[] {
   return [...Array<null>(lead).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
 }
 
-/** A date value shown as text ("September 15, 2026"); edit by typing a date or picking one in the calendar. */
+/** A date value shown as text ("Sep 15, 2026"); edit by typing a date or picking one in the calendar. */
 export function DateField({
   value,
   label,
@@ -136,7 +143,7 @@ export function DateField({
         <input
           aria-label={`${label} as text`}
           value={text}
-          placeholder="September 15, 2026"
+          placeholder="Sep 15, 2026"
           autoFocus
           onChange={(e) => {
             setText(e.target.value);
@@ -151,9 +158,7 @@ export function DateField({
           }}
         />
         {invalid && (
-          <small className="date-field-error">
-            Use a date like September 15, 2026 or 2026-09-15.
-          </small>
+          <small className="date-field-error">Use a date like Sep 15, 2026 or 2026-09-15.</small>
         )}
         <div className="date-field-nav">
           <button type="button" aria-label="Previous month" onClick={() => shift(-1)}>
@@ -180,7 +185,7 @@ export function DateField({
                   <button
                     type="button"
                     key={date}
-                    aria-label={formatDate(date)}
+                    aria-label={longDate(date)}
                     aria-selected={date === value}
                     data-today={date === today ? "" : undefined}
                     onClick={() => pick(date)}

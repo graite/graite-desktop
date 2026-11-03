@@ -1,0 +1,42 @@
+{
+  "id": "{{table:meetings}}",
+  "display": "title",
+  "display_secondary": "date",
+  "document_template": "## Agenda\n\n1. \n\n## Notes\n\n## Decisions\n\n- ",
+  "columns": {
+    "date": {
+      "type": "date"
+    },
+    "type": {
+      "type": "single_select",
+      "options": [
+        "One-on-one",
+        "Team",
+        "Client",
+        "Planning",
+        "Retro"
+      ],
+      "colors": {
+        "One-on-one": "purple",
+        "Team": "blue",
+        "Client": "green",
+        "Planning": "orange",
+        "Retro": "pink"
+      }
+    },
+    "action_items": {
+      "type": "relation",
+      "table": "actions",
+      "table_id": "{{table:actions}}",
+      "reverse": "meeting",
+      "panel": {
+        "as": "list",
+        "show": [
+          "owner",
+          "due",
+          "status"
+        ]
+      }
+    }
+  }
+}

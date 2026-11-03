@@ -2004,6 +2004,39 @@
             ],
             "title": "Currency"
           },
+          "decimals": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decimals"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format"
+          },
+          "formula": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Formula"
+          },
           "invalid": {
             "default": 0,
             "title": "Invalid",
@@ -2019,6 +2052,18 @@
             },
             "title": "Options",
             "type": "array"
+          },
+          "panel": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Panel"
           },
           "reverse": {
             "anyOf": [
@@ -2147,29 +2192,6 @@
           "name"
         ],
         "title": "ColumnOpModel",
-        "type": "object"
-      },
-      "ConflictBody": {
-        "properties": {
-          "body": {
-            "title": "Body",
-            "type": "string"
-          },
-          "detail": {
-            "default": "conflict",
-            "title": "Detail",
-            "type": "string"
-          },
-          "hash": {
-            "title": "Hash",
-            "type": "string"
-          }
-        },
-        "required": [
-          "hash",
-          "body"
-        ],
-        "title": "ConflictBody",
         "type": "object"
       },
       "Connection": {
@@ -2989,6 +3011,83 @@
           "enabled"
         ],
         "title": "FeedbackStatus",
+        "type": "object"
+      },
+      "FileLocation": {
+        "properties": {
+          "folder": {
+            "title": "Folder",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "folder",
+          "path"
+        ],
+        "title": "FileLocation",
+        "type": "object"
+      },
+      "FormulaBody": {
+        "properties": {
+          "column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column"
+          },
+          "formula": {
+            "maxLength": 2000,
+            "title": "Formula",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "formula"
+        ],
+        "title": "FormulaBody",
+        "type": "object"
+      },
+      "FormulaCheck": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "sample": {
+            "items": {},
+            "title": "Sample",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "FormulaCheck",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -5362,6 +5461,29 @@
         "title": "RowConflictModel",
         "type": "object"
       },
+      "RowDoc": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "exists": {
+            "title": "Exists",
+            "type": "boolean"
+          },
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "hash",
+          "exists"
+        ],
+        "title": "RowDoc",
+        "type": "object"
+      },
       "RowModel": {
         "properties": {
           "cells": {
@@ -5508,6 +5630,13 @@
               }
             ],
             "title": "Display Secondary"
+          },
+          "docs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Docs",
+            "type": "array"
           },
           "hash": {
             "title": "Hash",
@@ -6544,6 +6673,24 @@
         "title": "TableConflictBody",
         "type": "object"
       },
+      "TableFile": {
+        "properties": {
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "name"
+        ],
+        "title": "TableFile",
+        "type": "object"
+      },
       "TableModel": {
         "properties": {
           "columns": {
@@ -6663,6 +6810,126 @@
           "path"
         ],
         "title": "TablePathBody",
+        "type": "object"
+      },
+      "TemplateColumn": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "TemplateColumn",
+        "type": "object"
+      },
+      "TemplateModel": {
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "charts": {
+            "title": "Charts",
+            "type": "integer"
+          },
+          "dashboards": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dashboards",
+            "type": "array"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "highlights": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Highlights",
+            "type": "array"
+          },
+          "icon": {
+            "title": "Icon",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pages": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Pages",
+            "type": "array"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "tables": {
+            "items": {
+              "$ref": "#/components/schemas/TemplateTable"
+            },
+            "title": "Tables",
+            "type": "array"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "description",
+          "icon",
+          "category",
+          "pages",
+          "tables",
+          "charts",
+          "dashboards"
+        ],
+        "title": "TemplateModel",
+        "type": "object"
+      },
+      "TemplateTable": {
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/TemplateColumn"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "page": {
+            "title": "Page",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "page",
+          "columns"
+        ],
+        "title": "TemplateTable",
         "type": "object"
       },
       "TicketRequest": {
@@ -6910,6 +7177,40 @@
           "created"
         ],
         "title": "UpgradeResult",
+        "type": "object"
+      },
+      "UseTemplate": {
+        "properties": {
+          "parent_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Path"
+          },
+          "sample_data": {
+            "default": true,
+            "title": "Sample Data",
+            "type": "boolean"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "UseTemplate",
         "type": "object"
       },
       "ValidationError": {
@@ -7242,6 +7543,49 @@
         "title": "WriteResult",
         "type": "object"
       },
+      "WriteRowDoc": {
+        "properties": {
+          "base_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Hash"
+          },
+          "body": {
+            "maxLength": 2000000,
+            "title": "Body",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "maxLength": 300,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "id",
+          "body"
+        ],
+        "title": "WriteRowDoc",
+        "type": "object"
+      },
       "WriteRows": {
         "properties": {
           "base_hash": {
@@ -7289,6 +7633,29 @@
         "title": "OptInResult",
         "type": "object"
       },
+      "graite__api__pages__ConflictBody": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "detail": {
+            "default": "conflict",
+            "title": "Detail",
+            "type": "string"
+          },
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hash",
+          "body"
+        ],
+        "title": "ConflictBody",
+        "type": "object"
+      },
       "graite__api__review__OptInResult": {
         "properties": {
           "opted_in": {
@@ -7303,6 +7670,29 @@
           "opted_in"
         ],
         "title": "OptInResult",
+        "type": "object"
+      },
+      "graite__api__tables__ConflictBody": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail",
+          "hash",
+          "body"
+        ],
+        "title": "ConflictBody",
         "type": "object"
       }
     }
@@ -11938,7 +12328,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConflictBody"
+                  "$ref": "#/components/schemas/graite__api__pages__ConflictBody"
                 }
               }
             },
@@ -12080,7 +12470,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConflictBody"
+                  "$ref": "#/components/schemas/graite__api__pages__ConflictBody"
                 }
               }
             },
@@ -12436,6 +12826,202 @@
         ]
       }
     },
+    "/api/v1/tables/files": {
+      "post": {
+        "description": "Store an uploaded file (request body) in the table page's `_assets/` for a file\ncolumn (D76). The caller then writes the cell like any other value.",
+        "operationId": "upload_file_api_v1_tables_files_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "title": "Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableFile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload File",
+        "tags": [
+          "tables"
+        ]
+      }
+    },
+    "/api/v1/tables/files/content": {
+      "get": {
+        "description": "A file column's file, for hosts that cannot open it in a system app (the web).",
+        "operationId": "file_content_api_v1_tables_files_content_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "title": "Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "file",
+            "required": true,
+            "schema": {
+              "title": "File",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "File Content",
+        "tags": [
+          "tables"
+        ]
+      }
+    },
+    "/api/v1/tables/files/location": {
+      "get": {
+        "description": "Where a file column's file is on disk, to open it in the system's app.",
+        "operationId": "file_location_api_v1_tables_files_location_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "title": "Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "file",
+            "required": true,
+            "schema": {
+              "title": "File",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileLocation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "File Location",
+        "tags": [
+          "tables"
+        ]
+      }
+    },
+    "/api/v1/tables/formula/check": {
+      "post": {
+        "description": "Whether a formula works on this table, with its first values (D75).",
+        "operationId": "check_formula_api_v1_tables_formula_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormulaBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormulaCheck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Formula",
+        "tags": [
+          "tables"
+        ]
+      }
+    },
     "/api/v1/tables/import": {
       "post": {
         "description": "Copy an uploaded CSV (request body) into the page's `_data/`, adding ids.",
@@ -12750,6 +13336,107 @@
         ]
       }
     },
+    "/api/v1/tables/row-doc": {
+      "get": {
+        "description": "A row's own document (D80): `<page>/_data/<table>/<row id>.md`.",
+        "operationId": "read_row_doc_api_v1_tables_row_doc_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "title": "Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RowDoc"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Row Doc",
+        "tags": [
+          "tables"
+        ]
+      },
+      "put": {
+        "operationId": "write_row_doc_api_v1_tables_row_doc_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteRowDoc"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RowDoc"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/graite__api__tables__ConflictBody"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Write Row Doc",
+        "tags": [
+          "tables"
+        ]
+      }
+    },
     "/api/v1/tables/rows": {
       "get": {
         "operationId": "rows_api_v1_tables_rows_get",
@@ -12989,6 +13676,84 @@
         "summary": "Patch Schema",
         "tags": [
           "tables"
+        ]
+      }
+    },
+    "/api/v1/templates": {
+      "get": {
+        "operationId": "list_templates_api_v1_templates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TemplateModel"
+                  },
+                  "title": "Response List Templates Api V1 Templates Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Templates",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/api/v1/templates/{slug}/use": {
+      "post": {
+        "description": "Make the template's pages, tables, charts and dashboards; returns the top page.",
+        "operationId": "use_template_api_v1_templates__slug__use_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UseTemplate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDocModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Use Template",
+        "tags": [
+          "templates"
         ]
       }
     },

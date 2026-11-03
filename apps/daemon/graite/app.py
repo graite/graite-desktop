@@ -35,6 +35,7 @@ from graite.api import (
 from graite.api import assistant as assistant_api
 from graite.api import engines as engines_api
 from graite.api import mcp as mcp_api
+from graite.api import templates as templates_api
 from graite.api import voice as voice_api
 from graite.api.auth import BearerAuthMiddleware
 from graite.assistant.presence import ForegroundGate
@@ -128,6 +129,7 @@ def create_app(settings: Settings) -> FastAPI:
         app.state.fileops.on_indexed = on_indexed
         app.state.tables = TablesCache(settings.vault, settings.graite_dir / "tables.sqlite")
         app.state.fileops.tables = app.state.tables
+        app.state.tables.page_info = app.state.fileops.page_titles
         count = await app.state.fileops.rescan()
         await asyncio.to_thread(app.state.fileops.sync_tables)
         app.state.worker = Worker(app.state.queue, HANDLERS, app.state)
@@ -216,6 +218,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(charts.router, prefix=API_PREFIX)
     app.include_router(dashboards.router, prefix=API_PREFIX)
     app.include_router(trash.router, prefix=API_PREFIX)
+    app.include_router(templates_api.router, prefix=API_PREFIX)
     app.include_router(mcp_api.router, prefix=API_PREFIX)
     app.include_router(events.router)
     # MCP over streamable HTTP, behind the same bearer token. A plain route, not a mount:

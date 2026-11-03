@@ -1,0 +1,211 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Habits</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 4px 2px 12px; color: var(--graite-fg); font: 13px/1.45 var(--graite-font, system-ui, sans-serif); }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 0 2px 16px; flex-wrap: wrap; }
+  .eyebrow { margin: 0 0 4px; color: var(--graite-muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  h1 { margin: 0; font-size: 21px; line-height: 1.2; letter-spacing: -.03em; }
+  h2 { margin: 0 0 2px; font-size: 13px; font-weight: 650; letter-spacing: -.01em; }
+  .sub { margin: 4px 0 0; color: var(--graite-muted); font-size: 12px; }
+  .controls { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  select, input[type=date] { font: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid var(--graite-border); border-radius: 8px; background: var(--graite-bg); color: var(--graite-fg); }
+  .grid { display: grid; gap: 10px; }
+  .kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-top: 10px; }
+  .card { min-width: 0; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--graite-border) 86%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--graite-bg) 97%, var(--graite-accent)); box-shadow: 0 1px 2px rgb(0 0 0 / 3%), 0 10px 28px -26px rgb(0 0 0 / 28%); }
+  .card.wide { margin-top: 10px; }
+  .kpi-label { color: var(--graite-muted); font-size: 10px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; }
+  .kpi { margin-top: 8px; font-size: 24px; font-weight: 650; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .kpi-note { margin-top: 2px; color: var(--graite-muted); font-size: 11px; }
+  .chart { width: 100%; height: 260px; margin-top: 6px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+  th { text-align: left; color: var(--graite-muted); font-weight: 600; font-size: 11px; padding: 6px 6px; border-bottom: 1px solid var(--graite-border); }
+  td { padding: 6px 6px; border-bottom: 1px solid color-mix(in srgb, var(--graite-border) 60%, transparent); vertical-align: top; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.total td { font-weight: 650; border-bottom: none; border-top: 1px solid var(--graite-border); }
+  tr.section td { padding-top: 12px; font-weight: 650; color: var(--graite-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  .empty { color: var(--graite-muted); font-size: 12px; padding: 10px 0 2px; }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; background: var(--graite-accent); color: var(--graite-muted); font-size: 11px; }
+  .ok { color: var(--graite-color-2); }
+  .warn { color: #c0563f; }
+  .bar { height: 6px; border-radius: 3px; background: var(--graite-accent); overflow: hidden; margin-top: 4px; }
+  .bar i { display: block; height: 100%; background: var(--graite-fg); opacity: .75; }
+  .bar i.over { background: #c0563f; opacity: 1; }
+  @media (max-width: 520px) { .kpis { grid-template-columns: 1fr 1fr; } .two { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="head">
+  <div>
+    <p class="eyebrow">Habits</p>
+    <h1>Today and this week</h1>
+    <p class="sub">Streaks, this week against your targets, and the last months.</p>
+  </div>
+  <div class="controls"></div>
+</header>
+<section class="grid kpis">
+<article class="card"><div class="kpi-label">Done today</div><div class="kpi" id="today">—</div></article>
+<article class="card"><div class="kpi-label">This week</div><div class="kpi" id="week">—</div><div class="kpi-note" id="week-note"></div></article>
+<article class="card"><div class="kpi-label">Longest streak now</div><div class="kpi" id="streak">—</div><div class="kpi-note" id="streak-note"></div></article>
+<article class="card"><div class="kpi-label">Best streak</div><div class="kpi" id="best">—</div><div class="kpi-note" id="best-note"></div></article>
+</section>
+<section class="card wide"><h2>Per habit</h2><div id="habits"></div></section>
+<section class="card wide"><h2>Last months</h2><div class="chart" id="heatmap" style="height:220px"></div></section>
+<script>
+  // The SQL behind this dashboard. Tables are named as on the page; `links` joins relations
+  // and `page_links` joins page columns. $NAME variables are dates filled in below.
+  const QUERIES = {
+  "habits": "SELECT id, name, icon, coalesce(target_per_week, 7) AS target FROM habits\nWHERE active = 1 OR active IS NULL ORDER BY name",
+  "log": "SELECT h.id AS habit, g.date FROM log g\nJOIN links l ON l.\"table\" = 'log' AND l.column = 'habit' AND l.row_id = g.id\nJOIN habits h ON h.id = l.target_id\nWHERE g.done = 1 AND g.date >= '$HISTORY' AND g.date <= '$TODAY'\nGROUP BY h.id, g.date"
+};
+
+  const $ = (selector) => document.querySelector(selector);
+  const esc = (text) =>
+    String(text ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const eur = (value) => graite.format(Number(value) || 0, "EUR");
+  const num = (value, digits = 0) =>
+    new Intl.NumberFormat(undefined, { maximumFractionDigits: digits }).format(Number(value) || 0);
+  const pct = (value) => (value === null || value === undefined ? "—" : `${num(value, 0)}%`);
+  /** A date as YYYY-MM-DD in local time. */
+  const iso = (date) => {
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+  };
+  const addDays = (date, days) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+  const today = new Date();
+  /** Run one of QUERIES with $NAME variables filled in (dates only, so quoting is enough). */
+  async function q(key, vars = {}) {
+    let sql = QUERIES[key];
+    for (const [name, value] of Object.entries(vars))
+      sql = sql.split("$" + name).join(String(value).replace(/'/g, "''"));
+    return graite.query(sql);
+  }
+  /** Rows as an HTML table: columns are [label, key, format?] with format "eur", "num", "pct", "date". */
+  function grid(rows, columns, empty = "Nothing here yet.") {
+    if (!rows.length) return `<div class="empty">${esc(empty)}</div>`;
+    const cell = (row, [, key, format]) => {
+      const value = typeof key === "function" ? key(row) : row[key];
+      if (format === "eur") return `<td class="num">${esc(eur(value))}</td>`;
+      if (format === "num") return `<td class="num">${esc(num(value, 1))}</td>`;
+      if (format === "pct") return `<td class="num">${esc(pct(value))}</td>`;
+      if (format === "html") return `<td>${value ?? ""}</td>`;
+      return `<td>${esc(value ?? "")}</td>`;
+    };
+    const head = columns
+      .map(([label, , format]) => `<th class="${["eur", "num", "pct"].includes(format) ? "num" : ""}">${esc(label)}</th>`)
+      .join("");
+    const body = rows.map((row) => `<tr>${columns.map((c) => cell(row, c)).join("")}</tr>`).join("");
+    return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  }
+  /** Theme colors for hand-made ECharts options. */
+  const ink = () => {
+    const t = graite.theme();
+    return { fg: t.colors.foreground, muted: t.colors.muted, border: t.colors.border, palette: t.colors.palette };
+  };
+  function barOption(categories, series, { stacked = false, horizontal = false, money = true } = {}) {
+    const c = ink();
+    const value = { type: "value", axisLabel: { color: c.muted, formatter: (v) => (money ? eur(v) : num(v)) }, splitLine: { lineStyle: { color: c.border } } };
+    const cat = { type: "category", data: categories, axisLabel: { color: c.muted }, axisTick: { show: false }, axisLine: { lineStyle: { color: c.border } } };
+    return {
+      grid: { left: 4, right: 12, top: 26, bottom: 4, containLabel: true },
+      legend: series.length > 1 ? { top: 0, textStyle: { color: c.muted } } : undefined,
+      tooltip: { trigger: "axis", valueFormatter: (v) => (money ? eur(v) : num(v, 1)) },
+      xAxis: horizontal ? value : cat,
+      yAxis: horizontal ? cat : value,
+      series: series.map((s, i) => ({
+        type: s.type || "bar",
+        name: s.name,
+        data: s.data,
+        stack: stacked ? "all" : undefined,
+        smooth: true,
+        barMaxWidth: 28,
+        itemStyle: { borderRadius: stacked ? 0 : 3, color: s.color || c.palette[i * 2 % c.palette.length] },
+        lineStyle: s.type === "line" ? { width: 2 } : undefined,
+      })),
+    };
+  }
+
+/** Days in a row up to `end` (or the day before, so today can still be done). */
+  function streaks(days) {
+    const set = new Set(days);
+    let best = 0;
+    let run = 0;
+    let previous = null;
+    for (const day of [...set].sort()) {
+      const next = previous && iso(addDays(new Date(previous + "T00:00"), 1)) === day;
+      run = next ? run + 1 : 1;
+      best = Math.max(best, run);
+      previous = day;
+    }
+    let current = 0;
+    let cursor = set.has(iso(today)) ? today : addDays(today, -1);
+    while (set.has(iso(cursor))) {
+      current++;
+      cursor = addDays(cursor, -1);
+    }
+    return { current, best };
+  }
+  async function render() {
+    const vars = { TODAY: iso(today), HISTORY: iso(addDays(today, -182)) };
+    const habits = await q("habits");
+    const log = await q("log", vars);
+    const monday = iso(addDays(today, -((today.getDay() + 6) % 7)));
+    let doneToday = 0;
+    let weekDone = 0;
+    let weekTarget = 0;
+    let top = { name: "—", current: 0 };
+    let best = { name: "—", best: 0 };
+    const rows = habits.map((h) => {
+      const days = log.filter((l) => l.habit === h.id).map((l) => l.date);
+      const s = streaks(days);
+      const week = days.filter((day) => day >= monday).length;
+      const target = Math.min(h.target, 7);
+      if (days.includes(vars.TODAY)) doneToday++;
+      weekDone += Math.min(week, target);
+      weekTarget += target;
+      if (s.current > top.current) top = { name: h.name, current: s.current };
+      if (s.best > best.best) best = { name: h.name, best: s.best };
+      return { ...h, ...s, week, target, today: days.includes(vars.TODAY) };
+    });
+    $("#today").textContent = `${doneToday} / ${habits.length}`;
+    $("#week").textContent = weekTarget ? pct((weekDone / weekTarget) * 100) : "—";
+    $("#week-note").textContent = `${weekDone} of ${weekTarget} planned days`;
+    $("#streak").textContent = `${top.current} days`;
+    $("#streak-note").textContent = top.name;
+    $("#best").textContent = `${best.best} days`;
+    $("#best-note").textContent = best.name;
+    $("#habits").innerHTML = rows.length
+      ? `<table><thead><tr><th>Habit</th><th>Today</th><th class="num">This week</th><th class="num">Streak</th><th class="num">Best</th></tr></thead><tbody>${rows
+          .map((r) => `<tr><td>${esc(r.icon || "")} ${esc(r.name)}<div class="bar"><i style="width:${Math.min((r.week / r.target) * 100, 100)}%"></i></div></td>
+            <td>${r.today ? '<span class="ok">✓</span>' : ""}</td>
+            <td class="num">${r.week} / ${r.target}</td><td class="num">${r.current}</td><td class="num">${r.best}</td></tr>`)
+          .join("")}</tbody></table>`
+      : `<div class="empty">Add a habit to start.</div>`;
+
+    const counts = {};
+    for (const l of log) counts[l.date] = (counts[l.date] || 0) + 1;
+    const c = ink();
+    graite.chart("#heatmap", {
+      tooltip: { formatter: (p) => `${p.value[0]}: ${p.value[1]} of ${habits.length}` },
+      visualMap: { show: false, min: 0, max: Math.max(habits.length, 1), inRange: { color: [c.border, c.fg] } },
+      calendar: {
+        range: [vars.HISTORY, vars.TODAY],
+        top: 24, left: 30, right: 10, cellSize: ["auto", 14],
+        itemStyle: { borderColor: "transparent", borderWidth: 2, color: "transparent" },
+        splitLine: { show: false },
+        yearLabel: { show: false },
+        dayLabel: { color: c.muted, firstDay: 1, nameMap: ["S", "M", "T", "W", "T", "F", "S"] },
+        monthLabel: { color: c.muted },
+      },
+      series: [{ type: "heatmap", coordinateSystem: "calendar", data: Object.entries(counts) }],
+    });
+  }
+  render();
+  graite.onChange(render);
+</script>
+</body>
+</html>

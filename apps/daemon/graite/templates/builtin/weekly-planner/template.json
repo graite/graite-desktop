@@ -1,0 +1,19 @@
+{
+  "name": "Weekly planner",
+  "description": "Plan each week on Monday and review it on Friday: a few priorities per day, linked to the goals they serve.",
+  "icon": "🧭",
+  "category": "Personal",
+  "order": 100,
+  "tags": [
+    "planning",
+    "weekly review",
+    "focus"
+  ],
+  "highlights": [
+    "Every week as a record with its focus, energy, rating and review notes",
+    "Priorities per day, linked to their week and the goal they serve",
+    "Goals that span weeks: open one to see its weeks and priorities",
+    "This week at a glance, and progress per goal"
+  ],
+  "keep_rows": []
+}

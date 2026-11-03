@@ -262,16 +262,18 @@ def test_multi_select_matches_whole_elements() -> None:
 
     conn = sqlite3.connect(":memory:")
     conn.execute('CREATE TABLE t ("tags" TEXT)')
-    conn.executemany("INSERT INTO t VALUES (?)", [("Red; Blue",), ("Reddish",), (None,)])
+    conn.executemany(
+        "INSERT INTO t VALUES (?)", [("Red|Blue",), ("Reddish",), ("Green; Red",), (None,)]
+    )
 
     def count(text: str) -> int:
         q = compile_filter(text, resolve)
         return int(conn.execute(f"SELECT count(*) FROM t WHERE {q.sql}", q.params).fetchone()[0])
 
-    assert count("tags = red") == 1  # not "Reddish"
-    assert count("tags != blue") == 2  # the empty row too
+    assert count("tags = red") == 2  # not "Reddish"; the old `;` form too
+    assert count("tags != blue") == 3  # the empty row too
     assert count("tags in [blue, reddish]") == 2
-    assert count("tags contains red") == 2
+    assert count("tags contains red") == 3
 
 
 def test_sort_forms() -> None:
@@ -350,3 +352,20 @@ def test_resolve_block_sources(tmp_path: Path) -> None:
     assert cache.resolve("Other", rel) == rel
     with pytest.raises(FileNotFoundError):
         cache.resolve("Atlas", "nope.csv")
+
+
+def test_separators_d78() -> None:
+    from graite.tables import csvio
+    from graite.tables import schema as sch
+
+    # A new table is `;`-separated; an existing comma file keeps its commas when edited.
+    assert csvio.serialize(csvio.Table(header=["id", "a"])) == "id;a\n"
+    table = csvio.parse("id,tags\n1,x\n")
+    table.records[0].values[1], table.records[0].raw = "y", None
+    assert csvio.serialize(table) == "id,tags\n1,y\n"
+    # Multi-select reads both separators, writes `|`, and caches one form.
+    assert sch.to_json("multi_select", "a; b|c") == ["a", "b", "c"]
+    assert sch.to_cell("multi_select", ["a", " b "]) == "a|b"
+    assert sch.to_sql("multi_select", "a; b") == "a|b"
+    _, problems = sch.load('{"columns": {"t": {"type": "multi_select", "options": ["x|y"]}}}')
+    assert problems == ["Options of 't' cannot contain '|'."]

@@ -1,0 +1,40 @@
+{
+  "id": "{{table:categories}}",
+  "display": "name",
+  "display_secondary": "kind",
+  "columns": {
+    "kind": {
+      "type": "single_select",
+      "options": [
+        "Income",
+        "Fixed costs",
+        "Variable costs",
+        "Transfers"
+      ],
+      "colors": {
+        "Income": "green",
+        "Fixed costs": "blue",
+        "Variable costs": "orange",
+        "Transfers": "gray"
+      }
+    },
+    "monthly_budget": {
+      "type": "currency",
+      "currency": "EUR"
+    },
+    "transactions": {
+      "type": "relation",
+      "table": "transactions",
+      "table_id": "{{table:transactions}}",
+      "reverse": "category",
+      "panel": {
+        "as": "auto",
+        "show": [
+          "date",
+          "amount",
+          "account"
+        ]
+      }
+    }
+  }
+}

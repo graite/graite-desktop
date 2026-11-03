@@ -1,0 +1,19 @@
+{
+  "name": "Habit tracker",
+  "description": "Habits with a weekly target, a log of the days you did them, streaks and a calendar heatmap.",
+  "icon": "✅",
+  "category": "Personal",
+  "order": 90,
+  "tags": [
+    "habits",
+    "health",
+    "routine"
+  ],
+  "highlights": [
+    "A weekly target per habit",
+    "One row in the log per day you did it",
+    "Current and best streak per habit",
+    "A calendar heatmap of the last months"
+  ],
+  "keep_rows": []
+}

@@ -1,0 +1,4 @@
+id;title;date;type;attendees
+{{id:m_sync}};Weekly team sync;{{date:-2}};Team;Noor, Sam, Alex
+{{id:m_client}};Client check-in Northwind;{{date:-9}};Client;Lena Hart, Sam
+{{id:m_retro}};Sprint retro;{{date:-16}};Retro;Noor, Sam, Alex

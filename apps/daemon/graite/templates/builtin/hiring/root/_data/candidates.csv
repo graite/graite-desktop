@@ -1,0 +1,11 @@
+id;name;role;stage;source;rating;email;linkedin;applied_on;stage_changed_on;salary_ask;cv;notes
+{{id:ca_priya}};Priya Raman;[[{{id:ro_design}}|Product designer]];Assignment;Referral;4;priya@mail.example;;{{date:-30}};{{date:-4}};62000;;
+{{id:ca_lucas}};Lucas Meyer;[[{{id:ro_design}}|Product designer]];Interview;LinkedIn;3;lucas@mail.example;;{{date:-21}};{{date:-6}};58000;;
+{{id:ca_emma}};Emma de Vries;[[{{id:ro_design}}|Product designer]];Screening;Job board;;emma@mail.example;;{{date:-9}};{{date:-7}};;;
+{{id:ca_yusuf}};Yusuf Kaya;[[{{id:ro_design}}|Product designer]];Rejected;Job board;2;yusuf@mail.example;;{{date:-35}};{{date:-20}};;;
+{{id:ca_ana}};Ana Sousa;[[{{id:ro_backend}}|Backend engineer]];Offer;Referral;5;ana@mail.example;;{{date:-22}};{{date:-2}};75000;;
+{{id:ca_ben}};Ben Okafor;[[{{id:ro_backend}}|Backend engineer]];Interview;LinkedIn;4;ben@mail.example;;{{date:-18}};{{date:-5}};72000;;
+{{id:ca_mia}};Mia Larsen;[[{{id:ro_backend}}|Backend engineer]];Applied;Website;;mia@mail.example;;{{date:-3}};{{date:-3}};;;
+{{id:ca_tim}};Tim Novak;[[{{id:ro_backend}}|Backend engineer]];Withdrawn;Job board;3;tim@mail.example;;{{date:-24}};{{date:-12}};;;
+{{id:ca_sara}};Sara Lind;[[{{id:ro_support}}|Customer support lead]];Hired;Referral;5;sara@mail.example;;{{date:-80}};{{date:-30}};52000;;
+{{id:ca_omar}};Omar Aziz;[[{{id:ro_support}}|Customer support lead]];Rejected;Job board;3;omar@mail.example;;{{date:-75}};{{date:-50}};;;

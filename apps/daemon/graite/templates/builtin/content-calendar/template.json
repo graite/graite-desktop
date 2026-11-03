@@ -1,0 +1,21 @@
+{
+  "name": "Content calendar",
+  "description": "Plan posts, newsletters and videos per channel and campaign, from idea to published, and see what performs.",
+  "icon": "📅",
+  "category": "Work",
+  "order": 60,
+  "tags": [
+    "marketing",
+    "content",
+    "social"
+  ],
+  "highlights": [
+    "Ideas to published, per channel and campaign",
+    "Click-through and conversion rate computed per piece",
+    "The next 30 days at a glance",
+    "Performance per channel and per content pillar"
+  ],
+  "keep_rows": [
+    "channels"
+  ]
+}

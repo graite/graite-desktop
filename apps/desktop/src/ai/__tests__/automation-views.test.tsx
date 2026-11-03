@@ -50,7 +50,7 @@ vi.mock("@/chat/MarkdownAnswer", () => ({
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-vi.mock("@/editor/AgentInstructionsEditor", () => ({
+vi.mock("@/editor/MarkdownEditor", () => ({
   AgentInstructionsEditor: ({
     value,
     onChange,

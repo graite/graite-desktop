@@ -1,0 +1,25 @@
+{
+  "name": "Bookkeeping",
+  "description": "Invoices and receipts with VAT, attached scans, a profit & loss statement and a balance sheet, for a small business or freelancer.",
+  "icon": "📒",
+  "category": "Finance",
+  "order": 20,
+  "tags": [
+    "finance",
+    "invoices",
+    "receipts",
+    "VAT",
+    "P&L"
+  ],
+  "highlights": [
+    "Invoices and receipts with net, VAT % and computed VAT and total",
+    "Attach the PDF or photo of every invoice and receipt",
+    "Profit & loss per month, quarter or year, by category",
+    "Balance sheet on any date, with a check that it balances",
+    "VAT per quarter: charged, paid and still due"
+  ],
+  "keep_rows": [
+    "accounts",
+    "categories"
+  ]
+}

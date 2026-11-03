@@ -35,9 +35,10 @@ optional escape hatch. The product does not depend on them.
 **Boards, tables and lists.** Any folder of pages can be a board, table or list. This is a
 Todos collection grouped by status. Every card is still a plain Markdown page underneath.
 
-**Database tables.** A page can hold data tables: plain CSV files in its `_data/` folder,
-shown as a fast grid with typed columns (numbers, money, dates, select pills, status),
-filters, sorting and search. They open in Excel or any editor unchanged. Agents can query
+**Databases.** A page can hold databases (`/Database`): plain CSV files in its `_data/` folder,
+shown as a table, board or list with typed columns (numbers, money, dates, select pills,
+status, links to other databases), filters, sorting and search. A linked view shows the same
+database on another page. They open in Excel or any editor unchanged. Agents can query
 them with read-only SQL and propose row changes, which apply or wait for your review
 depending on the page's settings.
 

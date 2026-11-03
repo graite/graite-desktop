@@ -259,7 +259,10 @@ def test_rename_table_follows_everywhere(client: TestClient, settings: Settings)
         "```graite:table\nsource: _data/companies.csv\nsort: name\n"
         'tabs:\n  _data/projects.csv:\n    filter: title = "Site"\n```\n\n'
         "```graite:table\nsource: _data/projects.csv\ntabs:\n  _data/companies.csv:\n"
-        "    sort: city\n```\n\n![[companies.csv]]\n\nSee ![[companies.csv]] inline.\n"
+        "    sort: city\n```\n\n![[companies.csv]]\n\nSee ![[companies.csv]] inline.\n\n"
+        "```graite:table\nviews:\n  - name: Board\n    source: _data/companies.csv\n"
+        "    view: board\n  - source: _data/companies.csv\n    name: All\n"
+        "  - name: Projects\n    source: _data/projects.csv\n```\n"
     )
     r = client.put("/api/v1/pages/Clients", json={"body": body})
     assert r.status_code == 200, r.text
@@ -273,6 +276,10 @@ def test_rename_table_follows_everywhere(client: TestClient, settings: Settings)
     assert "source: _data/customers.csv\nsort: name" in text
     assert "  _data/customers.csv:\n    sort: city" in text
     assert "\n![[customers.csv]]\n" in text and "See ![[companies.csv]] inline." in text
+    # Named views (D79) follow too.
+    assert "    source: _data/customers.csv\n    view: board" in text
+    assert "  - source: _data/customers.csv\n    name: All" in text
+    assert "    source: _data/projects.csv" in text
     assert cells(rows(client, PROJECTS), "client")["p1"] == [{"id": "c1", "label": "Acme"}]
     # A taken name is refused.
     r = client.post("/api/v1/tables/rename", json={"path": PROJECTS, "name": "customers"})

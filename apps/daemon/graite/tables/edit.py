@@ -148,6 +148,9 @@ def _norm(kind: str, text: str) -> str:
     if kind == "relation":
         # A link is its id; a label that changed meanwhile is no conflict.
         return " ".join(link.id for link in sch.links_of(text))
+    if kind in ("file", "page"):
+        # So is an attachment or a page link (D76); its label may be out of date.
+        return " ".join(link.id for link in sch.targets_of(kind, text))
     return sch.to_cell(kind, sch.to_json(kind, sch.to_sql(kind, text)))
 
 

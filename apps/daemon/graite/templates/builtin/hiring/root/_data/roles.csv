@@ -1,0 +1,4 @@
+id;title;team;location;status;hiring_manager;opened_on;target_start;headcount
+{{id:ro_design}};Product designer;Product;Amsterdam;Open;Noor;{{date:-40}};{{date:45}};1
+{{id:ro_backend}};Backend engineer;Engineering;Remote (EU);Open;Alex;{{date:-25}};{{date:60}};2
+{{id:ro_support}};Customer support lead;Operations;Amsterdam;Filled;Sam;{{date:-90}};{{date:-10}};1

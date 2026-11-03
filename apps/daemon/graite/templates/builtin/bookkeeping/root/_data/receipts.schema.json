@@ -1,0 +1,71 @@
+{
+  "id": "{{table:receipts}}",
+  "display": "description",
+  "display_secondary": "date",
+  "columns": {
+    "date": {
+      "type": "date"
+    },
+    "supplier": {
+      "type": "relation",
+      "table": "parties",
+      "table_id": "{{table:parties}}",
+      "cardinality": "one"
+    },
+    "category": {
+      "type": "relation",
+      "table": "categories",
+      "table_id": "{{table:categories}}",
+      "cardinality": "one"
+    },
+    "net": {
+      "type": "currency",
+      "currency": "EUR"
+    },
+    "vat_rate": {
+      "type": "percent"
+    },
+    "vat": {
+      "type": "formula",
+      "formula": "round(net * vat_rate / 100, 2)",
+      "format": "currency",
+      "currency": "EUR"
+    },
+    "total": {
+      "type": "formula",
+      "formula": "net + vat",
+      "format": "currency",
+      "currency": "EUR"
+    },
+    "paid": {
+      "type": "checkbox"
+    },
+    "paid_on": {
+      "type": "date"
+    },
+    "account": {
+      "type": "relation",
+      "table": "accounts",
+      "table_id": "{{table:accounts}}",
+      "cardinality": "one"
+    },
+    "receipt": {
+      "type": "file"
+    }
+  },
+  "order": [
+    "id",
+    "date",
+    "supplier",
+    "description",
+    "category",
+    "net",
+    "vat_rate",
+    "vat",
+    "total",
+    "paid",
+    "paid_on",
+    "account",
+    "receipt"
+  ]
+}

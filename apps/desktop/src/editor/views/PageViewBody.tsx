@@ -3,10 +3,13 @@ import { Plus } from "lucide-react";
 import { useDismissableLayerSurface } from "@radix-ui/react-dismissable-layer";
 import { toast } from "sonner";
 import type { PageDoc } from "@/lib/api";
+import { hasBodyContent, PageIcon } from "@/components/PageIcon";
+import type { BoardSource } from "./board";
+import { PropertyChip } from "./PropertyChip";
 import { MediaContext } from "../media/context";
 import type { GraiteEditor } from "../schema";
 import { BoardView } from "./BoardView";
-import { groupCandidates, sameName, visibleFields, withShown } from "./collection";
+import { groupCandidates, groupValue, sameName, visibleFields, withShown } from "./collection";
 import { ListView } from "./ListView";
 import { NewPageInput } from "./NewPageInput";
 import { TableView } from "./TableView";
@@ -41,7 +44,8 @@ export function PageViewBody({
   const [query, setQuery] = useState("");
   const shownCollection = {
     ...collection,
-    rows: projectRows(rows, query, settings, props.view === "table"),
+    // Every layout follows the view's sort (D82); unsorted boards and lists keep page order.
+    rows: projectRows(rows, query, settings, true),
   };
   const [draft, setDraft] = useState(false);
   const groupField = groupCandidates(fields).find((f) => sameName(f.name, props.group || "Status"));
@@ -49,6 +53,33 @@ export function PageViewBody({
   const visible = visibleFields(fields, props.show, props.view, settings.hide?.[props.view]).filter(
     (f) => props.view !== "kanban" || f !== groupField,
   );
+  // The board and list arrange pages through this adapter (they also arrange table rows).
+  const source: BoardSource<PageDoc> = {
+    rows: shownCollection.rows,
+    group: (row) => (groupField ? groupValue(row, groupField) : ""),
+    move: async (row, column, target, position = "after") => {
+      if (groupField && groupValue(row, groupField) !== column)
+        await collection.setValue(row, groupField, column || null);
+      if (target) await collection.reorder(row, target, position);
+    },
+    create: (title, column) =>
+      collection.createPage(
+        title,
+        column && groupField ? { field: groupField, value: column } : undefined,
+      ),
+    remove: (row) => collection.remove(row),
+    icon: (row) => <PageIcon icon={row.icon} hasContent={hasBodyContent(row.body)} />,
+    chips: (row) =>
+      visible.length ? (
+        <div className="view-chips">
+          {visible.map((f) => (
+            <div className="view-card-property" key={f.id}>
+              <PropertyChip page={row} field={f} />
+            </div>
+          ))}
+        </div>
+      ) : null,
+  };
   const onProps = (next: Partial<ViewProps>) =>
     editor.updateBlock(id, { type: "pageView", props: next });
   const onSettings = (next: ViewSettings) => onProps({ settings: JSON.stringify(next) });
@@ -110,26 +141,19 @@ export function PageViewBody({
   else if (props.view === "kanban" && groupField)
     body = (
       <BoardView
-        collection={shownCollection}
-        settings={settings}
-        onSettings={onSettings}
+        source={source}
+        board={settings.boards?.[groupField.name] ?? { order: [], hidden: [] }}
+        onBoard={(next) =>
+          onSettings({ ...settings, boards: { ...settings.boards, [groupField.name]: next } })
+        }
         groupField={groupField}
-        visible={visible}
         draft={draft ? (groupField.options[0] ?? "") : null}
         onDraftDone={done}
         onOpen={open}
       />
     );
   else if (props.view === "list")
-    body = (
-      <ListView
-        collection={shownCollection}
-        visible={visible}
-        draft={draft}
-        onDraftDone={done}
-        onOpen={open}
-      />
-    );
+    body = <ListView source={source} draft={draft} onDraftDone={done} onOpen={open} />;
   else
     body = (
       <TableView

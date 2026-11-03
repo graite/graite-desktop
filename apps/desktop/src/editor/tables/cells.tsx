@@ -65,7 +65,7 @@ export function tagsCell(
   return {
     kind: GridCellKind.Custom,
     data: { kind: "graite-tags", column, values, onField },
-    copyData: values.join("; "),
+    copyData: values.join("|"),
     allowOverlay: true,
   };
 }
@@ -78,7 +78,7 @@ const TagsEditor: ProvideEditorComponent<TagsCell> = ({ value, onChange, onFinis
   const [field, setField] = useState(() => asProperty(column, values));
   const multi = column.type === "multi_select";
   const set = (next: string[], done: boolean) => {
-    const cell = { ...value, data: { ...value.data, values: next }, copyData: next.join("; ") };
+    const cell = { ...value, data: { ...value.data, values: next }, copyData: next.join("|") };
     if (done) onFinishedEditing(cell);
     else onChange(cell);
   };
@@ -169,7 +169,7 @@ export const tagsRenderer: CustomRenderer<TagsCell> = {
   onPaste: (text, data) => ({
     ...data,
     values: text
-      .split(/[;,]/)
+      .split(/[|;,]/)
       .map((v) => v.trim())
       .filter(Boolean)
       .slice(0, data.column.type === "multi_select" ? undefined : 1),

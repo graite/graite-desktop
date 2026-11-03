@@ -206,12 +206,17 @@ filter: category = "Travel" and amount > 100
 sort: date desc              # or a list: [-date, amount]
 columns: [date, description, amount, category]
 height: 480                  # optional, pixels
-tabs:                        # optional: the view each other tab of the block keeps (D71)
+tabs:                        # older blocks only (D71): read, not shown; dropped on edit (D82)
   _data/people.csv:          # keyed like source:
     filter: age > 30
     sort: [-age]
     columns: [name, age]
 ```
+
+A table fence written today holds `views:` instead (D79, below). An older fence with one
+`source:` opens as a single view of that table; the first change rewrites it as `views:` and
+drops `tabs:` (the other tables stay, and can be shown with a linked view). Nothing is written
+just by opening it.
 
 ```graite:dashboard
 src: _dashboards/overview.html
@@ -284,7 +289,7 @@ Projects/Atlas/_data/
 
   Types are the page-property kinds plus two number formats: `text | number | currency |
   percent | single_select | multi_select | status | date | checkbox | url | email |
-  relation` (older spellings `integer`, `boolean`, `select`, `multiselect`, `datetime` are
+  relation | file | page | formula` (older spellings `integer`, `boolean`, `select`, `multiselect`, `datetime` are
   still read). Without a schema file (or for columns it does not list) types are inferred from
   the data. A broken schema file is a warning, never a hidden table.
   - `currency` and `percent` cells are plain numbers (`12.5`, `25`); the column's `currency`
@@ -298,7 +303,8 @@ Projects/Atlas/_data/
     read as the new type stay as written; Graite counts them before the change and shows them
     in red until they are fixed.
   - `"wrap": true` on a text column shows long values on several lines.
-  - `multi_select` cells hold values separated by `;`. In filters, `=`, `!=` and `in`
+  - `multi_select` cells hold values separated by `|` (`a|b`; `a; b` from before D78 is
+    still read). Option names cannot contain `|`. In filters, `=`, `!=` and `in`
     match one whole value of the list; `contains` matches text.
 - **Relations** (D71). A relation column holds links to rows of another table (or the same
   one): `[[<row id>|<label>]]`, several separated by a space, e.g.
@@ -319,8 +325,59 @@ Projects/Atlas/_data/
   - Deleting a row in Graite removes links to it. A link to a row that is gone (deleted
     outside Graite) is kept and flagged as broken; repeated ids are flagged and only get new
     ids when the user asks, never on a write.
+- **Formula columns** (D75) live in the schema only:
+  `"total": { "type": "formula", "formula": "net + net * vat_rate / 100", "format": "currency" }`.
+  `format` is `number | currency | percent | date | text | checkbox`. The formula reads the
+  same row: column names (`` `quoted` `` when they have spaces), numbers, "strings",
+  `+ - * /`, comparisons, `and/or/not`, `is empty`, and `if`, `round`, `abs`, `min`, `max`,
+  `coalesce`, `concat`, `days_between`, `add_days`, `year`, `quarter`, `month`, `date`,
+  `lower`, `upper`, `length`. The value is computed in the cache and never written to the
+  CSV; a formula that does not work is a `formula_invalid` warning and its cells stay empty.
+- **File columns** (D76) hold `[[<stored name>|<original name>]]` links to files in the table
+  page's `_assets/`, several separated by spaces; `cardinality: one` allows one.
+- **Page columns** (D76) hold `[[<vault path>|<title>]]` links to pages; Graite shows the live
+  title and rewrites the path when a page moves or is renamed.
+- **New tables** are `;`-separated (D78); a file keeps the delimiter it has.
+- **Row documents** (D80): a row can have its own Markdown document at
+  `<page>/_data/<table>/<row id>.md` (frontmatter `title`, `row`, `table`), made the first time
+  someone writes in it. It moves with its table and goes to the trash with its row.
+- **Tables follow their page** (D83): renaming a page renames a table in its `_data/` that has
+  the page's old title as its name. Trashing a page removes the relation columns other tables
+  have to its tables (and the back-links of its own relations), keeping them in the trash entry;
+  restoring the page puts them back.
+- **Decimals** (D82): a number, currency or percent column (or a formula shown as one) may
+  say `"decimals": 0`–`6` to always show that many places; without it a value shows the places
+  it has (money: the currency's usual ones). Only the display changes, never the CSV.
+- **Document templates** (D81): a table schema may hold `"document_template": "<markdown>"`
+  (up to 20 000 characters). A row without a document opens with this text, e.g. a meeting
+  with Agenda / Notes / Decisions; nothing is written until someone edits it.
+- **How links show on a row** (D80): a relation or reverse column may say
+  `"panel": {"as": "auto" | "pills" | "list", "show": ["field", ...]}`. `auto` shows up to 3
+  links in the row's fields and more as its own collapsible list of the linked rows, with the
+  `show` fields as columns.
 - **Renaming** a table renames `<name>.csv` and `<name>.schema.json`; relation `table:` hints,
   fence `source:` values and `tabs:` keys, and `![[<name>.csv]]` embeds that meant it follow.
+- **Named views** (D79): a `graite:table` fence may hold `views:`, the block's tabs in order.
+  All views of a block show the same table (D82: one database per block; another database is
+  another block). Each view shows that table (`source:`, as below; a bare name finds the nearest page up) as a
+  `table`, `board` or `list`, with its own `filter`, `sort`, `columns` (table), `show` (the
+  fields a card or list row shows), `group` (a board's status or select column) and `boards`
+  (`order`, `hidden`; `""` is the column of rows without a value). The first view opens with
+  the page; switching views writes nothing. A board's cards follow the view's sort.
+
+  ```graite:table
+  views:
+    - name: Pipeline
+      source: deals
+      view: board
+      group: stage
+      sort: expected_close asc
+      show: [company, value, expected_close]
+    - name: All deals
+      source: deals
+      columns: [name, stage, value]
+  height: 620
+  ```
 - **Views** are `graite:table` fences or `![[name.csv]]` embeds (§5). Filter, sort and
   visible columns live in the fence, so two pages can show the same table differently.
   Filters use a small language (`=`, `!=`, `<`, `>`, `contains`, `in [...]`, `is empty`,
@@ -389,7 +446,8 @@ const theme = graite.theme();      // { mode, colors }; also CSS --graite-fg, --
   (`"Projects/Atlas/expenses"`).
 - `pages` and `page_props` hold the pages in scope.
 - `links(table, column, row_id, target_table, target_id)` holds every relation link, so joins
-  through relations are plain SQL.
+  through relations are plain SQL; `page_links(table, column, row_id, page_path)` holds the
+  links in page columns.
 
 **Agents:**
 - `propose_chart` adds a checked chart fence.

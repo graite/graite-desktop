@@ -1,0 +1,110 @@
+{
+  "id": "{{table:candidates}}",
+  "display": "name",
+  "display_secondary": "stage",
+  "columns": {
+    "role": {
+      "type": "relation",
+      "table": "roles",
+      "table_id": "{{table:roles}}",
+      "cardinality": "one"
+    },
+    "stage": {
+      "type": "status",
+      "options": [
+        "Applied",
+        "Screening",
+        "Interview",
+        "Assignment",
+        "Offer",
+        "Hired",
+        "Rejected",
+        "Withdrawn"
+      ],
+      "colors": {
+        "Applied": "gray",
+        "Screening": "blue",
+        "Interview": "purple",
+        "Assignment": "yellow",
+        "Offer": "orange",
+        "Hired": "green",
+        "Rejected": "red",
+        "Withdrawn": "brown"
+      }
+    },
+    "source": {
+      "type": "single_select",
+      "options": [
+        "Referral",
+        "LinkedIn",
+        "Job board",
+        "Website",
+        "Agency",
+        "Event"
+      ]
+    },
+    "rating": {
+      "type": "number"
+    },
+    "email": {
+      "type": "email"
+    },
+    "linkedin": {
+      "type": "url"
+    },
+    "applied_on": {
+      "type": "date"
+    },
+    "stage_changed_on": {
+      "type": "date"
+    },
+    "days_in_process": {
+      "type": "formula",
+      "formula": "days_between(applied_on, stage_changed_on)",
+      "format": "number"
+    },
+    "salary_ask": {
+      "type": "currency",
+      "currency": "EUR"
+    },
+    "cv": {
+      "type": "file"
+    },
+    "notes": {
+      "type": "text",
+      "wrap": true
+    },
+    "interviews": {
+      "type": "relation",
+      "table": "interviews",
+      "table_id": "{{table:interviews}}",
+      "reverse": "candidate",
+      "panel": {
+        "as": "auto",
+        "show": [
+          "date",
+          "type",
+          "score",
+          "recommendation"
+        ]
+      }
+    }
+  },
+  "order": [
+    "id",
+    "name",
+    "role",
+    "stage",
+    "source",
+    "rating",
+    "applied_on",
+    "stage_changed_on",
+    "days_in_process",
+    "salary_ask",
+    "cv",
+    "interviews",
+    "email",
+    "linkedin",
+    "notes"
+  ]
+}

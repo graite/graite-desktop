@@ -1,0 +1,58 @@
+{
+  "id": "{{table:weeks}}",
+  "display": "week",
+  "display_secondary": "focus",
+  "document_template": "## Focus\n\n## Wins\n\n- \n\n## Lessons\n\n- \n\n## Next week\n\n- ",
+  "columns": {
+    "week_start": {
+      "type": "date"
+    },
+    "focus": {
+      "type": "text",
+      "wrap": true
+    },
+    "energy": {
+      "type": "single_select",
+      "options": [
+        "High",
+        "Normal",
+        "Low"
+      ],
+      "colors": {
+        "High": "green",
+        "Normal": "blue",
+        "Low": "orange"
+      }
+    },
+    "rating": {
+      "type": "number"
+    },
+    "goals": {
+      "type": "relation",
+      "table": "goals",
+      "table_id": "{{table:goals}}",
+      "cardinality": "many",
+      "panel": {
+        "as": "list",
+        "show": [
+          "area",
+          "status"
+        ]
+      }
+    },
+    "priorities": {
+      "type": "relation",
+      "table": "priorities",
+      "table_id": "{{table:priorities}}",
+      "reverse": "week",
+      "panel": {
+        "as": "list",
+        "show": [
+          "day",
+          "status",
+          "area"
+        ]
+      }
+    }
+  }
+}

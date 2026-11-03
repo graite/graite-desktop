@@ -1,0 +1,28 @@
+{
+  "id": "{{table:accounts}}",
+  "display": "name",
+  "columns": {
+    "type": {
+      "type": "single_select",
+      "options": [
+        "Bank",
+        "Savings",
+        "Cash",
+        "Credit card"
+      ],
+      "colors": {
+        "Bank": "blue",
+        "Savings": "green",
+        "Cash": "yellow",
+        "Credit card": "purple"
+      }
+    },
+    "opening_balance": {
+      "type": "currency",
+      "currency": "EUR"
+    },
+    "opening_date": {
+      "type": "date"
+    }
+  }
+}

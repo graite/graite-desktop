@@ -1,0 +1,5 @@
+id;name;type;audience;cadence
+{{id:ch_blog}};Blog;Blog;Small business owners;2 per month
+{{id:ch_news}};Newsletter;Newsletter;Customers and leads;Monthly
+{{id:ch_li}};LinkedIn;LinkedIn;Operations managers;2 per week
+{{id:ch_yt}};YouTube;YouTube;Hands-on users;Monthly

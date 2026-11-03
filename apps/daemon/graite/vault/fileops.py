@@ -26,6 +26,7 @@ from graite.dashboards.paths import DashboardPath
 from graite.events import EventBus
 from graite.tables import cache as table_cache
 from graite.tables import csvio
+from graite.tables import formula as tbl_formula
 from graite.tables import links as tbl_links
 from graite.tables import paths as table_paths
 from graite.tables import schema as tbl_schema
@@ -227,6 +228,15 @@ def _atomic_write(path: Path, text: str, *, newline: str | None = None) -> None:
     tmp.write_text(text, encoding="utf-8", newline=newline)
     os.replace(tmp, path)
     _record_write(path)
+
+
+def _refuse_formula_writes(columns: list[tbl_schema.Column], ops: list[RowOp]) -> None:
+    """Formula columns (D75) are computed; a write to one is a mistake worth naming."""
+    computed = {c.name for c in columns if c.type == "formula"}
+    for op in ops:
+        for name in [*op.values, *(op.base or {})]:
+            if name in computed:
+                raise ValueError(f"{name!r} is a formula; its value is computed, not typed.")
 
 
 class FileOps:
@@ -508,8 +518,9 @@ class FileOps:
         """Pages that mention each stored filename: the owning page and its descendants.
 
         Stored names start with a unique uuid, so a substring match on the raw page.md is
-        exact. It covers graite:media/graite:text fences, media properties in frontmatter and
-        `../_assets/<file>` links from transcript subpages.
+        exact. It covers graite:media/graite:text fences, media properties in frontmatter,
+        `../_assets/<file>` links from transcript subpages and file columns (D76) in the
+        pages' `_data/` tables.
         """
         refs: dict[str, list[str]] = {name: [] for name in names}
         if not names:
@@ -523,10 +534,83 @@ class FileOps:
                 text = page_file(self.vault, path).read_text(encoding="utf-8")
             except (OSError, ValueError):
                 continue
+            data = page_dir(self.vault, path) / table_paths.DATA_DIR
+            if data.is_dir() and not data.is_symlink():
+                for table in sorted(data.glob("*" + table_paths.SUFFIX)):
+                    with contextlib.suppress(OSError):
+                        text += "\n" + table.read_text(encoding="utf-8", errors="replace")
             for name in names:
                 if name in text:
                     refs[name].append(path)
         return refs
+
+    def page_id_of(self, rel: str) -> str:
+        """The id of the page at `rel` (its attachments are addressed by it)."""
+        row = self.db.execute("SELECT id FROM pages WHERE path=?", (validate_rel(rel),)).fetchone()
+        if not row:
+            raise FileNotFoundError("This page no longer exists.")
+        return str(row[0])
+
+    def page_titles(self, paths: list[str]) -> dict[str, tuple[str, str | None]]:
+        """`{path: (title, icon)}` for the pages among `paths` that exist (page columns)."""
+        out: dict[str, tuple[str, str | None]] = {}
+        for start in range(0, len(paths), 500):
+            chunk = paths[start : start + 500]
+            marks = ", ".join("?" for _ in chunk)
+            for row in self.db.execute(
+                f"SELECT path, title, icon FROM pages WHERE path IN ({marks})", chunk
+            ):
+                out[str(row[0])] = (str(row[1]), row[2])
+        return out
+
+    async def retarget_page_links(
+        self, old: str, new: str, actor: str, title: str | None = None
+    ) -> None:
+        """Page columns (D76) follow a page that moved or was renamed: links to `old` or a
+        page under it now name `new`, and links to the page itself get `title` as label."""
+        if self.tables is None or (old == new and title is None):
+            return
+        rels = await asyncio.to_thread(self.tables.page_link_tables)
+        if not rels:
+            return
+        async with self._table_locks(rels):
+
+            def write() -> None:
+                for rel in rels:
+                    try:
+                        table = self._table(rel)
+                        parsed, _, data = self._read_table_sync(table)
+                    except (FileNotFoundError, VaultPathError):
+                        continue
+                    names = tbl_schema.column_names(parsed.header)
+                    index = [
+                        names.index(c.name)
+                        for c in self._columns_sync(table, parsed)
+                        if c.type == "page" and c.name in names
+                    ]
+                    changed = 0
+                    for record in parsed.rows:
+                        for i in index:
+                            cell = record.values[i] if i < len(record.values) else ""
+                            links = tbl_links.parse_links(cell)
+                            out: list[tbl_links.Link] = []
+                            for link in links:
+                                target = link.id
+                                if target == old or target.startswith(old + "/"):
+                                    target = new + target[len(old) :]
+                                label = title if title is not None and target == new else link.label
+                                out.append(tbl_links.Link(target, label))
+                            if out != links:
+                                record.values[i] = tbl_links.format_links(out)
+                                record.raw = None
+                                changed += 1
+                    if changed:
+                        self._write_table_sync(
+                            table, parsed, data, actor, "table.page_links", {"cells": changed}
+                        )
+                        self._table_changed(rel, actor)
+
+            await asyncio.to_thread(write)
 
     def _list_attachments_sync(self, page_id: str) -> list[AttachmentEntry]:
         rel = self.page_by_id(page_id)
@@ -835,6 +919,96 @@ class FileOps:
                 table, parsed, old, actor, "table.labels", {"column": column, "target": rel}
             )
 
+    # ------------------------------------------------------------------ row documents (D80)
+
+    def _row_doc_dir(self, table: TablePath) -> Path:
+        """`<page>/_data/<table>/`: the documents of a table's rows."""
+        return page_dir(self.vault, table.page) / table_paths.DATA_DIR / table.name
+
+    def _row_doc_file(self, table: TablePath, row_id: str) -> Path:
+        if not _ATTACHMENT_NAME.fullmatch(row_id) or row_id.startswith("."):
+            raise VaultPathError("Invalid row id.")
+        directory = self._row_doc_dir(table)
+        if directory.is_symlink():
+            raise VaultPathError("Linked row folders are not allowed.")
+        return directory / f"{row_id}.md"
+
+    def row_doc_ids(self, rel: str) -> set[str]:
+        """Ids of the rows of `rel` that have a document."""
+        directory = self._row_doc_dir(self._table(rel))
+        if not directory.is_dir() or directory.is_symlink():
+            return set()
+        return {f.stem for f in directory.glob("*.md") if f.is_file()}
+
+    async def read_row_doc(self, rel: str, row_id: str) -> dict[str, Any]:
+        """A row's document: its Markdown body and the hash a save must name."""
+        table = self._table(rel)
+
+        def read() -> dict[str, Any]:
+            f = self._row_doc_file(table, row_id)
+            if not f.is_file():
+                # A new record's notes start from the table's document template (D81);
+                # nothing is written until someone types.
+                raw = self._raw_schema_sync(table)
+                template = raw.get("document_template")
+                text = template.strip() if isinstance(template, str) else ""
+                body = text + "\n" if text else ""
+                return {"body": body, "hash": "", "exists": False}
+            text = f.read_text(encoding="utf-8")
+            _, body = fm.split(text)
+            return {"body": body, "hash": _sha256(text), "exists": True}
+
+        return await asyncio.to_thread(read)
+
+    async def write_row_doc(
+        self, rel: str, row_id: str, body: str, base_hash: str | None, title: str, actor: str
+    ) -> dict[str, Any]:
+        """Save a row's document (`<page>/_data/<table>/<row id>.md`), made on the first save.
+        A stale `base_hash` is a conflict; the replaced text is kept as a version."""
+        table = self._table(rel)
+        async with self._locks[table.rel]:
+
+            def write() -> dict[str, Any]:
+                if not table.file(self.vault).is_file():
+                    raise FileNotFoundError(table.rel)
+                f = self._row_doc_file(table, row_id)
+                old = f.read_text(encoding="utf-8") if f.is_file() else None
+                current = _sha256(old) if old is not None else ""
+                if base_hash is not None and base_hash != current:
+                    raise ConflictError(current, fm.split(old)[1] if old else "")
+                if old is None and not body.strip():
+                    return {"body": "", "hash": "", "exists": False}
+                meta: dict[str, Any] = fm.split(old)[0] if old else {}
+                meta.update({"title": title or meta.get("title") or row_id})
+                meta["row"] = row_id
+                meta["table"] = table.name
+                meta.pop("id", None)
+                text = fm.join(meta, body)
+                if text == old:
+                    return {"body": body, "hash": current, "exists": True}
+                if old is not None:
+                    self._snapshot(f"rows/{table.name}-{row_id}", old)
+                f.parent.mkdir(parents=True, exist_ok=True)
+                _atomic_write(f, text)
+                self._activity(actor, "table.row_doc", table.rel, {"row": row_id})
+                self._publish("row_doc_changed", {"path": table.rel, "row": row_id, "actor": actor})
+                return {"body": fm.split(text)[1], "hash": _sha256(text), "exists": True}
+
+            return await asyncio.to_thread(write)
+
+    def _trash_row_doc_sync(self, table: TablePath, row_id: str, actor: str) -> None:
+        """A deleted row's document goes to the trash folder (it can be restored by hand)."""
+        try:
+            f = self._row_doc_file(table, row_id)
+        except VaultPathError:
+            return
+        if not f.is_file():
+            return
+        target = self.vault / GRAITE_DIR / "trash" / "rows" / table.page / table.name
+        target.mkdir(parents=True, exist_ok=True)
+        os.replace(f, target / f"{int(time.time() * 1000)}-{row_id}.md")
+        self._activity(actor, "table.row_doc_trash", table.rel, {"row": row_id})
+
     async def write_table_rows(
         self, rel: str, ops: list[RowOp], base_hash: str | None, actor: str
     ) -> dict[str, Any]:
@@ -853,6 +1027,7 @@ class FileOps:
                 columns = self._columns_sync(table, parsed)
                 kinds: dict[str, str] = {c.name: c.type for c in columns if not c.reverse}
                 schema, _ = self._schema_sync(table)
+                _refuse_formula_writes(columns, ops)
                 checked_ops, reverse = self._relation_values_sync(table, parsed, columns, ops)
                 if base_hash == current:
                     checked_ops = [
@@ -884,6 +1059,8 @@ class FileOps:
                     if o.op == "update" and label is not None and label in o.values
                 ]
                 deleted = [ids[i] for i, o in enumerate(ops) if o.op == "delete"]
+                for row_id in deleted:
+                    self._trash_row_doc_sync(table, row_id, actor)
                 self._fix_inbound_sync(table.rel, relabel, deleted, actor)
                 if self.tables is not None and (reverse or relabel or deleted):
                     new_hash = self.tables.info(table.rel).file_hash
@@ -907,6 +1084,7 @@ class FileOps:
             columns = self._columns_sync(table, parsed)
             kinds: dict[str, str] = {c.name: c.type for c in columns if not c.reverse}
             schema, _ = self._schema_sync(table)
+            _refuse_formula_writes(columns, ops)
             names = tbl_schema.column_names(parsed.header)
             rows = self._rows_by_id_sync(parsed, names, kinds, schema.primary_key)
             # The column that names a row for a reviewer: the display column, else the next
@@ -1098,7 +1276,7 @@ class FileOps:
                     raise TableConflict(current, [])
                 schema, schema_text = self._schema_sync(table)
                 columns = {c.name: c for c in self._columns_sync(table, parsed)}
-                virtual = {n for n, c in columns.items() if c.reverse}
+                virtual = {n for n, c in columns.items() if tbl_schema.virtual(c)}
                 csv_ops = [op for op in ops if op.name not in virtual or op.op == "add"]
                 ensure_ids(parsed, schema.primary_key)
                 apply_columns(parsed, csv_ops, schema.primary_key)
@@ -1117,6 +1295,15 @@ class FileOps:
                                     specs[op.to.strip()] = specs.pop(op.name)
                                 elif op.op == "delete":
                                     specs.pop(op.name)
+                            if isinstance(specs, dict) and op.op == "rename" and op.to:
+                                # Formulas (D75) keep reading a renamed column.
+                                for spec in specs.values():
+                                    if isinstance(spec, dict) and isinstance(
+                                        spec.get("formula"), str
+                                    ):
+                                        spec["formula"] = tbl_formula.rename_column(
+                                            spec["formula"], op.name, op.to.strip()
+                                        )
                             if isinstance(order, list) and op.name in order:
                                 if op.op == "rename" and op.to:
                                     order[order.index(op.name)] = op.to.strip()
@@ -1233,6 +1420,8 @@ class FileOps:
         new = new.strip() if new is not None else None
         if not old or new == "":
             raise ValueError("Option names cannot be empty.")
+        if new is not None and tbl_schema.MULTI_SEPARATOR in new:
+            raise ValueError(f"Option names cannot contain {tbl_schema.MULTI_SEPARATOR!r}.")
         async with self._locks[table.rel]:
 
             def write() -> str:
@@ -1247,7 +1436,7 @@ class FileOps:
                 for record in parsed.rows:
                     cell = record.values[index] if index < len(record.values) else ""
                     if multi:
-                        parts = [p.strip() for p in cell.split(tbl_schema.MULTI_SEPARATOR)]
+                        parts = tbl_schema.split_multi(cell)
                         if old not in parts:
                             continue
                         kept: list[str] = []
@@ -1255,7 +1444,7 @@ class FileOps:
                             value = (new if part == old else part) or ""
                             if value and value not in kept:
                                 kept.append(value)
-                        text = f"{tbl_schema.MULTI_SEPARATOR} ".join(kept)
+                        text = tbl_schema.join_multi(kept)
                     elif cell.strip() == old:
                         text = new or ""
                     else:
@@ -1505,6 +1694,9 @@ class FileOps:
                 os.replace(table.file(self.vault), renamed.file(self.vault))
                 if table.schema_file(self.vault).is_file():
                     os.replace(table.schema_file(self.vault), renamed.schema_file(self.vault))
+                docs = self._row_doc_dir(table)
+                if docs.is_dir() and not self._row_doc_dir(renamed).exists():
+                    os.replace(docs, self._row_doc_dir(renamed))
                 self._activity(actor, "table.rename", renamed.rel, {"from": table.rel})
                 for owner in refs:
                     owner = renamed if owner == table else owner
@@ -1555,6 +1747,9 @@ class FileOps:
                     indent, key, _, value = m.groups()
                     if key == "source" and not indent:
                         candidates.add(value.strip().strip("\"'"))
+                    elif indent and key.removeprefix("- ") == "source" and value.strip():
+                        # A named view's table (D79).
+                        candidates.add(value.strip().strip("\"'"))
                     elif indent and not value.strip():
                         candidates.add(key.strip("\"'"))
             found: set[str] = set()
@@ -1595,12 +1790,13 @@ class FileOps:
                 indent, key, sep, value = m.groups()
                 # `source:` and the keys of `tabs:` name tables.
                 bare_key = key.strip("\"'")
-                if key == "source" and not indent:
+                if key.removeprefix("- ") == "source" and value.strip():
+                    # The block's `source:`, or a named view's (D79).
                     raw = value.strip()
                     quote = raw[:1] if raw[:1] in "\"'" else ""
                     inner = raw.strip("\"'")
                     if inner in sources:
-                        lines[n] = f"{key}{sep}{quote}{renamed(inner)}{quote}"
+                        lines[n] = f"{indent}{key}{sep}{quote}{renamed(inner)}{quote}"
                 elif indent and bare_key in sources and not value.strip():
                     q = key[:1] if key[:1] in "\"'" else ""
                     lines[n] = f"{indent}{q}{renamed(bare_key)}{q}{sep}{value}"
@@ -1858,6 +2054,74 @@ class FileOps:
         self._publish("tree_changed", {"reason": "create", "path": rel, "actor": actor})
         return doc
 
+    async def create_from_template(
+        self,
+        parent_rel: str | None,
+        slug: str,
+        title: str | None,
+        sample_data: bool,
+        actor: str,
+    ) -> PageDoc:
+        """Make a built-in template's page tree (D77) under `parent_rel` (top level when
+        None): pages, tables, charts and dashboards, with fresh ids and current dates.
+
+        The tree is written in `.graite/staging/` and moved into place with one rename, so a
+        failure leaves nothing half-made in the vault."""
+        from graite.templates import catalog
+
+        template = catalog.get(slug)
+        name = (title or "").strip() or template.name
+        if parent_rel:
+            parent_rel = validate_rel(parent_rel)
+        async with self._locks[parent_rel or ""]:
+
+            def write() -> PageDoc:
+                parent_dir = page_dir(self.vault, parent_rel) if parent_rel else self.vault
+                if parent_rel and not is_page_dir(parent_dir):
+                    raise FileNotFoundError(parent_rel)
+                target = self._unique_dir(parent_dir, slugify(name))
+                rel = target.relative_to(self.vault).as_posix()
+                rendered = catalog.render(template, rel, name, sample_data=sample_data)
+                staging = self.vault / GRAITE_DIR / "staging" / fm.uuid7()
+                try:
+                    for path, text in rendered.files.items():
+                        out = staging / Path(*path.split("/"))
+                        out.parent.mkdir(parents=True, exist_ok=True)
+                        out.write_text(text, encoding="utf-8")
+                    os.replace(staging, target)
+                finally:
+                    shutil.rmtree(staging, ignore_errors=True)
+                if parent_rel:
+                    # Like a moved page, the new one is listed on its parent as a link block
+                    # (a parent with a view lists its children itself).
+                    folder = rel.rsplit("/", 1)[-1]
+                    f = page_file(self.vault, parent_rel)
+                    old_text = f.read_text(encoding="utf-8")
+                    current = self._doc_from_text(parent_rel, old_text)
+                    if not indexer.VIEW_FENCE.search(current.body) and not has_page_link(
+                        current.body, [rel, folder]
+                    ):
+                        meta = dict(current.frontmatter)
+                        meta["updated"] = fm.now_iso()
+                        self._write_page_sync(
+                            parent_rel,
+                            meta,
+                            append_markdown(current.body, f"[[{folder}]]"),
+                            old_text=old_text,
+                            actor=actor,
+                        )
+                self._rescan()
+                self._activity(
+                    actor,
+                    "page.template",
+                    rel,
+                    {"template": slug, "pages": len(rendered.pages), "sample_data": sample_data},
+                )
+                self._publish("tree_changed", {"reason": "create", "path": rel, "actor": actor})
+                return self._read_sync(rel)
+
+            return await asyncio.to_thread(write)
+
     async def update_meta(
         self,
         rel: str,
@@ -1869,9 +2133,28 @@ class FileOps:
     ) -> PageDoc:
         rel = validate_rel(rel)
         async with self._locks[rel]:
-            return await asyncio.to_thread(
+            old_title = (await asyncio.to_thread(self._read_sync, rel)).title
+            doc = await asyncio.to_thread(
                 self._update_meta_sync, rel, title, icon, clear_icon, actor
             )
+        if doc.path != rel or (title is not None and title.strip()):
+            await self.retarget_page_links(rel, doc.path, actor, doc.title)
+        if doc.title != old_title:
+            await self._rename_page_tables(doc.path, old_title, doc.title, actor)
+        return doc
+
+    async def _rename_page_tables(self, page: str, old: str, new: str, actor: str) -> None:
+        """A table named like its page follows the page's new title (D83), e.g. the
+        "Untitled" table of a new database page. A name that is not allowed or already
+        taken leaves the table as it is."""
+        data = page_dir(self.vault, page) / table_paths.DATA_DIR
+        if not data.is_dir():
+            return
+        for f in sorted(data.glob("*" + table_paths.SUFFIX)):
+            if f.stem.casefold() != old.strip().casefold():
+                continue
+            with contextlib.suppress(ValueError, VaultPathError, FileNotFoundError):
+                await self.rename_table(f"{page}/{table_paths.DATA_DIR}/{f.name}", new, actor)
 
     def _update_meta_sync(
         self, rel: str, title: str | None, icon: str | None, clear_icon: bool, actor: str
@@ -1942,9 +2225,144 @@ class FileOps:
         trashes without."""
         rel = validate_rel(rel)
         parent = parent_of(rel) if unlink else None
-        async with self._locks[parent or ""] if parent else contextlib.nullcontext():
-            async with self._locks[rel]:
-                return await asyncio.to_thread(self._trash_sync, rel, actor, unlink)
+        # Tables elsewhere that link to this page's tables lose those relations (D83).
+        cuts = await asyncio.to_thread(self._relation_cuts_sync, rel)
+        async with self._table_locks(sorted({c["table"] for c in cuts})):
+            async with self._locks[parent or ""] if parent else contextlib.nullcontext():
+                async with self._locks[rel]:
+                    return await asyncio.to_thread(self._trash_sync, rel, actor, unlink, cuts)
+
+    def _relation_cuts_sync(self, rel: str) -> list[dict[str, Any]]:
+        """The relation columns outside page `rel` that involve its tables (and its
+        subpages'): forward columns that link into them, and reverse columns that mirror
+        their links out. Relations between tables of the page itself are not cut."""
+        if self.tables is None:
+            return []
+        inside = {
+            t.path
+            for t in self.tables.tables()
+            if t.page_path == rel or t.page_path.startswith(rel + "/")
+        }
+        cuts: list[dict[str, Any]] = []
+        for t in sorted(inside):
+            for src, forward in self.tables.inbound(t):
+                if src not in inside:
+                    cuts.append({"table": src, "column": forward, "kind": "forward"})
+            try:
+                info = self.tables.info(t)
+            except (FileNotFoundError, VaultPathError):
+                continue
+            schema_id = self._raw_schema_sync(self._table(t)).get("id")
+            for column in info.columns:
+                if column.type != "relation" or column.reverse or not column.target:
+                    continue
+                if column.target in inside:
+                    continue
+                target = self._table(column.target)
+                for name, spec in (self._raw_schema_sync(target).get("columns") or {}).items():
+                    if (
+                        isinstance(spec, dict)
+                        and spec.get("reverse") == column.name
+                        and (
+                            table_cache.hint_path(target.page, spec.get("table")) == t
+                            or (schema_id is not None and spec.get("table_id") == schema_id)
+                        )
+                    ):
+                        cuts.append({"table": target.rel, "column": name, "kind": "reverse"})
+        return cuts
+
+    def _cut_relations_sync(self, cuts: list[dict[str, Any]], actor: str) -> list[dict[str, Any]]:
+        """Remove the planned relation columns; returns what restoring needs to put them back:
+        the schema entry, its place in `order`, and (forward columns) the cells by row id."""
+        done: list[dict[str, Any]] = []
+        for cut in cuts:
+            try:
+                table = self._table(cut["table"])
+            except (VaultPathError, FileNotFoundError):
+                continue
+            if not table.file(self.vault).is_file():
+                continue
+            name = cut["column"]
+            raw = self._raw_schema_sync(table)
+            columns = raw.get("columns")
+            specs: dict[str, Any] = columns if isinstance(columns, dict) else {}
+            spec = specs.pop(name, None)
+            order = raw.get("order") if isinstance(raw.get("order"), list) else None
+            record: dict[str, Any] = {**cut, "spec": spec}
+            if order is not None and name in order:
+                record["order_index"] = order.index(name)
+                order.remove(name)
+            if cut["kind"] == "forward":
+                parsed, _, old = self._read_table_sync(table)
+                if name in parsed.header:
+                    at = parsed.header.index(name)
+                    pk = pk_index(parsed.header, str(raw.get("primary_key") or "id"))
+                    record["position"] = at
+                    record["cells"] = {
+                        r.values[pk]: r.values[at]
+                        for r in parsed.rows
+                        if pk is not None and len(r.values) > max(at, pk) and r.values[at]
+                    }
+                    apply_columns(
+                        parsed,
+                        [ColumnOp(op="delete", name=name)],
+                        str(raw.get("primary_key") or "id"),
+                    )
+                    self._write_schema_sync(table, raw, actor)
+                    self._write_table_sync(
+                        table, parsed, old, actor, "table.columns", {"unlinked": name}
+                    )
+                    done.append(record)
+                    continue
+            if spec is not None:
+                self._write_schema_sync(table, raw, actor)
+                self._table_changed(table.rel, actor)
+                done.append(record)
+        return done
+
+    def _restore_relations_sync(self, records: list[dict[str, Any]], actor: str) -> None:
+        """Put back the relation columns cut when the page went to the trash, where the
+        table still exists and has no column of that name now."""
+        for record in records:
+            try:
+                table = self._table(str(record.get("table") or ""))
+            except (VaultPathError, FileNotFoundError):
+                continue
+            name = str(record.get("column") or "")
+            if not name or not table.file(self.vault).is_file():
+                continue
+            raw = self._raw_schema_sync(table)
+            specs = raw.setdefault("columns", {})
+            if not isinstance(specs, dict) or name in specs:
+                continue
+            parsed, _, old = self._read_table_sync(table)
+            if any(h.lower() == name.lower() for h in parsed.header):
+                continue
+            if isinstance(record.get("spec"), dict):
+                specs[name] = record["spec"]
+            order = raw.get("order")
+            if isinstance(order, list) and isinstance(record.get("order_index"), int):
+                order.insert(min(record["order_index"], len(order)), name)
+            if record.get("kind") == "forward":
+                pk_name = str(raw.get("primary_key") or "id")
+                at = min(int(record.get("position") or len(parsed.header)), len(parsed.header))
+                apply_columns(parsed, [ColumnOp(op="add", name=name, index=at)], pk_name)
+                pk = pk_index(parsed.header, pk_name)
+                cells = record.get("cells") or {}
+                for r in parsed.rows:
+                    if pk is None or len(r.values) <= max(pk, at):
+                        continue
+                    value = cells.get(r.values[pk])
+                    if value:
+                        r.values[at] = value
+                        r.raw = None
+                self._write_schema_sync(table, raw, actor)
+                self._write_table_sync(
+                    table, parsed, old, actor, "table.columns", {"relinked": name}
+                )
+            else:
+                self._write_schema_sync(table, raw, actor)
+                self._table_changed(table.rel, actor)
 
     def _parent_link_targets(self, rel: str) -> list[str]:
         """How a parent may link to `rel` as a block: folder name, full path or title."""
@@ -1970,10 +2388,17 @@ class FileOps:
         self._activity(actor, "page.write", parent, {"hash": doc.hash})
         self._publish("file_changed", {"path": parent, "hash": doc.hash, "actor": actor})
 
-    def _trash_sync(self, rel: str, actor: str, unlink: bool = False) -> str:
+    def _trash_sync(
+        self,
+        rel: str,
+        actor: str,
+        unlink: bool = False,
+        cuts: list[dict[str, Any]] | None = None,
+    ) -> str:
         current_dir = page_dir(self.vault, rel)
         if not is_page_dir(current_dir):
             raise FileNotFoundError(rel)
+        relations = self._cut_relations_sync(cuts or [], actor)
         parent = parent_of(rel) if unlink else None
         targets = self._parent_link_targets(rel) if parent else []
         trash_root = self.vault / GRAITE_DIR / "trash"
@@ -1983,7 +2408,12 @@ class FileOps:
         shutil.move(str(current_dir), str(dest))
         (dest / ORIGIN_FILE).write_text(
             json.dumps(
-                {"path": rel, "trashed_at": fm.now_iso(), **({"unlinked": True} if parent else {})},
+                {
+                    "path": rel,
+                    "trashed_at": fm.now_iso(),
+                    **({"unlinked": True} if parent else {}),
+                    **({"relations": relations} if relations else {}),
+                },
                 ensure_ascii=False,
             ),
             encoding="utf-8",
@@ -2176,7 +2606,9 @@ class FileOps:
         trash_dir = self._trash_root() / trash_id
         if not trash_dir.is_dir():
             raise FileNotFoundError(trash_id)
-        relink = bool(self._trash_meta(trash_dir).get("unlinked"))
+        trash_meta = self._trash_meta(trash_dir)
+        relink = bool(trash_meta.get("unlinked"))
+        relations = trash_meta.get("relations")
         dest_rel = target_rel
         if dest_rel is None:
             origin, _ = self._trash_origin(trash_dir)
@@ -2202,6 +2634,8 @@ class FileOps:
 
             self._write_parent_body(parent_rel, add_link, actor)
         self._rescan()
+        if isinstance(relations, list) and relations:
+            self._restore_relations_sync([r for r in relations if isinstance(r, dict)], actor)
         self._activity(actor, "page.restore", final_rel, {"trash_id": trash_id})
         self._publish("tree_changed", {"reason": "restore", "path": final_rel})
         return self._read_sync(final_rel)
@@ -2407,7 +2841,15 @@ class FileOps:
         return await asyncio.to_thread(lambda: [self._read_sync(path) for path in paths])
 
     async def relocate_page(self, page_id: str, target_id: str | None, position: str) -> PageDoc:
-        """Reparent/reorder pages; preserve IDs, descendants, originals and resolved wikilinks."""
+        """Reparent/reorder pages; preserve IDs, descendants, originals and resolved wikilinks
+        (in pages, and in page columns of tables, D76)."""
+        source = self.page_by_id(page_id)
+        doc = await self._relocate_page(page_id, target_id, position)
+        if doc.path != source:
+            await self.retarget_page_links(source, doc.path, "ui")
+        return doc
+
+    async def _relocate_page(self, page_id: str, target_id: str | None, position: str) -> PageDoc:
         from contextlib import AsyncExitStack
 
         if position not in ("before", "after", "inside"):

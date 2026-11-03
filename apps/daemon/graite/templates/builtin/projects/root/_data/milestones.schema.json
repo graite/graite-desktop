@@ -1,0 +1,18 @@
+{
+  "id": "{{table:milestones}}",
+  "display": "name",
+  "columns": {
+    "project": {
+      "type": "relation",
+      "table": "projects",
+      "table_id": "{{table:projects}}",
+      "cardinality": "one"
+    },
+    "date": {
+      "type": "date"
+    },
+    "done": {
+      "type": "checkbox"
+    }
+  }
+}

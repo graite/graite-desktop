@@ -1,0 +1,22 @@
+{
+  "name": "CRM",
+  "description": "Companies, contacts, deals and every call, email and meeting in one database, with a deal board and a stats overview.",
+  "icon": "🤝",
+  "category": "Business",
+  "order": 10,
+  "tags": [
+    "sales",
+    "pipeline",
+    "contacts"
+  ],
+  "highlights": [
+    "A Data page with views: a deal board by stage, companies as a table and a board, contacts as a list",
+    "Open any record as a side panel or a full page, with its own notes document",
+    "Activities (calls, emails, meetings, tasks, notes) linked to deals, companies and contacts",
+    "Companies, contacts, deals and activities linked to each other",
+    "Weighted pipeline from deal value × probability",
+    "An overview: pipeline, win rate, next steps, stale deals, recent activity",
+    "Sales playbook with stages and email templates"
+  ],
+  "keep_rows": []
+}

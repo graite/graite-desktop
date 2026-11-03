@@ -1,0 +1,10 @@
+id;number;customer;issue_date;due_date;description;category;net;vat_rate;status;paid_on;account;document
+{{id:in1}};2026-001;[[{{id:pt_northwind}}|Northwind Traders]];{{date:-175}};{{date:-145}};Dashboard setup, phase 1;[[{{id:cat_services}}|Services]];4800;21;Paid;{{date:-157}};[[{{id:ac_bank}}|Business account]];
+{{id:in2}};2026-002;[[{{id:pt_bluefjord}}|Blue Fjord Analytics]];{{date:-150}};{{date:-120}};Data workshop (2 days);[[{{id:cat_services}}|Services]];2400;0;Paid;{{date:-125}};[[{{id:ac_bank}}|Business account]];
+{{id:in3}};2026-003;[[{{id:pt_northwind}}|Northwind Traders]];{{date:-120}};{{date:-90}};Dashboard setup, phase 2;[[{{id:cat_services}}|Services]];5200;21;Paid;{{date:-90}};[[{{id:ac_bank}}|Business account]];
+{{id:in4}};2026-004;[[{{id:pt_cedar}}|Cedar & Pine Interiors]];{{date:-100}};{{date:-70}};Analytics starter kit;[[{{id:cat_products}}|Product sales]];900;21;Paid;{{date:-90}};[[{{id:ac_bank}}|Business account]];
+{{id:in5}};2026-005;[[{{id:pt_northwind}}|Northwind Traders]];{{date:-70}};{{date:-40}};Support retainer Q3;[[{{id:cat_services}}|Services]];2400;21;Paid;{{date:-56}};[[{{id:ac_bank}}|Business account]];
+{{id:in6}};2026-006;[[{{id:pt_bluefjord}}|Blue Fjord Analytics]];{{date:-45}};{{date:-15}};Pipeline review;[[{{id:cat_services}}|Services]];3600;0;Paid;{{date:-24}};[[{{id:ac_bank}}|Business account]];
+{{id:in7}};2026-007;[[{{id:pt_cedar}}|Cedar & Pine Interiors]];{{date:-30}};{{date:0}};Webshop report pack;[[{{id:cat_products}}|Product sales]];650;21;Overdue;;;
+{{id:in8}};2026-008;[[{{id:pt_northwind}}|Northwind Traders]];{{date:-12}};{{date:18}};Support retainer Q4;[[{{id:cat_services}}|Services]];2400;21;Sent;;;
+{{id:in9}};2026-009;[[{{id:pt_bluefjord}}|Blue Fjord Analytics]];{{date:-2}};{{date:28}};Migration plan;[[{{id:cat_services}}|Services]];3000;0;Draft;;;

@@ -1,0 +1,101 @@
+{
+  "id": "{{table:content}}",
+  "display": "title",
+  "display_secondary": "publish_date",
+  "columns": {
+    "channel": {
+      "type": "relation",
+      "table": "channels",
+      "table_id": "{{table:channels}}",
+      "cardinality": "one"
+    },
+    "campaign": {
+      "type": "relation",
+      "table": "campaigns",
+      "table_id": "{{table:campaigns}}",
+      "cardinality": "one"
+    },
+    "pillar": {
+      "type": "single_select",
+      "options": [
+        "How-to",
+        "Product",
+        "Customer stories",
+        "Opinion",
+        "News",
+        "Culture"
+      ]
+    },
+    "status": {
+      "type": "status",
+      "options": [
+        "Idea",
+        "Drafting",
+        "Review",
+        "Scheduled",
+        "Published"
+      ],
+      "colors": {
+        "Idea": "gray",
+        "Drafting": "yellow",
+        "Review": "orange",
+        "Scheduled": "blue",
+        "Published": "green"
+      }
+    },
+    "publish_date": {
+      "type": "date"
+    },
+    "owner": {
+      "type": "single_select",
+      "options": [
+        "Noor",
+        "Sam",
+        "Alex"
+      ]
+    },
+    "url": {
+      "type": "url"
+    },
+    "views": {
+      "type": "number"
+    },
+    "clicks": {
+      "type": "number"
+    },
+    "conversions": {
+      "type": "number"
+    },
+    "ctr": {
+      "type": "formula",
+      "formula": "round(clicks / views * 100, 1)",
+      "format": "percent"
+    },
+    "conversion_rate": {
+      "type": "formula",
+      "formula": "round(conversions / clicks * 100, 1)",
+      "format": "percent"
+    },
+    "draft": {
+      "type": "page",
+      "cardinality": "one"
+    }
+  },
+  "order": [
+    "id",
+    "title",
+    "channel",
+    "campaign",
+    "pillar",
+    "status",
+    "publish_date",
+    "owner",
+    "draft",
+    "url",
+    "views",
+    "clicks",
+    "conversions",
+    "ctr",
+    "conversion_rate"
+  ]
+}

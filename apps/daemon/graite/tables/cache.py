@@ -12,12 +12,14 @@ import hashlib
 import json
 import logging
 import sqlite3
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
 from graite.index.db import SafeConnection, transaction
 from graite.tables import csvio, edit
+from graite.tables import formula as fx
 from graite.tables import links as lnk
 from graite.tables import schema as sch
 from graite.tables.paths import DATA_DIR, SUFFIX, TablePath, check_name, checked, parse
@@ -28,7 +30,7 @@ log = logging.getLogger("graite.tables")
 
 MAX_LIMIT = 1000
 # Bump when the stored shape changes (types, column JSON): an older cache is rebuilt.
-CACHE_VERSION = 4
+CACHE_VERSION = 8
 INDEX_FROM = 5000  # rows; smaller tables sort fast enough without an index
 
 REGISTRY = """
@@ -65,6 +67,16 @@ CREATE TABLE IF NOT EXISTS _links (
 );
 CREATE INDEX IF NOT EXISTS ix_links_src ON _links(src_path, column, src_rid);
 CREATE INDEX IF NOT EXISTS ix_links_dst ON _links(src_path, column, dst_rid);
+-- Every link in a page column (D76): rebuilt with its source table.
+CREATE TABLE IF NOT EXISTS _page_links (
+  src_path TEXT NOT NULL,
+  column TEXT NOT NULL,
+  src_rid TEXT NOT NULL,
+  pos INTEGER NOT NULL,
+  page_path TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_page_links_src ON _page_links(src_path);
+CREATE INDEX IF NOT EXISTS ix_page_links_page ON _page_links(page_path);
 """
 
 
@@ -132,7 +144,7 @@ class TableInfo:
 
     @property
     def stored(self) -> list[sch.Column]:
-        """Columns that are in the CSV (not reverse relations)."""
+        """Columns of the cache table: the CSV's and formulas (not reverse relations)."""
         return [c for c in self.columns if not c.reverse]
 
     def to_json(self) -> dict[str, Any]:
@@ -153,10 +165,16 @@ class TableInfo:
         }
 
 
+# Page paths -> {path: (title, icon)} for the pages that exist (set by the app from the index).
+PageInfo = Callable[[list[str]], dict[str, tuple[str, str | None]]]
+
+
 class TablesCache:
     def __init__(self, vault: Path, db_path: Path) -> None:
         self.vault = vault
         self.db_path = db_path
+        # Live titles for page columns (D76); without it, cells show their stored labels.
+        self.page_info: PageInfo | None = None
         self.conn = self._connect()
 
     def _connect(self) -> sqlite3.Connection:
@@ -204,6 +222,7 @@ class TablesCache:
             self.conn.execute(f"DROP TABLE IF EXISTS {quote(row['sql_name'])}")
             self.conn.execute("DELETE FROM _tables WHERE path=?", (rel,))
             self.conn.execute("DELETE FROM _links WHERE src_path=?", (rel,))
+            self.conn.execute("DELETE FROM _page_links WHERE src_path=?", (rel,))
         return True
 
     def refresh(self, rel: str) -> bool:
@@ -262,14 +281,37 @@ class TablesCache:
         if ragged:
             warnings.append(f"rows_long:{ragged}")
         sql_name = "t_" + sha256(table.rel.encode("utf-8"))[:16]
-        stored = [c for c in columns if not c.reverse]
+        stored = [c for c in columns if not sch.virtual(c)]
+        formulas, formula_warnings = fx.compile_all(
+            {c.name: c.formula or "" for c in columns if c.type == "formula"},
+            [c.name for c in stored],
+            [c.name for c in columns if c.reverse],
+        )
+        warnings += formula_warnings
         definitions = ", ".join(
-            f"{quote(c.name)} {sch.SQL_TYPES.get(c.type, 'TEXT')}" for c in stored
+            [
+                *(f"{quote(c.name)} {sch.SQL_TYPES.get(c.type, 'TEXT')}" for c in stored),
+                # Formulas (D75): computed on read, so they are never out of date.
+                *(
+                    f"{quote(c.name)} {fx.SQL_TYPES.get(c.format or '', 'TEXT')} "
+                    f"GENERATED ALWAYS AS ({formulas.get(c.name) or 'NULL'}) VIRTUAL"
+                    for c in columns
+                    if c.type == "formula"
+                ),
+            ]
         )
         placeholders = ", ".join("?" for _ in range(len(stored) + 2))
         order = [position[c.name] for c in stored]
         kinds = [c.type for c in stored]
         relations = [(c.name, position[c.name]) for c in stored if c.type == "relation"]
+        page_columns = [(c.name, position[c.name]) for c in stored if c.type == "page"]
+
+        def page_links() -> Any:
+            for rid, record in zip(ids, rows, strict=True):
+                for name, i in page_columns:
+                    cell = record[i] if i < len(record) else ""
+                    for pos, link in enumerate(lnk.parse_links(cell)):
+                        yield (table.rel, name, rid, pos, link.id)
 
         def links() -> Any:
             for rid, record in zip(ids, rows, strict=True):
@@ -289,7 +331,7 @@ class TablesCache:
                     ),
                 )
 
-        with transaction(self.conn):
+        def create(definitions: str) -> None:
             self.conn.execute(f"DROP TABLE IF EXISTS {quote(sql_name)}")
             self.conn.execute(
                 f"CREATE TABLE {quote(sql_name)} (_rid TEXT NOT NULL, _row INTEGER NOT NULL"
@@ -299,12 +341,42 @@ class TablesCache:
             self.conn.executemany(
                 f"INSERT INTO {quote(sql_name)} VALUES ({placeholders})", values()
             )
+
+        with transaction(self.conn):
+            try:
+                self.conn.execute("SAVEPOINT formulas")
+                create(definitions)
+                self.conn.execute("RELEASE formulas")
+            except sqlite3.Error as exc:
+                if not formulas:
+                    raise
+                # A formula SQLite refuses on these rows: show the table without formulas.
+                self.conn.execute("ROLLBACK TO formulas")
+                self.conn.execute("RELEASE formulas")
+                warnings += [f"formula_invalid:{name}:{exc}" for name in formulas]
+                create(
+                    ", ".join(
+                        [
+                            *(
+                                f"{quote(c.name)} {sch.SQL_TYPES.get(c.type, 'TEXT')}"
+                                for c in stored
+                            ),
+                            *(
+                                f"{quote(c.name)} GENERATED ALWAYS AS (NULL) VIRTUAL"
+                                for c in columns
+                                if c.type == "formula"
+                            ),
+                        ]
+                    )
+                )
             self.conn.execute(
                 f"CREATE UNIQUE INDEX {quote(sql_name + '_rid')} ON {quote(sql_name)}(_rid)"
             )
             self.conn.execute(f"CREATE INDEX {quote(sql_name + '_row')} ON {quote(sql_name)}(_row)")
             self.conn.execute("DELETE FROM _links WHERE src_path=?", (table.rel,))
             self.conn.executemany("INSERT INTO _links VALUES (?, ?, ?, ?, ?, ?)", links())
+            self.conn.execute("DELETE FROM _page_links WHERE src_path=?", (table.rel,))
+            self.conn.executemany("INSERT INTO _page_links VALUES (?, ?, ?, ?, ?)", page_links())
             self.conn.execute(
                 "INSERT OR REPLACE INTO _tables VALUES "
                 "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)",
@@ -565,6 +637,14 @@ class TablesCache:
             out.append(item)
         return out
 
+    def page_link_tables(self) -> list[str]:
+        """Tables with a page column (D76), whose cells follow page moves and renames."""
+        out = []
+        for row in self.conn.execute("SELECT path, columns_json FROM _tables ORDER BY path"):
+            if any(c.get("type") == "page" for c in json.loads(row[1])):
+                out.append(str(row[0]))
+        return out
+
     def tables(self, page: str | None = None) -> list[TableInfo]:
         sql = "SELECT path FROM _tables"
         params: tuple[str, ...] = ()
@@ -640,7 +720,9 @@ class TablesCache:
                     "filter or sort on the column in that table instead."
                 )
             # Relation cells are link text: `contains` matches labels, `is empty` works.
-            return quote(column.name), "text" if column.type == "relation" else column.type
+            return quote(column.name), "text" if column.type == "relation" else sch.value_kind(
+                column
+            )
 
         where = compile_filter(filter, resolve)
         clauses, params = [where.sql], list(where.params)
@@ -698,12 +780,32 @@ class TablesCache:
             names = self.labels(column.target, wanted_ids) if column.target else None
             derived[column.name] = [self._forward_cell(v.get(column.name), names) for v in raw]
 
+        for column in picked:
+            if column.type != "page":
+                continue
+            cells = [sch.to_json("page", v.get(column.name)) or [] for v in raw]
+            paths = list(dict.fromkeys(item["path"] for items in cells for item in items))
+            found = self.page_info(paths) if self.page_info and paths else None
+            for items in cells:
+                for item in items:
+                    if found is None:
+                        continue
+                    if item["path"] in found:
+                        item["title"], icon = found[item["path"]]
+                        if icon:
+                            item["icon"] = icon
+                    else:
+                        item["broken"] = True
+            derived[column.name] = cells
+
         def cell(n: int, column: sch.Column) -> Any:
+            if column.type == "page":
+                return derived[column.name][n]
             if column.type == "relation":
                 if column.reverse:
                     return derived[column.name].get(rids[n], [])
                 return derived[column.name][n]
-            return sch.to_json(column.type, raw[n][column.name])
+            return sch.to_json(sch.value_kind(column), raw[n][column.name])
 
         return {
             **info.to_json(),
@@ -714,6 +816,33 @@ class TablesCache:
                 {"id": rid, "cells": [cell(n, c) for c in picked]} for n, rid in enumerate(rids)
             ],
         }
+
+    def check_formula(self, rel: str, text: str, name: str | None = None) -> dict[str, Any]:
+        """Whether `text` works as formula column `name` (a new column when None), with its
+        values for the first rows, before the user saves it."""
+        info = self.info(rel)
+        own = name or "\x00new"
+        formulas = {
+            c.name: c.formula or "" for c in info.columns if c.type == "formula" and c.name != name
+        }
+        formulas[own] = text
+        compiled, warnings = fx.compile_all(
+            formulas,
+            [c.name for c in info.columns if not sch.virtual(c)],
+            [c.name for c in info.columns if c.reverse],
+        )
+        sql = compiled.get(own)
+        if sql is None:
+            prefix = f"formula_invalid:{own}:"
+            error = next((w[len(prefix) :] for w in warnings if w.startswith(prefix)), "")
+            return {"ok": False, "error": error or "The formula has a problem.", "sample": []}
+        try:
+            rows = self.conn.execute(
+                f"SELECT {sql} FROM {quote(info.sql_name)} ORDER BY _row LIMIT 5"
+            ).fetchall()
+        except sqlite3.Error as exc:
+            return {"ok": False, "error": str(exc), "sample": []}
+        return {"ok": True, "error": None, "sample": [r[0] for r in rows]}
 
     def _index(self, info: TableInfo, column: str) -> None:
         name = quote(f"{info.sql_name}_ix_{sha256(column.encode())[:8]}")

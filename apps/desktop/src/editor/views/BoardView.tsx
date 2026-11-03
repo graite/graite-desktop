@@ -1,53 +1,52 @@
 import { useState, type DragEvent } from "react";
 import { Plus, GripVertical, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import type { PageDoc } from "@/lib/api";
 import type { PageProperty } from "@/lib/workspace";
 import { PropertyTag } from "@/pages/PropertySelect";
-import { hasBodyContent, PageIcon } from "@/components/PageIcon";
-import { groupValue } from "./collection";
+import type { BoardItem, BoardSource } from "./board";
 import { NewPageInput } from "./NewPageInput";
-import { PropertyChip } from "./PropertyChip";
-import { orderedNames, moveName, type ViewSettings } from "./settings";
-import type { Collection } from "./useCollection";
+import { orderedNames, moveName } from "./settings";
 import { RowMenu } from "./RowMenu";
 
 export const DRAG_TYPE = "application/graite-view-page";
 type Drop = { card: string; position: "before" | "after" } | { column: string } | null;
+/** A board's column order and hidden columns. */
+export interface BoardLayout {
+  order: string[];
+  hidden: string[];
+}
 
-export function BoardView({
-  collection,
+/** Cards in columns by a status or select field. Pages or table rows (see board.ts). */
+export function BoardView<R extends BoardItem>({
+  source,
   groupField,
-  visible,
   draft,
   onDraftDone,
   onOpen,
-  settings,
-  onSettings,
+  board,
+  onBoard,
 }: {
-  collection: Collection;
+  source: BoardSource<R>;
+  /** The grouping field; its options are the columns, in this order unless `board` says. */
   groupField: PageProperty;
-  visible: PageProperty[];
   draft: string | null;
   onDraftDone: () => void;
-  onOpen: (row: PageDoc) => void;
-  settings: ViewSettings;
-  onSettings: (next: ViewSettings) => void;
+  onOpen: (row: R) => void;
+  board: BoardLayout;
+  onBoard: (next: BoardLayout) => void;
 }) {
-  const { rows, setValue, reorder, createPage } = collection;
+  const { rows } = source;
   const [drop, setDrop] = useState<Drop>(null);
   const [newIn, setNewIn] = useState<string | null>(null);
   const fail = (e: unknown) => toast.error((e as Error).message);
 
-  const board = settings.boards?.[groupField.name] ?? { order: [], hidden: [] };
   const allColumns = orderedNames(
-    [...groupField.options, ...rows.map((r) => groupValue(r, groupField)), ""],
+    [...groupField.options, ...rows.map((r) => source.group(r)), ""],
     board.order,
   );
   const columns = allColumns.filter((c) => !board.hidden.includes(c));
-  const setBoard = (next: typeof board) =>
-    onSettings({ ...settings, boards: { ...settings.boards, [groupField.name]: next } });
-  const cardsIn = (column: string) => rows.filter((r) => groupValue(r, groupField) === column);
+  const setBoard = onBoard;
+  const cardsIn = (column: string) => rows.filter((r) => source.group(r) === column);
   const dragged = (e: DragEvent) => rows.find((r) => r.id === e.dataTransfer.getData(DRAG_TYPE));
   const accept = (e: DragEvent) => {
     if (e.dataTransfer.types.includes(DRAG_TYPE)) {
@@ -59,16 +58,9 @@ export function BoardView({
     return false;
   };
 
-  const moveTo = async (
-    row: PageDoc,
-    column: string,
-    target?: PageDoc,
-    position: "before" | "after" = "after",
-  ) => {
-    if (groupValue(row, groupField) !== column) await setValue(row, groupField, column || null);
-    if (target && target.id !== row.id) await reorder(row, target, position);
-  };
-  const onDropCard = (e: DragEvent, target: PageDoc, column: string) => {
+  const moveTo = (row: R, column: string, target?: R, position: "before" | "after" = "after") =>
+    source.move(row, column, target && target.id !== row.id ? target : undefined, position);
+  const onDropCard = (e: DragEvent, target: R, column: string) => {
     if (!accept(e)) return;
     const row = dragged(e);
     setDrop(null);
@@ -96,7 +88,11 @@ export function BoardView({
         <div className="view-empty">
           All columns are hidden. Show them in the Columns menu.
           {draft !== null && (
-            <NewPageInput onCreate={(title) => createPage(title)} onDone={onDraftDone} />
+            <NewPageInput
+              onCreate={(title) => source.create(title)}
+              onDone={onDraftDone}
+              placeholder={source.placeholder}
+            />
           )}
         </div>
       )}
@@ -192,26 +188,16 @@ export function BoardView({
                       if (e.key === "Enter") onOpen(row);
                       if (e.key === "Delete" || e.key === "Backspace") {
                         e.preventDefault();
-                        void collection.remove(row);
+                        void source.remove(row);
                       }
                     }}
                   >
                     <div className="view-card-title">
-                      <span className="view-page-icon">
-                        <PageIcon icon={row.icon} hasContent={hasBodyContent(row.body)} />
-                      </span>
+                      <span className="view-page-icon">{source.icon(row)}</span>
                       <span title={row.title}>{row.title || "Untitled"}</span>
                     </div>
-                    <RowMenu row={row} handle="dots" onDelete={(r) => void collection.remove(r)} />
-                    {!!visible.length && (
-                      <div className="view-chips">
-                        {visible.map((f) => (
-                          <div className="view-card-property" key={f.id}>
-                            <PropertyChip page={row} field={f} />
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <RowMenu row={row} handle="dots" onDelete={(r) => void source.remove(r)} />
+                    {source.chips(row)}
                   </article>
                 );
               })}
@@ -219,9 +205,8 @@ export function BoardView({
                 (draft !== null && (columns.includes(draft) ? draft : columns[0]) === column)) && (
                 <div className="view-card">
                   <NewPageInput
-                    onCreate={(title) =>
-                      createPage(title, column ? { field: groupField, value: column } : undefined)
-                    }
+                    placeholder={source.placeholder}
+                    onCreate={(title) => source.create(title, column || undefined)}
                     onDone={() => {
                       setNewIn(null);
                       onDraftDone();

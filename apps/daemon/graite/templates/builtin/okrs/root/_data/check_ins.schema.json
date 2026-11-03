@@ -1,0 +1,25 @@
+{
+  "id": "{{table:check_ins}}",
+  "display": "date",
+  "columns": {
+    "date": {
+      "type": "date"
+    },
+    "key_result": {
+      "type": "relation",
+      "table": "key_results",
+      "table_id": "{{table:key_results}}",
+      "cardinality": "one"
+    },
+    "value": {
+      "type": "number"
+    },
+    "confidence": {
+      "type": "number"
+    },
+    "comment": {
+      "type": "text",
+      "wrap": true
+    }
+  }
+}

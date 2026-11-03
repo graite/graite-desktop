@@ -1,0 +1,10 @@
+id;name;company;contacts;stage;value;probability;expected_close;owner;source;closed_on;lost_reason
+{{id:dl_nw_dash}};Warehouse dashboard;[[{{id:co_northwind}}|Northwind Traders]];[[{{id:ct_lena}}|Lena Hart]] [[{{id:ct_omar}}|Omar Haddad]];Proposal;18000;50;{{date:21}};Sam;Referral;;
+{{id:dl_nw_support}};Support retainer 2026;[[{{id:co_northwind}}|Northwind Traders]];[[{{id:ct_lena}}|Lena Hart]];Won;9600;100;{{date:-40}};Sam;Referral;{{date:-45}};
+{{id:dl_acme_pilot}};Line monitoring pilot;[[{{id:co_acme}}|Acme Robotics]];[[{{id:ct_ines}}|Ines Duarte]];Negotiation;32000;75;{{date:14}};Sam;Outbound;;
+{{id:dl_bf_migration}};Data platform migration;[[{{id:co_bluefjord}}|Blue Fjord Analytics]];[[{{id:ct_jon}}|Jon Berg]];Qualified;45000;25;{{date:60}};Alex;Inbound;;
+{{id:dl_cedar_shop}};Webshop analytics;[[{{id:co_cedar}}|Cedar & Pine Interiors]];[[{{id:ct_mara}}|Mara Willems]];Lead;6000;10;{{date:90}};Alex;Event;;
+{{id:dl_helix_tender}};Reporting tender;[[{{id:co_helix}}|Helix Health]];[[{{id:ct_tom}}|Tom Visser]];Proposal;60000;40;{{date:45}};Sam;Partner;;
+{{id:dl_orbit_renewal}};Fleet reporting renewal;[[{{id:co_orbit}}|Orbit Logistics]];[[{{id:ct_kai}}|Kai Neumann]];Lost;12000;0;{{date:-120}};Alex;Referral;{{date:-110}};Moved to an in-house team
+{{id:dl_nw_training}};Team training day;[[{{id:co_northwind}}|Northwind Traders]];[[{{id:ct_omar}}|Omar Haddad]];Won;2400;100;{{date:-95}};Sam;Referral;{{date:-100}};
+{{id:dl_acme_audit}};Data quality audit;[[{{id:co_acme}}|Acme Robotics]];[[{{id:ct_ines}}|Ines Duarte]];Won;7500;100;{{date:-160}};Sam;Outbound;{{date:-165}};

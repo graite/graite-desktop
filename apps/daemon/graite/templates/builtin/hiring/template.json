@@ -1,0 +1,19 @@
+{
+  "name": "Hiring pipeline",
+  "description": "Open roles, candidates by stage with their CV attached, interviews with scores, and an interview kit.",
+  "icon": "🧑‍💼",
+  "category": "Business",
+  "order": 50,
+  "tags": [
+    "hiring",
+    "recruiting",
+    "people"
+  ],
+  "highlights": [
+    "Roles, candidates and interviews linked together",
+    "Attach CVs and assignments to candidates",
+    "Scores and recommendations per interview",
+    "Funnel per role, upcoming interviews and time to hire"
+  ],
+  "keep_rows": []
+}

@@ -16,6 +16,7 @@ export const TableView = createReactBlockSpec(
   {
     type: "tableView",
     propSchema: {
+      views: { default: "" },
       source: { default: "" },
       view: { default: "" },
       filter: { default: "" },

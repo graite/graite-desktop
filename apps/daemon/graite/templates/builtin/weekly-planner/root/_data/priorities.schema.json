@@ -1,0 +1,65 @@
+{
+  "id": "{{table:priorities}}",
+  "display": "title",
+  "columns": {
+    "week": {
+      "type": "relation",
+      "table": "weeks",
+      "table_id": "{{table:weeks}}",
+      "cardinality": "one"
+    },
+    "day": {
+      "type": "single_select",
+      "options": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+      ]
+    },
+    "area": {
+      "type": "single_select",
+      "options": [
+        "Work",
+        "Health",
+        "Family",
+        "Learning",
+        "Home"
+      ],
+      "colors": {
+        "Work": "blue",
+        "Health": "green",
+        "Family": "pink",
+        "Learning": "purple",
+        "Home": "brown"
+      }
+    },
+    "status": {
+      "type": "status",
+      "options": [
+        "Todo",
+        "Doing",
+        "Done",
+        "Moved"
+      ],
+      "colors": {
+        "Todo": "gray",
+        "Doing": "blue",
+        "Done": "green",
+        "Moved": "orange"
+      }
+    },
+    "estimate_h": {
+      "type": "number"
+    },
+    "goal": {
+      "type": "relation",
+      "table": "goals",
+      "table_id": "{{table:goals}}",
+      "cardinality": "one"
+    }
+  }
+}

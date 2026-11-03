@@ -1,0 +1,4 @@
+id;name;type;opening_balance;opening_date
+{{id:ac_checking}};Checking;Checking;1800;{{date:-120}}
+{{id:ac_savings}};Savings;Savings;6500;{{date:-120}}
+{{id:ac_card}};Credit card;Credit card;0;{{date:-120}}

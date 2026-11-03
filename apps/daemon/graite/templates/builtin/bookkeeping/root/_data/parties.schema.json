@@ -1,0 +1,50 @@
+{
+  "id": "{{table:parties}}",
+  "display": "name",
+  "columns": {
+    "kind": {
+      "type": "single_select",
+      "options": [
+        "Customer",
+        "Supplier",
+        "Both"
+      ],
+      "colors": {
+        "Customer": "green",
+        "Supplier": "orange",
+        "Both": "blue"
+      }
+    },
+    "email": {
+      "type": "email"
+    },
+    "invoices": {
+      "type": "relation",
+      "table": "invoices",
+      "table_id": "{{table:invoices}}",
+      "reverse": "customer",
+      "panel": {
+        "as": "auto",
+        "show": [
+          "issue_date",
+          "total",
+          "status"
+        ]
+      }
+    },
+    "receipts": {
+      "type": "relation",
+      "table": "receipts",
+      "table_id": "{{table:receipts}}",
+      "reverse": "supplier",
+      "panel": {
+        "as": "auto",
+        "show": [
+          "date",
+          "total",
+          "paid"
+        ]
+      }
+    }
+  }
+}

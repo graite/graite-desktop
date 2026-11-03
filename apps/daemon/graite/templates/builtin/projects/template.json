@@ -1,0 +1,19 @@
+{
+  "name": "Projects & tasks",
+  "description": "Projects with briefs, tasks with owners and estimates, and milestones, with what is late and what is next.",
+  "icon": "🗂️",
+  "category": "Work",
+  "order": 40,
+  "tags": [
+    "projects",
+    "tasks",
+    "planning"
+  ],
+  "highlights": [
+    "Projects, tasks and milestones linked together",
+    "Hours left per person and per project",
+    "Dashboard: overdue, due this week, progress per project",
+    "A brief page per project"
+  ],
+  "keep_rows": []
+}

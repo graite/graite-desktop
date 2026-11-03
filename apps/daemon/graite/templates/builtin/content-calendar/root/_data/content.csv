@@ -1,0 +1,14 @@
+id;title;channel;campaign;pillar;status;publish_date;owner;url;views;clicks;conversions;draft
+{{id:cn0}};Five spreadsheet mistakes;[[{{id:ch_blog}}|Blog]];[[{{id:cp_basics}}|Spreadsheet basics]];How-to;Drafting;{{date:6}};Noor;;;;;[[{{page:draft_mistakes}}|Draft five spreadsheet mistakes]]
+{{id:cn1}};Five mistakes, the carousel;[[{{id:ch_li}}|LinkedIn]];[[{{id:cp_basics}}|Spreadsheet basics]];How-to;Idea;{{date:9}};Sam;;;;;
+{{id:cn2}};October newsletter;[[{{id:ch_news}}|Newsletter]];[[{{id:cp_basics}}|Spreadsheet basics]];News;Review;{{date:3}};Noor;;;;;
+{{id:cn3}};Launch video;[[{{id:ch_yt}}|YouTube]];[[{{id:cp_autumn}}|Autumn launch]];Product;Scheduled;{{date:12}};Alex;;;;;
+{{id:cn4}};Launch announcement;[[{{id:ch_li}}|LinkedIn]];[[{{id:cp_autumn}}|Autumn launch]];Product;Scheduled;{{date:12}};Sam;;;;;
+{{id:cn5}};Launch blog post;[[{{id:ch_blog}}|Blog]];[[{{id:cp_autumn}}|Autumn launch]];Product;Drafting;{{date:12}};Noor;;;;;
+{{id:cn6}};Customer story: Northwind;[[{{id:ch_blog}}|Blog]];;Customer stories;Idea;{{date:25}};Noor;;;;;
+{{id:cn7}};Why we track everything in one place;[[{{id:ch_li}}|LinkedIn]];[[{{id:cp_basics}}|Spreadsheet basics]];Opinion;Published;{{date:-5}};Sam;;4200;160;9;
+{{id:cn8}};September newsletter;[[{{id:ch_news}}|Newsletter]];[[{{id:cp_basics}}|Spreadsheet basics]];News;Published;{{date:-27}};Noor;;1850;240;31;
+{{id:cn9}};Budget template walkthrough;[[{{id:ch_yt}}|YouTube]];[[{{id:cp_basics}}|Spreadsheet basics]];How-to;Published;{{date:-20}};Alex;;3100;210;18;
+{{id:cn10}};Three dashboards every shop needs;[[{{id:ch_blog}}|Blog]];[[{{id:cp_basics}}|Spreadsheet basics]];How-to;Published;{{date:-35}};Noor;;2600;130;12;
+{{id:cn11}};Behind the scenes: our week;[[{{id:ch_li}}|LinkedIn]];;Culture;Published;{{date:-48}};Sam;;1900;40;1;
+{{id:cn12}};Customer story: Cedar & Pine;[[{{id:ch_blog}}|Blog]];;Customer stories;Published;{{date:-55}};Noor;;980;70;6;

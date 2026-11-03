@@ -51,7 +51,8 @@ def test_create_table_and_edit_rows(client: TestClient, settings: Settings) -> N
     )
     assert r.status_code == 200, r.text
     text = (settings.vault / "Atlas" / "_data" / "tasks.csv").read_text(encoding="utf-8")
-    assert text == f"id,name,due\n{first},Write spec,2026-10-01\n"
+    # Tables made in Graite are `;`-separated (D78).
+    assert text == f"id;name;due\n{first};Write spec;2026-10-01\n"
     assert client.get("/api/v1/tables", params={"page_path": "Atlas"}).json()[0]["row_count"] == 1
 
     # Adding a field needs no file hash: it never overwrites an edit made meanwhile.
@@ -175,6 +176,10 @@ def test_import_columns_schema_and_resolve(client: TestClient, settings: Setting
         "reverse": None,
         "via": None,
         "target": None,
+        "formula": None,
+        "format": None,
+        "panel": None,
+        "decimals": None,
     }
     assert json.loads(schema_file.read_text()) == {
         "display": "name",
@@ -183,6 +188,27 @@ def test_import_columns_schema_and_resolve(client: TestClient, settings: Setting
     assert r.json()["columns"][1]["wrap"] is True
     r = client.get("/api/v1/tables/resolve", params={"page_path": "Atlas", "source": "people"})
     assert r.json() == {"path": rel}
+
+
+def test_decimals_of_numeric_columns(client: TestClient, settings: Settings) -> None:
+    client.post("/api/v1/pages", json={"title": "Books"})
+    r = client.post(
+        "/api/v1/tables/import",
+        params={"page_path": "Books", "name": "costs.csv"},
+        content=b"name;price\r\nPen;\xe2\x82\xac1.50\r\n",
+    )
+    rel = r.json()["path"]
+    columns = {"price": {"type": "currency", "decimals": 0}, "name": {"decimals": 2}}
+    r = client.patch("/api/v1/tables/schema", json={"path": rel, "schema": {"columns": columns}})
+    assert r.status_code == 200, r.text
+    by_name = {c["name"]: c for c in r.json()["columns"]}
+    # 0 is a choice; a text column has no decimals.
+    assert by_name["price"]["decimals"] == 0 and by_name["name"]["decimals"] is None
+    r = client.patch(
+        "/api/v1/tables/schema",
+        json={"path": rel, "schema": {"columns": {"price": {"decimals": 9}}}},
+    )
+    assert r.status_code >= 400 and "decimals" in r.text, r.text
 
 
 def test_external_csv_edit_is_announced(client: TestClient, settings: Settings) -> None:

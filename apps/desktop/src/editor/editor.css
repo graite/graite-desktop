@@ -6,10 +6,18 @@
   padding-inline: 40px;
 }
 
+/* Body text: 14px on 22px lines (BlockNote's default is 16px on 1.5). */
+.bn-default-styles {
+  font-size: 14px;
+}
+.bn-default-styles .bn-block-outer {
+  line-height: 22px;
+}
+
 /* Side menu: center buttons with the first line of the block
-   (3px block padding-top + 24px line-height + 3px padding-bottom). */
+   (3px block padding-top + 22px line-height + 3px padding-bottom). */
 .bn-side-menu {
-  height: 30px;
+  height: 28px;
   align-items: center;
   gap: 0;
   padding-right: 6px;
@@ -26,10 +34,10 @@
   height: calc(6px + 2rem);
 }
 .bn-side-menu[data-block-type="heading"][data-level="2"] {
-  height: calc(6px + 1.75rem);
+  height: calc(6px + 1.625rem);
 }
 .bn-side-menu[data-block-type="heading"][data-level="3"] {
-  height: calc(6px + 1.5rem);
+  height: calc(6px + 1.375rem);
 }
 .bn-side-menu .bn-button {
   color: #d1d5db;
@@ -51,7 +59,7 @@
   height: 18px;
 }
 
-/* Notion-like heading sizes (tuned to match Notion).
+/* Heading sizes, in step with the 14px body text (24, 19 and 16px).
    BlockNote omits data-level for level 1 (the default), hence :not([data-level]). */
 .bn-editor [data-content-type="heading"]:not([data-level]),
 .bn-editor [data-content-type="heading"][data-level="1"] {
@@ -60,14 +68,14 @@
   line-height: 2rem !important;
 }
 .bn-editor [data-content-type="heading"][data-level="2"] {
-  --level: 1.25rem !important;
-  font-size: 1.25rem !important;
-  line-height: 1.75rem !important;
+  --level: 1.1875rem !important;
+  font-size: 1.1875rem !important;
+  line-height: 1.625rem !important;
 }
 .bn-editor [data-content-type="heading"][data-level="3"] {
-  --level: 1.1rem !important;
-  font-size: 1.1rem !important;
-  line-height: 1.5rem !important;
+  --level: 1rem !important;
+  font-size: 1rem !important;
+  line-height: 1.375rem !important;
 }
 .bn-editor [data-content-type="heading"] .bn-inline-content {
   font-size: var(--level);
@@ -77,8 +85,8 @@
 .bn-block-content[data-content-type="checkListItem"] > div > input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   margin: 0 8px 0 2px;
   border: 1.5px solid var(--muted-foreground);
   border-radius: 4px;
@@ -101,8 +109,8 @@
   > div
   > input[type="checkbox"]:checked::before {
   content: "";
-  width: 9px;
-  height: 5px;
+  width: 8px;
+  height: 4px;
   border-left: 2px solid var(--primary-foreground);
   border-bottom: 2px solid var(--primary-foreground);
   transform: translateY(-1px) rotate(-45deg);
@@ -143,7 +151,7 @@
   border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
   border-radius: 10px;
   overflow: hidden;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.45;
   box-shadow:
     0 1px 2px rgb(0 0 0 / 3%),
@@ -256,8 +264,14 @@
 .bn-editor .graite-callout-icon {
   display: inline-flex;
   flex-shrink: 0;
-  padding-top: 3px;
+  margin-top: 1px;
+  padding: 2px;
+  border-radius: 5px;
   color: var(--callout-fg);
+  cursor: pointer;
+}
+.bn-editor .graite-callout-icon:hover {
+  background: color-mix(in srgb, var(--callout-fg) 12%, transparent);
 }
 .bn-editor .graite-callout-title {
   flex: 1;
@@ -266,10 +280,10 @@
 .bn-editor .bn-block:has(> .react-renderer > .bn-block-content[data-content-type="callout"]) {
   --callout-fg: #2563eb;
   --callout-bg: rgb(37 99 235 / 7%);
-  margin: 4px 0;
-  padding: 6px 10px;
-  border-left: 3px solid var(--callout-fg);
-  border-radius: 6px;
+  margin: 6px 0;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--callout-fg) 14%, transparent);
+  border-radius: 10px;
   background: var(--callout-bg);
 }
 .bn-editor .bn-block:has(> .react-renderer .graite-callout[data-tone="teal"]) {

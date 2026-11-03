@@ -1,0 +1,204 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>CRM overview</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 4px 2px 12px; color: var(--graite-fg); font: 13px/1.45 var(--graite-font, system-ui, sans-serif); }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 0 2px 16px; flex-wrap: wrap; }
+  .eyebrow { margin: 0 0 4px; color: var(--graite-muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  h1 { margin: 0; font-size: 21px; line-height: 1.2; letter-spacing: -.03em; }
+  h2 { margin: 0 0 2px; font-size: 13px; font-weight: 650; letter-spacing: -.01em; }
+  .sub { margin: 4px 0 0; color: var(--graite-muted); font-size: 12px; }
+  .controls { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  select, input[type=date] { font: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid var(--graite-border); border-radius: 8px; background: var(--graite-bg); color: var(--graite-fg); }
+  .grid { display: grid; gap: 10px; }
+  .kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-top: 10px; }
+  .card { min-width: 0; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--graite-border) 86%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--graite-bg) 97%, var(--graite-accent)); box-shadow: 0 1px 2px rgb(0 0 0 / 3%), 0 10px 28px -26px rgb(0 0 0 / 28%); }
+  .card.wide { margin-top: 10px; }
+  .kpi-label { color: var(--graite-muted); font-size: 10px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; }
+  .kpi { margin-top: 8px; font-size: 24px; font-weight: 650; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .kpi-note { margin-top: 2px; color: var(--graite-muted); font-size: 11px; }
+  .chart { width: 100%; height: 260px; margin-top: 6px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+  th { text-align: left; color: var(--graite-muted); font-weight: 600; font-size: 11px; padding: 6px 6px; border-bottom: 1px solid var(--graite-border); }
+  td { padding: 6px 6px; border-bottom: 1px solid color-mix(in srgb, var(--graite-border) 60%, transparent); vertical-align: top; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.total td { font-weight: 650; border-bottom: none; border-top: 1px solid var(--graite-border); }
+  tr.section td { padding-top: 12px; font-weight: 650; color: var(--graite-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  .empty { color: var(--graite-muted); font-size: 12px; padding: 10px 0 2px; }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; background: var(--graite-accent); color: var(--graite-muted); font-size: 11px; }
+  .ok { color: var(--graite-color-2); }
+  .warn { color: #c0563f; }
+  .bar { height: 6px; border-radius: 3px; background: var(--graite-accent); overflow: hidden; margin-top: 4px; }
+  .bar i { display: block; height: 100%; background: var(--graite-fg); opacity: .75; }
+  .bar i.over { background: #c0563f; opacity: 1; }
+  @media (max-width: 520px) { .kpis { grid-template-columns: 1fr 1fr; } .two { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="head">
+  <div>
+    <p class="eyebrow">CRM</p>
+    <h1>Overview</h1>
+    <p class="sub">Your pipeline, what needs doing, and what happened lately.</p>
+  </div>
+  <div class="controls"></div>
+</header>
+<section class="grid kpis">
+<article class="card"><div class="kpi-label">Open pipeline</div><div class="kpi" id="open">—</div><div class="kpi-note" id="open-note"></div></article>
+<article class="card"><div class="kpi-label">Weighted pipeline</div><div class="kpi" id="weighted">—</div><div class="kpi-note" id="weighted-note"></div></article>
+<article class="card"><div class="kpi-label">Won this quarter</div><div class="kpi" id="won">—</div></article>
+<article class="card"><div class="kpi-label">Win rate</div><div class="kpi" id="rate">—</div><div class="kpi-note" id="rate-note"></div></article>
+</section>
+<section class="grid two">
+  <article class="card"><h2>Open deals by stage</h2><div class="chart" id="stages"></div></article>
+  <article class="card"><h2>Won per month</h2><div class="chart" id="won-months"></div></article>
+</section>
+<section class="grid two">
+  <article class="card"><h2>Expected to close in 30 days</h2><div id="closing"></div></article>
+  <article class="card"><h2>Recent activity</h2><div id="recent"></div></article>
+</section>
+<section class="grid two">
+  <article class="card"><h2>Open tasks</h2><p class="sub">Due in the next 14 days or overdue</p><div id="next"></div></article>
+  <article class="card"><h2>Stale deals</h2><p class="sub">Open, with no update in 30 days</p><div id="stale"></div></article>
+</section>
+<script>
+  // The SQL behind this dashboard. Tables are named as on the page; `links` joins relations
+  // and `page_links` joins page columns. $NAME variables are dates filled in below.
+  const QUERIES = {
+  "kpis": "SELECT\n  coalesce(sum(CASE WHEN stage NOT IN ('Won', 'Lost') THEN value END), 0) AS open_value,\n  coalesce(sum(CASE WHEN stage NOT IN ('Won', 'Lost') THEN weighted END), 0) AS weighted_value,\n  count(CASE WHEN stage NOT IN ('Won', 'Lost') THEN 1 END) AS open_count,\n  coalesce(sum(CASE WHEN stage = 'Won' AND closed_on >= '$QUARTER_START' THEN value END), 0) AS won_quarter,\n  count(CASE WHEN stage = 'Won' THEN 1 END) AS won,\n  count(CASE WHEN stage = 'Lost' THEN 1 END) AS lost\nFROM deals",
+  "stages": "SELECT stage, count(*) AS deals, coalesce(sum(value), 0) AS value, coalesce(sum(weighted), 0) AS weighted\nFROM deals WHERE stage NOT IN ('Won', 'Lost')\nGROUP BY stage\nORDER BY CASE stage WHEN 'Lead' THEN 1 WHEN 'Qualified' THEN 2 WHEN 'Proposal' THEN 3 WHEN 'Negotiation' THEN 4 ELSE 5 END",
+  "next_steps": "SELECT a.title AS next_step, a.due AS due, c.name AS company, d.name AS deal\nFROM activities a\nLEFT JOIN links lc ON lc.\"table\" = 'activities' AND lc.column = 'company' AND lc.row_id = a.id\nLEFT JOIN companies c ON c.id = lc.target_id\nLEFT JOIN links ld ON ld.\"table\" = 'activities' AND ld.column = 'deal' AND ld.row_id = a.id\nLEFT JOIN deals d ON d.id = ld.target_id\nWHERE a.type = 'Task' AND coalesce(a.done, 0) = 0 AND a.due IS NOT NULL AND a.due <= '$SOON'\nORDER BY a.due\nLIMIT 12",
+  "stale": "SELECT d.name, d.stage, d.value, max(u.date) AS last_update\nFROM deals d\nLEFT JOIN links l ON l.\"table\" = 'activities' AND l.column = 'deal' AND l.target_id = d.id\nLEFT JOIN activities u ON u.id = l.row_id AND u.type != 'Task'\nWHERE d.stage NOT IN ('Won', 'Lost')\nGROUP BY d.id\nHAVING last_update IS NULL OR last_update < '$STALE'\nORDER BY d.value DESC",
+  "recent": "SELECT u.date, u.type, u.title AS summary, c.name AS company\nFROM activities u\nLEFT JOIN links lc ON lc.\"table\" = 'activities' AND lc.column = 'company' AND lc.row_id = u.id\nLEFT JOIN companies c ON c.id = lc.target_id\nWHERE u.type != 'Task' OR u.done = 1\nORDER BY u.date DESC LIMIT 6",
+  "closing": "SELECT d.name, d.value, d.probability, d.expected_close, c.name AS company\nFROM deals d\nLEFT JOIN links l ON l.\"table\" = 'deals' AND l.column = 'company' AND l.row_id = d.id\nLEFT JOIN companies c ON c.id = l.target_id\nWHERE d.stage NOT IN ('Won', 'Lost') AND d.expected_close <= '$LATER'\nORDER BY d.expected_close LIMIT 8",
+  "won_months": "SELECT substr(closed_on, 1, 7) AS month, sum(value) AS won\nFROM deals WHERE stage = 'Won' AND closed_on >= '$YEAR_AGO'\nGROUP BY month ORDER BY month"
+};
+
+  const $ = (selector) => document.querySelector(selector);
+  const esc = (text) =>
+    String(text ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const eur = (value) => graite.format(Number(value) || 0, "EUR");
+  const num = (value, digits = 0) =>
+    new Intl.NumberFormat(undefined, { maximumFractionDigits: digits }).format(Number(value) || 0);
+  const pct = (value) => (value === null || value === undefined ? "—" : `${num(value, 0)}%`);
+  /** A date as YYYY-MM-DD in local time. */
+  const iso = (date) => {
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+  };
+  const addDays = (date, days) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+  const today = new Date();
+  /** Run one of QUERIES with $NAME variables filled in (dates only, so quoting is enough). */
+  async function q(key, vars = {}) {
+    let sql = QUERIES[key];
+    for (const [name, value] of Object.entries(vars))
+      sql = sql.split("$" + name).join(String(value).replace(/'/g, "''"));
+    return graite.query(sql);
+  }
+  /** Rows as an HTML table: columns are [label, key, format?] with format "eur", "num", "pct", "date". */
+  function grid(rows, columns, empty = "Nothing here yet.") {
+    if (!rows.length) return `<div class="empty">${esc(empty)}</div>`;
+    const cell = (row, [, key, format]) => {
+      const value = typeof key === "function" ? key(row) : row[key];
+      if (format === "eur") return `<td class="num">${esc(eur(value))}</td>`;
+      if (format === "num") return `<td class="num">${esc(num(value, 1))}</td>`;
+      if (format === "pct") return `<td class="num">${esc(pct(value))}</td>`;
+      if (format === "html") return `<td>${value ?? ""}</td>`;
+      return `<td>${esc(value ?? "")}</td>`;
+    };
+    const head = columns
+      .map(([label, , format]) => `<th class="${["eur", "num", "pct"].includes(format) ? "num" : ""}">${esc(label)}</th>`)
+      .join("");
+    const body = rows.map((row) => `<tr>${columns.map((c) => cell(row, c)).join("")}</tr>`).join("");
+    return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  }
+  /** Theme colors for hand-made ECharts options. */
+  const ink = () => {
+    const t = graite.theme();
+    return { fg: t.colors.foreground, muted: t.colors.muted, border: t.colors.border, palette: t.colors.palette };
+  };
+  function barOption(categories, series, { stacked = false, horizontal = false, money = true } = {}) {
+    const c = ink();
+    const value = { type: "value", axisLabel: { color: c.muted, formatter: (v) => (money ? eur(v) : num(v)) }, splitLine: { lineStyle: { color: c.border } } };
+    const cat = { type: "category", data: categories, axisLabel: { color: c.muted }, axisTick: { show: false }, axisLine: { lineStyle: { color: c.border } } };
+    return {
+      grid: { left: 4, right: 12, top: 26, bottom: 4, containLabel: true },
+      legend: series.length > 1 ? { top: 0, textStyle: { color: c.muted } } : undefined,
+      tooltip: { trigger: "axis", valueFormatter: (v) => (money ? eur(v) : num(v, 1)) },
+      xAxis: horizontal ? value : cat,
+      yAxis: horizontal ? cat : value,
+      series: series.map((s, i) => ({
+        type: s.type || "bar",
+        name: s.name,
+        data: s.data,
+        stack: stacked ? "all" : undefined,
+        smooth: true,
+        barMaxWidth: 28,
+        itemStyle: { borderRadius: stacked ? 0 : 3, color: s.color || c.palette[i * 2 % c.palette.length] },
+        lineStyle: s.type === "line" ? { width: 2 } : undefined,
+      })),
+    };
+  }
+
+async function render() {
+    const quarterStart = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1);
+    const vars = {
+      QUARTER_START: iso(quarterStart),
+      SOON: iso(addDays(today, 14)),
+      STALE: iso(addDays(today, -30)),
+      YEAR_AGO: iso(new Date(today.getFullYear() - 1, today.getMonth() + 1, 1)),
+      TODAY: iso(today),
+      LATER: iso(addDays(today, 30)),
+    };
+    const [k] = await q("kpis", vars);
+    $("#open").textContent = eur(k.open_value);
+    $("#open-note").textContent = `${k.open_count} open deal${k.open_count === 1 ? "" : "s"}`;
+    $("#weighted").textContent = eur(k.weighted_value);
+    $("#weighted-note").textContent = "value × probability";
+    $("#won").textContent = eur(k.won_quarter);
+    const decided = k.won + k.lost;
+    $("#rate").textContent = decided ? pct((k.won / decided) * 100) : "—";
+    $("#rate-note").textContent = `${k.won} won · ${k.lost} lost`;
+
+    const stages = await q("stages", vars);
+    graite.chart("#stages", barOption(
+      stages.map((s) => s.stage),
+      [
+        { name: "Value", data: stages.map((s) => s.value) },
+        { name: "Weighted", data: stages.map((s) => s.weighted) },
+      ],
+    ));
+    const won = await q("won_months", vars);
+    graite.chart("#won-months", barOption(won.map((m) => m.month), [{ name: "Won", data: won.map((m) => m.won) }]));
+
+    const next = await q("next_steps", vars);
+    $("#next").innerHTML = grid(next, [
+      ["Due", (r) => (r.due < vars.TODAY ? `⚠ ${r.due}` : r.due)],
+      ["Task", "next_step"],
+      ["Deal", "deal"],
+      ["Company", "company"],
+    ], "No tasks due. Add a Task activity to a deal.");
+    $("#closing").innerHTML = grid(await q("closing", vars), [
+      ["Close", (r) => (r.expected_close < vars.TODAY ? `⚠ ${r.expected_close}` : r.expected_close)],
+      ["Deal", "name"], ["Company", "company"], ["Value", "value", "eur"],
+    ], "Nothing expected to close in the next 30 days.");
+    $("#recent").innerHTML = grid(await q("recent", vars), [
+      ["Date", "date"], ["Type", "type"], ["Company", "company"], ["What happened", "summary"],
+    ], "Nothing logged yet.");
+    const stale = await q("stale", vars);
+    $("#stale").innerHTML = grid(stale, [
+      ["Deal", "name"],
+      ["Stage", "stage"],
+      ["Value", "value", "eur"],
+      ["Last update", (r) => r.last_update || "never"],
+    ], "Every open deal had an update in the last 30 days.");
+  }
+  render();
+  graite.onChange(render);
+</script>
+</body>
+</html>

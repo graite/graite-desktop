@@ -1,0 +1,14 @@
+id;title;project;status;priority;assignee;due;estimate_h;done_on;notes
+{{id:tk0}};Write homepage copy;[[{{id:pr_web}}|Website relaunch]];Done;High;Noor;{{date:-12}};6;{{date:-13}};
+{{id:tk1}};Design homepage;[[{{id:pr_web}}|Website relaunch]];Done;High;Studio;{{date:-6}};12;{{date:-5}};
+{{id:tk2}};Build contact form;[[{{id:pr_web}}|Website relaunch]];In progress;High;Alex;{{date:3}};8;;
+{{id:tk3}};Service pages copy;[[{{id:pr_web}}|Website relaunch]];In progress;Medium;Noor;{{date:5}};6;;
+{{id:tk4}};Speed test on phones;[[{{id:pr_web}}|Website relaunch]];To do;Medium;Alex;{{date:12}};3;;
+{{id:tk5}};Redirect old URLs;[[{{id:pr_web}}|Website relaunch]];To do;Low;Alex;{{date:20}};2;;
+{{id:tk6}};Merge duplicate companies;[[{{id:pr_crm}}|CRM cleanup]];Done;Medium;Sam;{{date:-8}};4;{{date:-9}};
+{{id:tk7}};Add missing owners;[[{{id:pr_crm}}|CRM cleanup]];Blocked;Medium;Sam;{{date:-2}};2;;
+{{id:tk8}};Archive lost deals older than a year;[[{{id:pr_crm}}|CRM cleanup]];To do;Low;Sam;{{date:6}};1;;
+{{id:tk9}};Outline the kit;[[{{id:pr_onboard}}|Customer onboarding kit]];To do;Medium;Alex;{{date:14}};3;;
+{{id:tk10}};Welcome email series;[[{{id:pr_onboard}}|Customer onboarding kit]];To do;Medium;Noor;{{date:30}};5;;
+{{id:tk11}};Pack and label;[[{{id:pr_office}}|Office move]];Done;Medium;Noor;{{date:-35}};6;{{date:-36}};
+{{id:tk12}};Set up internet;[[{{id:pr_office}}|Office move]];Done;High;Alex;{{date:-33}};2;{{date:-31}};

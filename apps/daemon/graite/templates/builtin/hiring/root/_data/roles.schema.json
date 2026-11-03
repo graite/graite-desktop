@@ -1,0 +1,54 @@
+{
+  "id": "{{table:roles}}",
+  "display": "title",
+  "columns": {
+    "team": {
+      "type": "single_select",
+      "options": [
+        "Product",
+        "Engineering",
+        "Operations",
+        "Sales",
+        "Marketing"
+      ]
+    },
+    "status": {
+      "type": "status",
+      "options": [
+        "Open",
+        "On hold",
+        "Filled",
+        "Closed"
+      ],
+      "colors": {
+        "Open": "blue",
+        "On hold": "orange",
+        "Filled": "green",
+        "Closed": "gray"
+      }
+    },
+    "opened_on": {
+      "type": "date"
+    },
+    "target_start": {
+      "type": "date"
+    },
+    "headcount": {
+      "type": "number"
+    },
+    "candidates": {
+      "type": "relation",
+      "table": "candidates",
+      "table_id": "{{table:candidates}}",
+      "reverse": "role",
+      "panel": {
+        "as": "auto",
+        "show": [
+          "stage",
+          "rating",
+          "applied_on"
+        ]
+      }
+    }
+  }
+}

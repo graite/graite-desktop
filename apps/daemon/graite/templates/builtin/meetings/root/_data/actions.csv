@@ -1,0 +1,7 @@
+id;item;owner;due;status;meeting;note
+{{id:a0}};Test the contact form on three phones;Alex;{{date:2}};Doing;[[{{id:m_sync}}|Weekly team sync]];
+{{id:a1}};Write the launch announcement;Noor;{{date:7}};Open;[[{{id:m_sync}}|Weekly team sync]];
+{{id:a2}};Hand over support notes;Sam;{{date:10}};Open;[[{{id:m_sync}}|Weekly team sync]];
+{{id:a3}};Add a shift filter to the dashboard;Alex;{{date:14}};Open;[[{{id:m_client}}|Client check-in Northwind]];
+{{id:a4}};Send next quarter's plan;Sam;{{date:-3}};Done;[[{{id:m_client}}|Client check-in Northwind]];
+{{id:a5}};Try shorter stand-ups;Noor;{{date:-9}};Done;[[{{id:m_retro}}|Sprint retro]];

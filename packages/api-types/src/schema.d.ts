@@ -1690,6 +1690,87 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/tables/files": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Upload File
+     * @description Store an uploaded file (request body) in the table page's `_assets/` for a file
+     *     column (D76). The caller then writes the cell like any other value.
+     */
+    post: operations["upload_file_api_v1_tables_files_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/tables/files/content": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * File Content
+     * @description A file column's file, for hosts that cannot open it in a system app (the web).
+     */
+    get: operations["file_content_api_v1_tables_files_content_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/tables/files/location": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * File Location
+     * @description Where a file column's file is on disk, to open it in the system's app.
+     */
+    get: operations["file_location_api_v1_tables_files_location_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/tables/formula/check": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Check Formula
+     * @description Whether a formula works on this table, with its first values (D75).
+     */
+    post: operations["check_formula_api_v1_tables_formula_check_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/tables/import": {
     parameters: {
       query?: never;
@@ -1831,6 +1912,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/tables/row-doc": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read Row Doc
+     * @description A row's own document (D80): `<page>/_data/<table>/<row id>.md`.
+     */
+    get: operations["read_row_doc_api_v1_tables_row_doc_get"];
+    /** Write Row Doc */
+    put: operations["write_row_doc_api_v1_tables_row_doc_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/tables/rows": {
     parameters: {
       query?: never;
@@ -1864,6 +1966,43 @@ export interface paths {
     head?: never;
     /** Patch Schema */
     patch: operations["patch_schema_api_v1_tables_schema_patch"];
+    trace?: never;
+  };
+  "/api/v1/templates": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Templates */
+    get: operations["list_templates_api_v1_templates_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/templates/{slug}/use": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Use Template
+     * @description Make the template's pages, tables, charts and dashboards; returns the top page.
+     */
+    post: operations["use_template_api_v1_templates__slug__use_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   "/api/v1/trash": {
@@ -2857,6 +2996,12 @@ export interface components {
       };
       /** Currency */
       currency?: string | null;
+      /** Decimals */
+      decimals?: number | null;
+      /** Format */
+      format?: string | null;
+      /** Formula */
+      formula?: string | null;
       /**
        * Invalid
        * @default 0
@@ -2866,6 +3011,10 @@ export interface components {
       name: string;
       /** Options */
       options?: string[];
+      /** Panel */
+      panel?: {
+        [key: string]: unknown;
+      } | null;
       /** Reverse */
       reverse?: string | null;
       /** Table */
@@ -2899,18 +3048,6 @@ export interface components {
       op: "add" | "rename" | "delete" | "move";
       /** To */
       to?: string | null;
-    };
-    /** ConflictBody */
-    ConflictBody: {
-      /** Body */
-      body: string;
-      /**
-       * Detail
-       * @default conflict
-       */
-      detail: string;
-      /** Hash */
-      hash: string;
     };
     /** Connection */
     Connection: {
@@ -3257,6 +3394,31 @@ export interface components {
     FeedbackStatus: {
       /** Enabled */
       enabled: boolean;
+    };
+    /** FileLocation */
+    FileLocation: {
+      /** Folder */
+      folder: string;
+      /** Path */
+      path: string;
+    };
+    /** FormulaBody */
+    FormulaBody: {
+      /** Column */
+      column?: string | null;
+      /** Formula */
+      formula: string;
+      /** Path */
+      path: string;
+    };
+    /** FormulaCheck */
+    FormulaCheck: {
+      /** Error */
+      error?: string | null;
+      /** Ok */
+      ok: boolean;
+      /** Sample */
+      sample?: unknown[];
     };
     /** HTTPValidationError */
     HTTPValidationError: {
@@ -4052,6 +4214,15 @@ export interface components {
        */
       reason: "missing" | "changed";
     };
+    /** RowDoc */
+    RowDoc: {
+      /** Body */
+      body: string;
+      /** Exists */
+      exists: boolean;
+      /** Hash */
+      hash: string;
+    };
     /** RowModel */
     RowModel: {
       /** Cells */
@@ -4103,6 +4274,8 @@ export interface components {
       display?: string | null;
       /** Display Secondary */
       display_secondary?: string | null;
+      /** Docs */
+      docs?: string[];
       /** Hash */
       hash: string;
       /** Label Column */
@@ -4474,6 +4647,13 @@ export interface components {
       /** Hash */
       hash: string;
     };
+    /** TableFile */
+    TableFile: {
+      /** File */
+      file: string;
+      /** Name */
+      name: string;
+    };
     /** TableModel */
     TableModel: {
       /** Columns */
@@ -4507,6 +4687,47 @@ export interface components {
     TablePathBody: {
       /** Path */
       path: string;
+    };
+    /** TemplateColumn */
+    TemplateColumn: {
+      /** Name */
+      name: string;
+      /** Type */
+      type: string;
+    };
+    /** TemplateModel */
+    TemplateModel: {
+      /** Category */
+      category: string;
+      /** Charts */
+      charts: number;
+      /** Dashboards */
+      dashboards: string[];
+      /** Description */
+      description: string;
+      /** Highlights */
+      highlights?: string[];
+      /** Icon */
+      icon: string;
+      /** Name */
+      name: string;
+      /** Pages */
+      pages: string[];
+      /** Slug */
+      slug: string;
+      /** Tables */
+      tables: components["schemas"]["TemplateTable"][];
+      /** Tags */
+      tags?: string[];
+    };
+    /** TemplateTable */
+    TemplateTable: {
+      /** Columns */
+      columns: components["schemas"]["TemplateColumn"][];
+      /** Name */
+      name: string;
+      /** Page */
+      page: string;
     };
     /** TicketRequest */
     TicketRequest: {
@@ -4596,6 +4817,18 @@ export interface components {
       created: number;
       /** Memories */
       memories?: string | null;
+    };
+    /** UseTemplate */
+    UseTemplate: {
+      /** Parent Path */
+      parent_path?: string | null;
+      /**
+       * Sample Data
+       * @default true
+       */
+      sample_data: boolean;
+      /** Title */
+      title?: string | null;
     };
     /** ValidationError */
     ValidationError: {
@@ -4725,6 +4958,22 @@ export interface components {
       /** Path */
       path: string;
     };
+    /** WriteRowDoc */
+    WriteRowDoc: {
+      /** Base Hash */
+      base_hash?: string | null;
+      /** Body */
+      body: string;
+      /** Id */
+      id: string;
+      /** Path */
+      path: string;
+      /**
+       * Title
+       * @default
+       */
+      title: string;
+    };
     /** WriteRows */
     WriteRows: {
       /** Base Hash */
@@ -4739,10 +4988,31 @@ export interface components {
       /** Opted In */
       opted_in: boolean;
     };
+    /** ConflictBody */
+    graite__api__pages__ConflictBody: {
+      /** Body */
+      body: string;
+      /**
+       * Detail
+       * @default conflict
+       */
+      detail: string;
+      /** Hash */
+      hash: string;
+    };
     /** OptInResult */
     graite__api__review__OptInResult: {
       /** Opted In */
       opted_in: string[];
+    };
+    /** ConflictBody */
+    graite__api__tables__ConflictBody: {
+      /** Body */
+      body: string;
+      /** Detail */
+      detail: string;
+      /** Hash */
+      hash: string;
     };
   };
   responses: never;
@@ -8061,7 +8331,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["ConflictBody"];
+          "application/json": components["schemas"]["graite__api__pages__ConflictBody"];
         };
       };
       /** @description Validation Error */
@@ -8277,7 +8547,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["ConflictBody"];
+          "application/json": components["schemas"]["graite__api__pages__ConflictBody"];
         };
       };
       /** @description Validation Error */
@@ -8504,6 +8774,135 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["EnsureIdsResult"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  upload_file_api_v1_tables_files_post: {
+    parameters: {
+      query: {
+        path: string;
+        name: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TableFile"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  file_content_api_v1_tables_files_content_get: {
+    parameters: {
+      query: {
+        path: string;
+        file: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  file_location_api_v1_tables_files_location_get: {
+    parameters: {
+      query: {
+        path: string;
+        file: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FileLocation"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  check_formula_api_v1_tables_formula_check_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FormulaBody"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FormulaCheck"];
         };
       };
       /** @description Validation Error */
@@ -8746,6 +9145,80 @@ export interface operations {
       };
     };
   };
+  read_row_doc_api_v1_tables_row_doc_get: {
+    parameters: {
+      query: {
+        path: string;
+        id: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RowDoc"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  write_row_doc_api_v1_tables_row_doc_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WriteRowDoc"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RowDoc"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["graite__api__tables__ConflictBody"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   rows_api_v1_tables_rows_get: {
     parameters: {
       query: {
@@ -8846,6 +9319,61 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["TableModel"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_templates_api_v1_templates_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TemplateModel"][];
+        };
+      };
+    };
+  };
+  use_template_api_v1_templates__slug__use_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UseTemplate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PageDocModel"];
         };
       };
       /** @description Validation Error */

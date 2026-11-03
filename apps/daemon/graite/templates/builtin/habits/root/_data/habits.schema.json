@@ -1,0 +1,43 @@
+{
+  "id": "{{table:habits}}",
+  "display": "name",
+  "columns": {
+    "area": {
+      "type": "single_select",
+      "options": [
+        "Health",
+        "Mind",
+        "Work",
+        "Social",
+        "Home"
+      ],
+      "colors": {
+        "Health": "green",
+        "Mind": "purple",
+        "Work": "blue",
+        "Social": "pink",
+        "Home": "brown"
+      }
+    },
+    "target_per_week": {
+      "type": "number"
+    },
+    "active": {
+      "type": "checkbox"
+    },
+    "log": {
+      "type": "relation",
+      "table": "log",
+      "table_id": "{{table:log}}",
+      "reverse": "habit",
+      "panel": {
+        "as": "auto",
+        "show": [
+          "date",
+          "done",
+          "amount"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "id": "{{table:channels}}",
+  "display": "name",
+  "columns": {
+    "type": {
+      "type": "single_select",
+      "options": [
+        "Blog",
+        "Newsletter",
+        "LinkedIn",
+        "Instagram",
+        "YouTube",
+        "Podcast",
+        "Other"
+      ]
+    },
+    "content": {
+      "type": "relation",
+      "table": "content",
+      "table_id": "{{table:content}}",
+      "reverse": "channel",
+      "panel": {
+        "as": "auto",
+        "show": [
+          "status",
+          "publish_date"
+        ]
+      }
+    }
+  }
+}

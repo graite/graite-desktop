@@ -1,0 +1,63 @@
+{
+  "id": "{{table:goals}}",
+  "display": "goal",
+  "columns": {
+    "area": {
+      "type": "single_select",
+      "options": [
+        "Work",
+        "Health",
+        "Family",
+        "Learning",
+        "Home"
+      ],
+      "colors": {
+        "Work": "blue",
+        "Health": "green",
+        "Family": "pink",
+        "Learning": "purple",
+        "Home": "brown"
+      }
+    },
+    "status": {
+      "type": "status",
+      "options": [
+        "Not started",
+        "Doing",
+        "Done"
+      ],
+      "colors": {
+        "Not started": "gray",
+        "Doing": "blue",
+        "Done": "green"
+      }
+    },
+    "weeks": {
+      "type": "relation",
+      "table": "weeks",
+      "table_id": "{{table:weeks}}",
+      "reverse": "goals",
+      "panel": {
+        "as": "list",
+        "show": [
+          "focus",
+          "rating"
+        ]
+      }
+    },
+    "priorities": {
+      "type": "relation",
+      "table": "priorities",
+      "table_id": "{{table:priorities}}",
+      "reverse": "goal",
+      "panel": {
+        "as": "list",
+        "show": [
+          "status",
+          "day",
+          "week"
+        ]
+      }
+    }
+  }
+}

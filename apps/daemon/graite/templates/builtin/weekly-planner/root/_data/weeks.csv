@@ -1,0 +1,3 @@
+id;week;week_start;focus;energy;rating;goals
+{{id:w0}};{{week:0}};{{monday:0}};Ship the contact form and rest well;Normal;;[[{{id:g_launch}}|Launch the new website]] [[{{id:g_run}}|Run 10 km without stopping]]
+{{id:w1}};{{week:-1}};{{monday:-1}};Finish the design and start running again;High;4;[[{{id:g_launch}}|Launch the new website]] [[{{id:g_run}}|Run 10 km without stopping]] [[{{id:g_spanish}}|Hold a 15-minute conversation in Spanish]]

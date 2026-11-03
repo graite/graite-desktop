@@ -1,0 +1,7 @@
+id;name;domain;industry;size;status;owner;city;country
+{{id:co_northwind}};Northwind Traders;https://northwind.example;Retail;51-200;Customer;Sam;Rotterdam;Netherlands
+{{id:co_acme}};Acme Robotics;https://acme-robotics.example;Manufacturing;201-1000;Prospect;Sam;Eindhoven;Netherlands
+{{id:co_bluefjord}};Blue Fjord Analytics;https://bluefjord.example;Software;11-50;Prospect;Alex;Oslo;Norway
+{{id:co_cedar}};Cedar & Pine Interiors;https://cedarpine.example;Retail;11-50;Lead;Alex;Antwerp;Belgium
+{{id:co_helix}};Helix Health;https://helix-health.example;Healthcare;1000+;Prospect;Sam;Utrecht;Netherlands
+{{id:co_orbit}};Orbit Logistics;https://orbit-logistics.example;Logistics;201-1000;Churned;Alex;Hamburg;Germany

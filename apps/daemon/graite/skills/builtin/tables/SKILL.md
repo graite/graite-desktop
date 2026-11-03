@@ -53,6 +53,8 @@ SELECT category, sum(amount) AS total FROM expenses GROUP BY category ORDER BY t
 ```
 
 - Use column names exactly as `read_tables` lists them; a new column needs the user.
+- Formula columns (`"type": "formula"`, `read_only`) are computed from the row; never give
+  them a value. They can be read, filtered and charted like any other column.
 - Give values in the column's type: numbers as numbers, dates as `YYYY-MM-DD`, checkboxes as
   `true`/`false`, multi-select as a list, select and status as one of the listed options.
 - Get ids from `read_tables` or `run_query_ro` (`SELECT id, … FROM expenses WHERE …`).

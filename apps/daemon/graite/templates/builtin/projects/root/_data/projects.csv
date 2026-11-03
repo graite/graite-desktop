@@ -1,0 +1,5 @@
+id;name;status;owner;start;due;priority;brief
+{{id:pr_web}};Website relaunch;Active;Noor;{{date:-40}};{{date:35}};High;[[{{page:brief_web}}|Website relaunch brief]]
+{{id:pr_crm}};CRM cleanup;Active;Sam;{{date:-20}};{{date:20}};Medium;
+{{id:pr_onboard}};Customer onboarding kit;Planned;Alex;{{date:10}};{{date:70}};Medium;
+{{id:pr_office}};Office move;Done;Noor;{{date:-120}};{{date:-30}};Low;

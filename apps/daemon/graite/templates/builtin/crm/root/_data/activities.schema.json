@@ -1,0 +1,62 @@
+{
+  "id": "{{table:activities}}",
+  "display": "title",
+  "display_secondary": "date",
+  "columns": {
+    "type": {
+      "type": "single_select",
+      "options": [
+        "Call",
+        "Email",
+        "Meeting",
+        "Task",
+        "Note"
+      ],
+      "colors": {
+        "Call": "blue",
+        "Email": "gray",
+        "Meeting": "purple",
+        "Task": "orange",
+        "Note": "brown"
+      }
+    },
+    "description": {
+      "type": "text",
+      "wrap": true
+    },
+    "date": {
+      "type": "date"
+    },
+    "due": {
+      "type": "date"
+    },
+    "done": {
+      "type": "checkbox"
+    },
+    "company": {
+      "type": "relation",
+      "table": "companies",
+      "table_id": "{{table:companies}}",
+      "cardinality": "one"
+    },
+    "contact": {
+      "type": "relation",
+      "table": "contacts",
+      "table_id": "{{table:contacts}}",
+      "cardinality": "one"
+    },
+    "deal": {
+      "type": "relation",
+      "table": "deals",
+      "table_id": "{{table:deals}}",
+      "cardinality": "one"
+    },
+    "notes": {
+      "type": "page",
+      "cardinality": "one"
+    },
+    "attachments": {
+      "type": "file"
+    }
+  }
+}

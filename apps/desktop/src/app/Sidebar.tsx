@@ -5,6 +5,7 @@ import {
   FolderSearch,
   Plus,
   Settings2,
+  LayoutTemplate,
   Trash2,
   Orbit,
   Files,
@@ -70,6 +71,9 @@ interface SidebarProps {
   aiActive: boolean;
   onTrash: () => void;
   trashActive: boolean;
+  /** The built-in template gallery (D77). */
+  onTemplates: () => void;
+  templatesActive: boolean;
   onWelcome?: () => void;
   welcomeActive?: boolean;
   /** Absent when this build has nowhere to send feedback. */
@@ -94,6 +98,8 @@ export function Sidebar({
   aiActive,
   onTrash,
   trashActive,
+  onTemplates,
+  templatesActive,
   onWelcome,
   welcomeActive = false,
   onFeedback,
@@ -331,6 +337,14 @@ export function Sidebar({
           Send feedback
         </button>
       )}
+      <button
+        onClick={onTemplates}
+        aria-current={templatesActive ? "page" : undefined}
+        className={`flex items-center gap-2 border-t px-4 py-3 text-xs text-muted-foreground hover:bg-accent ${templatesActive ? "bg-accent" : ""}`}
+      >
+        <LayoutTemplate className="size-4" />
+        Templates
+      </button>
       <button
         onClick={onTrash}
         aria-current={trashActive ? "page" : undefined}

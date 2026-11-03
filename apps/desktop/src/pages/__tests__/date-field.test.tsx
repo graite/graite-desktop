@@ -4,8 +4,8 @@ import { DateField, formatDate, parseDateInput } from "../DateField";
 afterEach(cleanup);
 
 it("formats ISO dates as text and parses the common ways of typing one", () => {
-  expect(formatDate("2026-09-15")).toBe("September 15, 2026");
-  expect(formatDate("2026-09-15T10:00:00Z")).toBe("September 15, 2026");
+  expect(formatDate("2026-09-15")).toBe("Sep 15, 2026");
+  expect(formatDate("2026-09-15T10:00:00Z")).toBe("Sep 15, 2026");
   for (const typed of [
     "September 15, 2026",
     "sept 15 2026",
@@ -25,7 +25,7 @@ it("shows the value as text and commits a typed or picked date", async () => {
   const onChange = vi.fn();
   render(<DateField value="2026-09-15" label="Due" onChange={onChange} />);
   const trigger = screen.getByLabelText("Due");
-  expect(trigger.textContent).toBe("September 15, 2026");
+  expect(trigger.textContent).toBe("Sep 15, 2026");
   fireEvent.click(trigger);
   const input = await screen.findByLabelText("Due as text");
   fireEvent.change(input, { target: { value: "1 oct 2026" } });

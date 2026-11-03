@@ -1,0 +1,51 @@
+{
+  "id": "{{table:objectives}}",
+  "display": "title",
+  "columns": {
+    "quarter": {
+      "type": "text"
+    },
+    "owner": {
+      "type": "single_select",
+      "options": [
+        "Noor",
+        "Sam",
+        "Alex"
+      ]
+    },
+    "status": {
+      "type": "status",
+      "options": [
+        "On track",
+        "At risk",
+        "Off track",
+        "Done"
+      ],
+      "colors": {
+        "On track": "green",
+        "At risk": "orange",
+        "Off track": "red",
+        "Done": "blue"
+      }
+    },
+    "why": {
+      "type": "text",
+      "wrap": true
+    },
+    "key_results": {
+      "type": "relation",
+      "table": "key_results",
+      "table_id": "{{table:key_results}}",
+      "reverse": "objective",
+      "panel": {
+        "as": "list",
+        "show": [
+          "current",
+          "target",
+          "progress",
+          "confidence"
+        ]
+      }
+    }
+  }
+}

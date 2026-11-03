@@ -1,0 +1,44 @@
+{
+  "id": "{{table:accounts}}",
+  "display": "name",
+  "columns": {
+    "type": {
+      "type": "single_select",
+      "options": [
+        "Checking",
+        "Savings",
+        "Credit card",
+        "Cash",
+        "Investment"
+      ],
+      "colors": {
+        "Checking": "blue",
+        "Savings": "green",
+        "Credit card": "purple",
+        "Cash": "yellow",
+        "Investment": "orange"
+      }
+    },
+    "opening_balance": {
+      "type": "currency",
+      "currency": "EUR"
+    },
+    "opening_date": {
+      "type": "date"
+    },
+    "transactions": {
+      "type": "relation",
+      "table": "transactions",
+      "table_id": "{{table:transactions}}",
+      "reverse": "account",
+      "panel": {
+        "as": "auto",
+        "show": [
+          "date",
+          "amount",
+          "category"
+        ]
+      }
+    }
+  }
+}

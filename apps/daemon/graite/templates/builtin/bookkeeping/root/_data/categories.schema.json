@@ -1,0 +1,52 @@
+{
+  "id": "{{table:categories}}",
+  "display": "name",
+  "display_secondary": "section",
+  "columns": {
+    "section": {
+      "type": "single_select",
+      "options": [
+        "Revenue",
+        "Cost of sales",
+        "Operating expenses",
+        "Other income",
+        "Other expenses"
+      ],
+      "colors": {
+        "Revenue": "green",
+        "Cost of sales": "orange",
+        "Operating expenses": "red",
+        "Other income": "blue",
+        "Other expenses": "gray"
+      }
+    },
+    "invoices": {
+      "type": "relation",
+      "table": "invoices",
+      "table_id": "{{table:invoices}}",
+      "reverse": "category",
+      "panel": {
+        "as": "auto",
+        "show": [
+          "issue_date",
+          "net",
+          "status"
+        ]
+      }
+    },
+    "receipts": {
+      "type": "relation",
+      "table": "receipts",
+      "table_id": "{{table:receipts}}",
+      "reverse": "category",
+      "panel": {
+        "as": "auto",
+        "show": [
+          "date",
+          "net",
+          "paid"
+        ]
+      }
+    }
+  }
+}

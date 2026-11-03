@@ -20,6 +20,7 @@ import { parseDateInput } from "@/pages/DateField";
 import type { PageProperty } from "@/lib/workspace";
 import {
   isRelationLinks,
+  type FileLink,
   type RelationLink,
   type RowOp,
   type TableColumn,
@@ -27,11 +28,14 @@ import {
 } from "@/lib/tables";
 import { mix, tagsCell, tagsRenderer, type TagsCell } from "./cells";
 import { relationCell, relationRenderer, type RelationCell, type RelationData } from "./relations";
+import { linksCell, linksRenderer, type LinksCell, type LinksData } from "./linkcells";
 import {
   CHOICE_TYPES,
   EMAIL,
   formatValue,
   NUMERIC_TYPES,
+  parseNumber,
+  shownAs,
   TABLE_TYPES,
   typeIcon,
   URL_RE,
@@ -69,7 +73,7 @@ export function lineCount(text: string, width: number, font: string): number {
   }
   return lines;
 }
-const RENDERERS = [tagsRenderer, relationRenderer];
+const RENDERERS = [tagsRenderer, relationRenderer, linksRenderer];
 
 /**
  * Header icons are the page properties' lucide icons, drawn in the header's muted color
@@ -117,9 +121,19 @@ export function cellFor(
   onField?: (column: TableColumn, next: PageProperty, previous: PageProperty) => void,
   colors?: GridColors,
   onOpen?: RelationData["onOpen"],
+  links?: { table: string } & Pick<LinksData, "onOpenFile" | "onOpenPage">,
 ): GridCell {
   if (column.type === "relation")
     return relationCell(column, isRelationLinks(value) ? value : [], onOpen);
+  if (column.type === "file" || column.type === "page") {
+    const { table = "", ...handlers } = links ?? {};
+    return linksCell(column, table, value, handlers);
+  }
+  if (column.type === "formula") {
+    // Computed by the daemon (D75): drawn like its format, never edited.
+    const cell = cellFor(shownAs(column), value, undefined, colors);
+    return { ...cell, allowOverlay: false, readonly: true } as GridCell;
+  }
   if (misfit(column, value))
     return {
       kind: GridCellKind.Text,
@@ -189,8 +203,14 @@ export function cellFor(
  *  Throws with a message the user can act on when the text does not fit the type. */
 export function valueOf(
   column: TableColumn,
-  cell: EditableGridCell | TagsCell | RelationCell,
+  cell: EditableGridCell | TagsCell | RelationCell | LinksCell,
 ): unknown {
+  if (cell.kind === GridCellKind.Custom && (cell as LinksCell).data.kind === "graite-links") {
+    const { files, pages } = (cell as LinksCell).data;
+    return column.type === "file"
+      ? files.map((f) => ({ file: f.file, name: f.name }))
+      : pages.map((p) => ({ path: p.path, title: p.title }));
+  }
   if (cell.kind === GridCellKind.Custom && (cell as RelationCell).data.kind === "graite-relation")
     return (cell as RelationCell).data.links.map((l): RelationLink => ({
       id: l.id,
@@ -210,8 +230,8 @@ export function valueOf(
       const text = String(cell.data ?? "").trim();
       if (!text) return null;
       if (NUMERIC_TYPES.includes(column.type)) {
-        const n = Number(text.replace(/[\s,%€$£¥]/g, ""));
-        if (!Number.isFinite(n)) throw new Error(`“${text}” is not a number.`);
+        const n = parseNumber(text);
+        if (n === null) throw new Error(`“${text}” is not a number.`);
         return n;
       }
       if (column.type === "date") {
@@ -261,6 +281,23 @@ export interface GridProps {
   onHeaderMenu: (column: TableColumn, bounds: Rectangle) => void;
   /** A linked row's pill was clicked. */
   onOpenLink?: (column: TableColumn, link: RelationLink) => void;
+  /** The table's vault path (file cells upload into its page's attachments). */
+  table?: string;
+  /** A file chip was clicked. */
+  onOpenFile?: (table: string, file: FileLink) => void;
+  /** A page chip was clicked. */
+  onOpenPage?: (path: string) => void;
+  /** The hover "Open" button on a row's first cell was clicked (D80). */
+  onOpenRow?: (row: TableRow) => void;
+  /** Files were dropped on a file cell. */
+  onDropFiles?: (row: TableRow, column: TableColumn, files: File[]) => void;
+}
+
+/** Width of the hover "Open" button drawn in a row's first cell. */
+export const OPEN_WIDTH = 52;
+/** Whether a click at `x` (from the cell's left edge) hits a cell's "Open" button. */
+export function openHit(width: number, x: number): boolean {
+  return x >= width - OPEN_WIDTH - 4 && x <= width - 4;
 }
 
 export function emptySelection(): GridSelection {
@@ -269,6 +306,11 @@ export function emptySelection(): GridSelection {
 
 export function TableGrid(props: GridProps) {
   const { columns, row, cellIndex, onWrite, onInvalid, onField, onOpenLink } = props;
+  const { table, onOpenFile, onOpenPage, onDropFiles } = props;
+  const links = useMemo(
+    () => ({ table: table ?? "", onOpenFile, onOpenPage }),
+    [table, onOpenFile, onOpenPage],
+  );
   const { theme, colors } = useGridTheme();
 
   const widthOf = useCallback(
@@ -315,10 +357,12 @@ export function TableGrid(props: GridProps) {
   }, [props.height, props.total, rowHeight]);
 
   // The "+" for a new field sits right after the last column (Glide's `rightElement` would
-  // put it at the far right of the grid), and hides while that column is scrolled away.
+  // put it at the far right of the grid); when the columns are wider than the block it stays
+  // pinned to the right edge of the header, so it never scrolls out of reach.
   const editorRef = useRef<DataEditorRef>(null);
+  const hoveredRow = useRef(-1);
   const boxRef = useRef<HTMLDivElement>(null);
-  const [plusLeft, setPlusLeft] = useState<number | null>(null);
+  const [plus, setPlus] = useState<{ left: number; pinned: boolean } | null>(null);
   const placePlus = useCallback(() => {
     const box = boxRef.current;
     if (!box) return;
@@ -326,7 +370,8 @@ export function TableGrid(props: GridProps) {
     const left = bounds
       ? bounds.x + bounds.width - box.getBoundingClientRect().x
       : MARKER_WIDTH + gridColumns.reduce((sum, c) => sum + ("width" in c ? c.width : 0), 0);
-    setPlusLeft(left + PLUS_WIDTH <= box.clientWidth ? left : null);
+    const edge = box.clientWidth - PLUS_WIDTH;
+    setPlus(left <= edge ? { left, pinned: false } : { left: edge, pinned: true });
   }, [columns.length, gridColumns]);
   useLayoutEffect(() => {
     const frame = requestAnimationFrame(placePlus);
@@ -347,9 +392,9 @@ export function TableGrid(props: GridProps) {
       const record = row(index);
       const column = columns[col];
       if (!record || !column) return { kind: GridCellKind.Loading, allowOverlay: false };
-      return cellFor(column, record.cells[cellIndex[col]!], onField, colors, onOpenLink);
+      return cellFor(column, record.cells[cellIndex[col]!], onField, colors, onOpenLink, links);
     },
-    [row, columns, cellIndex, onField, colors, onOpenLink],
+    [row, columns, cellIndex, onField, colors, onOpenLink, links],
   );
 
   const onCellsEdited = useCallback(
@@ -360,7 +405,7 @@ export function TableGrid(props: GridProps) {
         const [col, index] = location;
         const record = row(index);
         const column = columns[col];
-        if (!record || !column) continue;
+        if (!record || !column || column.type === "formula") continue;
         const cell = cellIndex[col]!;
         let next: unknown;
         try {
@@ -398,12 +443,58 @@ export function TableGrid(props: GridProps) {
         headerIcons={HEADER_ICONS}
         onCellsEdited={onCellsEdited}
         onCellEdited={(cell, value) => onCellsEdited([{ location: cell, value }])}
+        // The first cell of the row under the mouse shows "Open" at its right edge.
+        drawCell={(args, draw) => {
+          draw();
+          if (!props.onOpenRow || args.col !== 0 || args.row !== hoveredRow.current) return;
+          const { ctx, rect, theme: t } = args;
+          const x = rect.x + rect.width - OPEN_WIDTH - 4;
+          const y = rect.y + (rect.height - 20) / 2;
+          ctx.save();
+          ctx.beginPath();
+          ctx.roundRect?.(x, y, OPEN_WIDTH, 20, 4);
+          ctx.fillStyle = t.bgCell;
+          ctx.fill();
+          ctx.strokeStyle = t.borderColor;
+          ctx.stroke();
+          ctx.fillStyle = t.textMedium;
+          ctx.font = `11px ${t.fontFamily}`;
+          ctx.textBaseline = "middle";
+          ctx.fillText("⤢ Open", x + 7, y + 10);
+          ctx.restore();
+        }}
+        onItemHovered={(args) => {
+          // Glide animates hover only for cells with a hover effect, so the row under the
+          // mouse is tracked here and its first cell redrawn with or without "Open".
+          const next = args.kind === "cell" ? args.location[1] : -1;
+          const before = hoveredRow.current;
+          if (next === before) return;
+          hoveredRow.current = next;
+          const damage = [before, next]
+            .filter((r) => r >= 0)
+            .map((r) => ({ cell: [0, r] as Item }));
+          if (damage.length) editorRef.current?.updateCells(damage);
+        }}
+        onCellClicked={(cell, event) => {
+          if (!props.onOpenRow || cell[0] !== 0) return;
+          if (!openHit(event.bounds.width, event.localEventX)) return;
+          const record = row(cell[1]);
+          if (!record) return;
+          event.preventDefault();
+          props.onOpenRow(record);
+        }}
         onVisibleRegionChanged={(range) => {
           props.ensure(range.y, range.y + range.height);
           placePlus();
         }}
         getCellsForSelection
         onPaste
+        // Glide reads pasted numbers with parseFloat, which turns "12,50" into 12.
+        coercePasteValue={(text, cell) => {
+          if (cell.kind !== GridCellKind.Number) return undefined;
+          const n = parseNumber(text);
+          return n === null ? undefined : { ...cell, data: n };
+        }}
         width="100%"
         height={height}
         rowHeight={rowHeight}
@@ -435,16 +526,35 @@ export function TableGrid(props: GridProps) {
           const column = columns[col];
           if (column) props.onHeaderMenu(column, bounds);
         }}
+        // A click on the field's name opens its menu too (a drag still moves the column).
+        onHeaderClicked={(col, event) => {
+          const column = columns[col];
+          if (!column || event.isEdge) return;
+          event.preventDefault();
+          props.onHeaderMenu(column, event.bounds);
+        }}
+        // Files dropped on a file cell are attached to that row (D76).
+        onDragOverCell={(cell, transfer) => {
+          if (columns[cell[0]]?.type === "file" && transfer?.types.includes("Files"))
+            transfer.dropEffect = "copy";
+        }}
+        onDrop={([col, index], transfer) => {
+          const column = columns[col];
+          const record = row(index);
+          const files = [...(transfer?.files ?? [])];
+          if (column?.type === "file" && record && files.length)
+            onDropFiles?.(record, column, files);
+        }}
         preventDiagonalScrolling
         verticalBorder
       />
-      {plusLeft !== null && (
+      {plus !== null && (
         <button
           type="button"
-          className="table-add-field"
+          className={`table-add-field ${plus.pinned ? "pinned" : ""}`}
           aria-label="New field"
           title="New field"
-          style={{ left: plusLeft, height: HEADER_HEIGHT, width: PLUS_WIDTH }}
+          style={{ left: plus.left, height: HEADER_HEIGHT, width: PLUS_WIDTH }}
           onClick={(e) => props.onAddField(e.currentTarget.getBoundingClientRect())}
         >
           <Plus size={14} />

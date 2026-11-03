@@ -1,0 +1,22 @@
+{
+  "id": "{{table:log}}",
+  "display": "date",
+  "display_secondary": "habit",
+  "columns": {
+    "date": {
+      "type": "date"
+    },
+    "habit": {
+      "type": "relation",
+      "table": "habits",
+      "table_id": "{{table:habits}}",
+      "cardinality": "one"
+    },
+    "done": {
+      "type": "checkbox"
+    },
+    "amount": {
+      "type": "number"
+    }
+  }
+}

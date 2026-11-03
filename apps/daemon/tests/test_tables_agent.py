@@ -149,7 +149,7 @@ def test_runaway_queries_stop_and_rows_are_capped(tmp_path: Path) -> None:
     assert len(result["rows"]) == 200 and result["truncated"]
     pages = [QueryPage("A", "A", props=[("Tags", ["x", "y"])])]
     tables: list[QueryTable] = []
-    assert run_query(ops_db, tables, pages, "SELECT value FROM page_props")["rows"] == [["x; y"]]
+    assert run_query(ops_db, tables, pages, "SELECT value FROM page_props")["rows"] == [["x|y"]]
 
 
 async def test_cloud_turns_never_see_tables_on_local_only_pages(tmp_path: Path) -> None:

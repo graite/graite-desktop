@@ -6,6 +6,9 @@ import { workspace } from "@/lib/workspace";
 import { PageEditor } from "@/editor/PageEditor";
 import { mapTree, parentPath } from "@/editor/tree-utils";
 import { TrashPage } from "./TrashPage";
+import { RowPage } from "./RowPage";
+import type { OpenRow } from "@/editor/tables/RowView";
+import { TemplatesPage } from "./TemplatesPage";
 import { WelcomePage } from "./WelcomePage";
 import { FeedbackDialog, useFeedbackEnabled } from "./FeedbackDialog";
 import { StartupLoader } from "./StartupLoader";
@@ -42,6 +45,10 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
     flushEditor.current = flush;
   }, []);
   const [trashOpen, setTrashOpen] = useState(false);
+  // A table row opened as a full page (D80), and the rows opened before it (for Back).
+  const [rowPages, setRowPages] = useState<OpenRow[]>([]);
+  const rowPage = rowPages[rowPages.length - 1] ?? null;
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(firstVisit);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const feedbackEnabled = useFeedbackEnabled();
@@ -161,6 +168,8 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
           await flushEditor.current?.();
           setAssistantPage((old) => ({ path, n: (old?.n ?? 0) + 1 }));
           setTrashOpen(false);
+          setRowPages([]);
+          setTemplatesOpen(false);
           setWelcomeOpen(false);
           setAiOpen(true);
         } catch (e) {
@@ -169,12 +178,14 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
       })();
       return;
     }
-    if (trashOpen || aiOpen || welcomeOpen) {
+    if (trashOpen || templatesOpen || aiOpen || welcomeOpen) {
       // The editor was unmounted; fetch the saved body even when the path is unchanged.
       void loadPage(path).then((page) => {
         if (page) {
           setSelectedPath(path);
           setTrashOpen(false);
+          setRowPages([]);
+          setTemplatesOpen(false);
           setAiOpen(false);
           setWelcomeOpen(false);
         }
@@ -190,6 +201,8 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
     lastSavedHashRef.current = page.hash;
     setSelectedPath(path);
     setTrashOpen(false);
+    setRowPages([]);
+    setTemplatesOpen(false);
     setAiOpen(false);
     setWelcomeOpen(false);
     setSettingsPath(path);
@@ -384,6 +397,8 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
           onAI={() =>
             openFullScreen(() => {
               setTrashOpen(false);
+              setRowPages([]);
+              setTemplatesOpen(false);
               setWelcomeOpen(false);
               setAiOpen(true);
             })
@@ -393,6 +408,8 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
             else {
               setAiOpen(false);
               setTrashOpen(false);
+              setRowPages([]);
+              setTemplatesOpen(false);
             }
           }}
           askHost={setAskHost}
@@ -409,17 +426,29 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
             openFullScreen(() => {
               setAiOpen(false);
               setTrashOpen(false);
+              setRowPages([]);
+              setTemplatesOpen(false);
               setWelcomeOpen(true);
             })
           }
-          welcomeActive={welcomeOpen && !aiOpen && !trashOpen}
+          welcomeActive={welcomeOpen && !aiOpen && !trashOpen && !templatesOpen}
+          onTemplates={() =>
+            openFullScreen(() => {
+              setAiOpen(false);
+              setWelcomeOpen(false);
+              setTrashOpen(false);
+              setRowPages([]);
+              setTemplatesOpen(true);
+            })
+          }
+          templatesActive={templatesOpen}
           onFeedback={feedbackEnabled ? () => setFeedbackOpen(true) : undefined}
           beforeMove={async () => {
             await flushEditor.current?.();
           }}
           onMoved={handleMoved}
           tree={knowledgeTree(tree)}
-          selectedPath={trashOpen || aiOpen || welcomeOpen ? null : selectedPath}
+          selectedPath={trashOpen || templatesOpen || aiOpen || welcomeOpen ? null : selectedPath}
           onSelect={navigatePage}
           onNavigateSettings={navigateSettings}
           onTreeChanged={() => void loadTree()}
@@ -429,16 +458,22 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
         />
       </div>
       <div className="relative min-w-0 flex-1">
-        {activePage && !chatOpen && !trashOpen && !aiOpen && !welcomeOpen && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="absolute right-4 top-2 z-10 bg-background"
-            onClick={() => setChatOpen(true)}
-          >
-            <Orbit size={14} /> Ask AI
-          </Button>
-        )}
+        {activePage &&
+          !rowPage &&
+          !chatOpen &&
+          !trashOpen &&
+          !templatesOpen &&
+          !aiOpen &&
+          !welcomeOpen && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="absolute right-4 top-2 z-10 bg-background"
+              onClick={() => setChatOpen(true)}
+            >
+              <Orbit size={14} /> Ask AI
+            </Button>
+          )}
         <div className={aiOpen ? "h-full" : "hidden"}>
           <AIPage
             assistantState={assistantState}
@@ -453,7 +488,25 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
             settingsVersion={settingsVersion}
           />
         </div>
-        {aiOpen ? null : trashOpen ? (
+        {aiOpen ? null : rowPage ? (
+          <RowPage
+            row={rowPage}
+            onBack={() => setRowPages((s) => s.slice(0, -1))}
+            onOpen={(row) => setRowPages((s) => [...s, row])}
+            onNavigate={(path) => {
+              setRowPages([]);
+              navigatePage(path);
+            }}
+          />
+        ) : templatesOpen ? (
+          <TemplatesPage
+            currentPage={activePage ? { path: activePage.path, title: activePage.title } : null}
+            onCreated={(path) => {
+              void loadTree();
+              navigatePage(path);
+            }}
+          />
+        ) : trashOpen ? (
           <TrashPage
             version={tree}
             onRestored={(path) => {
@@ -473,6 +526,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
             tree={tree}
             refreshNonce={refreshNonce}
             onNavigate={navigatePage}
+            onOpenRow={(table, id) => openFullScreen(() => setRowPages([{ table, id }]))}
             onTitleChange={handleTitleChange}
             onIconChange={(icon) => activePage && handleIconChanged(activePage.path, icon)}
             onRenamed={handleRenamed}
@@ -489,25 +543,33 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
             onStudio={(section) => {
               setStudioSection((old) => ({ section, n: (old?.n ?? 0) + 1 }));
               setTrashOpen(false);
+              setRowPages([]);
+              setTemplatesOpen(false);
               setAiOpen(true);
             }}
             onFeedback={feedbackEnabled ? () => setFeedbackOpen(true) : undefined}
           />
         )}
       </div>
-      {chatOpen && activePage && !trashOpen && !aiOpen && !welcomeOpen && (
-        <ChatPanel
-          key={activePage.path}
-          path={activePage.path}
-          title={activePage.title}
-          onClose={() => setChatOpen(false)}
-          onSettings={openSettings}
-          onNavigate={navigatePage}
-          settingsVersion={settingsVersion}
-          selection={selection}
-          request={aiRequest}
-        />
-      )}
+      {chatOpen &&
+        activePage &&
+        !rowPage &&
+        !trashOpen &&
+        !templatesOpen &&
+        !aiOpen &&
+        !welcomeOpen && (
+          <ChatPanel
+            key={activePage.path}
+            path={activePage.path}
+            title={activePage.title}
+            onClose={() => setChatOpen(false)}
+            onSettings={openSettings}
+            onNavigate={navigatePage}
+            settingsVersion={settingsVersion}
+            selection={selection}
+            request={aiRequest}
+          />
+        )}
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
       {modelsOpen && (
         <ModelsPage

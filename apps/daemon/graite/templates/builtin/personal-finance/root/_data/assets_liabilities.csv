@@ -1,0 +1,5 @@
+id;name;kind;value;as_of;note
+{{id:al1}};Apartment;Asset;310000;{{date:-90}};Valuation letter
+{{id:al2}};Mortgage;Liability;228000;{{date:-30}};
+{{id:al3}};Car;Asset;7500;{{date:-60}};
+{{id:al4}};Index fund;Asset;12400;{{date:-10}};Broker app

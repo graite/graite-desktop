@@ -47,6 +47,7 @@ import { PagePicker } from "./PagePicker";
 import { findNode, linkTarget, resolveTarget, type FlatPage } from "./tree-utils";
 import type { PickedPage } from "./slash-menu";
 import { sourceFor, tables } from "@/lib/tables";
+import { databaseBody } from "./tables/setup";
 
 export interface PageEditorProps {
   settingsRequested?: boolean;
@@ -58,6 +59,8 @@ export interface PageEditorProps {
   /** Bump to re-apply `page.body` (external change). */
   refreshNonce: number;
   onNavigate: (path: string) => void;
+  /** Open a table row as a full page (D80). */
+  onOpenRow?: (table: string, id: string) => void;
   onTitleChange: (title: string) => void;
   onIconChange: (icon: string | null) => void;
   /** The daemon renamed the folder (title change): old path -> new path. */
@@ -211,6 +214,7 @@ export function PageEditor({
   tree,
   refreshNonce,
   onNavigate,
+  onOpenRow,
   onTitleChange,
   onIconChange,
   onRenamed,
@@ -268,6 +272,16 @@ export function PageEditor({
   }, []);
   const syncingRef = useRef(false);
   const dirtyRef = useRef(false);
+  // Bumped on every edit, so a save only clears `dirty` when nothing was typed meanwhile.
+  const editsRef = useRef(0);
+  // Page writes run one at a time: each needs the hash the previous one returned, or the
+  // daemon refuses it as a conflict (a save still in flight when the next one starts).
+  const writesRef = useRef<Promise<unknown>>(Promise.resolve());
+  const queued = useCallback(<T,>(write: () => Promise<T>): Promise<T> => {
+    const next = writesRef.current.then(write, write);
+    writesRef.current = next.catch(() => {});
+    return next;
+  }, []);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Renames run one at a time: each moves the folder, so the next one needs the new path.
@@ -384,39 +398,49 @@ export function PageEditor({
     }
   }, [tree, editor]);
 
-  const save = useCallback(async () => {
+  /** Write the editor's content now (queued after any write in flight), if it has changes. */
+  const writeBody = useCallback(async () => {
+    // A rename moves the folder: wait for it outside the queue (the rename is queued too).
     await titleCommitRef.current;
-    const path = pathRef.current;
-    const markdown = fromBlocks(editor.document as unknown as Parameters<typeof fromBlocks>[0]);
-    try {
-      const { hash } = await pages.put(path, markdown, baseHashRef.current);
+    return queued(async () => {
+      if (!dirtyRef.current) return;
+      const edits = editsRef.current;
+      const markdown = fromBlocks(editor.document as unknown as Parameters<typeof fromBlocks>[0]);
+      const { hash } = await pages.put(pathRef.current, markdown, baseHashRef.current);
       baseHashRef.current = hash;
-      dirtyRef.current = false;
+      if (editsRef.current === edits) dirtyRef.current = false;
       markDisk(markdown);
       onSaved(hash);
+    });
+  }, [editor, onSaved, markDisk, queued]);
+
+  const save = useCallback(async () => {
+    try {
+      await writeBody();
     } catch (e) {
       if (e instanceof ConflictError) setConflict({ hash: e.hash, body: e.body });
       else toast.error(`Save failed: ${(e as Error).message}`);
     }
-  }, [editor, onSaved, markDisk]);
+  }, [writeBody]);
 
   // Title: debounced rename (the daemon renames the folder), flushed on blur/Enter.
   const commitTitle = useCallback(
     (value: string) => {
-      const run = async () => {
-        const oldPath = pathRef.current;
-        const updated = await pages.patch(oldPath, { title: value.trim() || "Untitled" });
-        pathRef.current = updated.path;
-        baseHashRef.current = updated.hash;
-        onSaved(updated.hash);
-        if (updated.path !== oldPath) onRenamed(oldPath, updated.path);
-        onTreeChanged();
-      };
+      const run = () =>
+        queued(async () => {
+          const oldPath = pathRef.current;
+          const updated = await pages.patch(oldPath, { title: value.trim() || "Untitled" });
+          pathRef.current = updated.path;
+          baseHashRef.current = updated.hash;
+          onSaved(updated.hash);
+          if (updated.path !== oldPath) onRenamed(oldPath, updated.path);
+          onTreeChanged();
+        });
       const done = titleCommitRef.current.then(run);
       titleCommitRef.current = done.catch(() => {});
       return done;
     },
-    [onSaved, onRenamed, onTreeChanged],
+    [onSaved, onRenamed, onTreeChanged, queued],
   );
 
   useEffect(() => {
@@ -427,14 +451,7 @@ export function PageEditor({
         titleTimerRef.current = null;
         await commitTitle(title);
       }
-      await titleCommitRef.current;
-      if (!dirtyRef.current) return;
-      const markdown = fromBlocks(editor.document as unknown as Parameters<typeof fromBlocks>[0]);
-      const saved = await pages.put(pathRef.current, markdown, baseHashRef.current);
-      baseHashRef.current = saved.hash;
-      dirtyRef.current = false;
-      markDisk(markdown);
-      onSaved(saved.hash);
+      await writeBody();
     };
     flushPendingRef.current = flush;
     registerFlush?.(flush);
@@ -442,22 +459,24 @@ export function PageEditor({
       flushPendingRef.current = null;
       registerFlush?.(null);
     };
-  }, [registerFlush, editor, onSaved, title, commitTitle, markDisk]);
+  }, [registerFlush, title, commitTitle, writeBody]);
 
   const saveProperties = useCallback(
     async (fields: PageProperty[]) => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-      const markdown = fromBlocks(editor.document as unknown as Parameters<typeof fromBlocks>[0]);
-      const saved = await pages.put(pathRef.current, markdown, baseHashRef.current);
-      baseHashRef.current = saved.hash;
-      dirtyRef.current = false;
-      markDisk(markdown);
-      const result = await workspace.properties(page.id, fields, saved.hash);
-      baseHashRef.current = result.hash;
-      onSaved(result.hash);
-      return result;
+      return queued(async () => {
+        const markdown = fromBlocks(editor.document as unknown as Parameters<typeof fromBlocks>[0]);
+        const saved = await pages.put(pathRef.current, markdown, baseHashRef.current);
+        baseHashRef.current = saved.hash;
+        dirtyRef.current = false;
+        markDisk(markdown);
+        const result = await workspace.properties(page.id, fields, saved.hash);
+        baseHashRef.current = result.hash;
+        onSaved(result.hash);
+        return result;
+      });
     },
-    [editor, page.id, onSaved, markDisk],
+    [editor, page.id, onSaved, markDisk, queued],
   );
 
   const moveMedia = useCallback(
@@ -472,17 +491,21 @@ export function PageEditor({
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       editor.isEditable = false;
       try {
-        const markdown = fromBlocks(editor.document as unknown as Parameters<typeof fromBlocks>[0]);
-        const saved = await pages.put(pathRef.current, markdown, baseHashRef.current);
-        baseHashRef.current = saved.hash;
-        dirtyRef.current = false;
-        const result = await media.move(
-          page.id,
-          targetPath,
-          block.props.file,
-          fromBlocks([block] as unknown as Parameters<typeof fromBlocks>[0]),
-          saved.hash,
-        );
+        const result = await queued(async () => {
+          const markdown = fromBlocks(
+            editor.document as unknown as Parameters<typeof fromBlocks>[0],
+          );
+          const saved = await pages.put(pathRef.current, markdown, baseHashRef.current);
+          baseHashRef.current = saved.hash;
+          dirtyRef.current = false;
+          return media.move(
+            page.id,
+            targetPath,
+            block.props.file,
+            fromBlocks([block] as unknown as Parameters<typeof fromBlocks>[0]),
+            saved.hash,
+          );
+        });
         syncingRef.current = true;
         if (editor.getBlock(blockId)) editor.removeBlocks([blockId]);
         syncingRef.current = false;
@@ -498,7 +521,7 @@ export function PageEditor({
         editor.isEditable = true;
       }
     },
-    [editor, page.id, onSaved, onTreeChanged, onNavigate, markDisk],
+    [editor, page.id, onSaved, onTreeChanged, onNavigate, markDisk, queued],
   );
 
   const scheduleSave = useCallback(() => {
@@ -511,6 +534,7 @@ export function PageEditor({
   const handleChange = useCallback(() => {
     if (syncingRef.current) return;
     dirtyRef.current = true;
+    editsRef.current++;
     const doc = editor.document as GraiteBlock[];
     setHasContent(!isDocumentEmpty(doc));
     setHasView(hasPageView(doc));
@@ -599,6 +623,8 @@ export function PageEditor({
 
   const onTreeChangedRef = useRef(onTreeChanged);
   onTreeChangedRef.current = onTreeChanged;
+  const onNavigateRef = useRef(onNavigate);
+  onNavigateRef.current = onNavigate;
   const slashDeps = useMemo(
     () => ({
       createChildPage: async (): Promise<PickedPage> => {
@@ -613,6 +639,16 @@ export function PageEditor({
       onTreeChanged: () => onTreeChangedRef.current(),
       importTable: async (file: File) =>
         sourceFor(pathRef.current, await tables.import(pathRef.current, file)),
+      createDatabasePage: async (): Promise<PickedPage> => {
+        const child = await pages.create({ parentPath: pathRef.current });
+        const table = await tables.create(child.path, "Untitled", ["name", "notes"]);
+        const views = [
+          { name: "Table", source: sourceFor(child.path, table), view: "table" as const },
+        ];
+        await pages.put(child.path, databaseBody(views), child.hash);
+        return { path: child.path, title: child.title, icon: child.icon, target: child.title };
+      },
+      navigate: (path: string) => onNavigateRef.current(path),
     }),
     [],
   );
@@ -865,6 +901,7 @@ export function PageEditor({
               pageId: page.id,
               pagePath: page.path,
               navigate: onNavigate,
+              openRow: onOpenRow,
               onTreeChanged,
               moveMedia,
               movePage: onMovePage,

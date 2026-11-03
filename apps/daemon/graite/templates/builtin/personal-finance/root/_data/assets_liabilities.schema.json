@@ -1,0 +1,24 @@
+{
+  "id": "{{table:assets_liabilities}}",
+  "display": "name",
+  "columns": {
+    "kind": {
+      "type": "single_select",
+      "options": [
+        "Asset",
+        "Liability"
+      ],
+      "colors": {
+        "Asset": "green",
+        "Liability": "red"
+      }
+    },
+    "value": {
+      "type": "currency",
+      "currency": "EUR"
+    },
+    "as_of": {
+      "type": "date"
+    }
+  }
+}

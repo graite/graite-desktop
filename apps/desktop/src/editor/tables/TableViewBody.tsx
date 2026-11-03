@@ -5,8 +5,13 @@ import {
   Check,
   ChevronRight,
   Code2,
+  Columns3,
+  Info,
+  Link2,
   EyeOff,
+  Loader2,
   Plus,
+  Sigma,
   SlidersHorizontal,
   Sparkles,
   Table2,
@@ -21,43 +26,55 @@ import type { GridSelection, Rectangle } from "@glideapps/glide-data-grid";
 import { ApiError } from "@/lib/api";
 import {
   describeWarning,
-  sourceFor,
   tables,
+  type FileLink,
   type RelationLink,
   type RowOp,
+  type TableRow,
   type TableColumn,
-  type TableInfo,
 } from "@/lib/tables";
 import type { PageProperty } from "@/lib/workspace";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MediaContext } from "../media/context";
 import type { GraiteEditor } from "../schema";
 import { ArrangeItems } from "../views/ArrangeItems";
+import { SortButton } from "../views/SortButton";
 import { AddViewFilter, ViewFilterPills } from "../views/ViewFilters";
 import { ViewSearch } from "../views/ViewSearch";
 import type { ViewFilter } from "../views/settings";
 import {
   asProperty,
   CHOICE_TYPES,
-  CURRENCIES,
+  formatNumber,
   NUMERIC_TYPES,
+  shownAs,
   TABLE_TYPES,
   TypeIcon,
   typeLabel,
   type TableType,
 } from "./columns";
 import { filterToRules, rulesToFilter } from "./filters";
+import { FormulaEditor, type FormulaChoice } from "./FormulaEditor";
 import { RelationSetup, type RelationChoice } from "./RelationSetup";
 import { RowPanel, type OpenRow } from "./RowPanel";
+import { uploadAll } from "./linkcells";
 import { emptySelection, TableGrid } from "./TableGrid";
-import { TablePicker } from "./TablePicker";
-import { TableTabs } from "./TableTabs";
+import { DatabaseSetup } from "./DatabaseSetup";
+import { CurrencyList, CurrencyRow, DecimalsChoice } from "./NumberFormat";
+import { ViewTabs } from "./ViewTabs";
+import { BoardView } from "../views/BoardView";
+import { ListView } from "../views/ListView";
+import { orderedNames } from "../views/settings";
+import { BOARD_ROWS, defaultShown, groupColumns, useTableBoard } from "./tableBoard";
+import { cleanView, parseViews, type TableLayout, type TableViewDef } from "./views";
 import { useTableRows } from "./useTableRows";
 import { useProposals } from "@/review/useProposals";
 import "../views/views.css";
 import "./tables.css";
 
 export interface TableViewProps {
+  /** JSON list of named views (D79); "" for a block still in the older source/tabs form. */
+  views: string;
   source: string;
   view: string;
   filter: string;
@@ -69,22 +86,24 @@ export interface TableViewProps {
   tabs: string;
 }
 
-interface TabView {
-  filter?: string;
-  sort?: string | string[];
-  columns?: string[];
-}
+/** Set once the viewer hides the "add fields, link databases" tip on a new database. */
+const HINT_KEY = "graite.tables.fieldsTip";
 
-function tabViews(json: string): Record<string, TabView> {
-  if (!json) return {};
-  try {
-    const value: unknown = JSON.parse(json);
-    return value && typeof value === "object" && !Array.isArray(value)
-      ? (value as Record<string, TabView>)
-      : {};
-  } catch {
-    return {};
-  }
+/** An older block (one `source`, D68) read as a single view; written as `views:` on its first
+ *  change, when any `tabs:` it kept for other tables are dropped (D82). */
+function legacyView(raw: TableViewProps): TableViewDef[] {
+  if (!raw.source) return [];
+  const layout = (["table", "board", "list"] as const).find((k) => k === raw.view);
+  return [
+    {
+      name: "Table",
+      source: raw.source,
+      ...(layout && layout !== "table" ? { view: layout } : {}),
+      filter: raw.filter || undefined,
+      sort: raw.sort ? (list(raw.sort) ?? raw.sort) : undefined,
+      columns: list(raw.columns) ?? undefined,
+    },
+  ];
 }
 
 function list(json: string): string[] | null {
@@ -111,29 +130,60 @@ function firstSort(sort: string): [string, boolean] | null {
   return m ? [m[1]!.replace(/^`|`$/g, ""), m[2]!.toLowerCase() === "desc"] : [first, false];
 }
 
+/** What a new column needs besides its name and type. */
+interface FieldSetup {
+  relation?: RelationChoice;
+  formula?: FormulaChoice;
+}
+
 /** Name and type of a new column: used by the "+" after the last column and by Fields.
- *  A relation asks next which table it links to. */
+ *  A relation asks next which table it links to, a formula for its expression. */
 function NewFieldForm({
   table,
+  columns,
+  link = false,
   onCreate,
   onCancel,
 }: {
   table: { path: string; name: string };
-  onCreate: (name: string, type: TableType, relation?: RelationChoice) => void;
+  /** The table's fields, which a formula can read. */
+  columns: TableColumn[];
+  /** Start at choosing the database to link to; the field is named after it. */
+  link?: boolean;
+  onCreate: (name: string, type: TableType, setup?: FieldSetup) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState("");
   const [type, setType] = useState<TableType>("text");
-  const [linking, setLinking] = useState(false);
+  const [linking, setLinking] = useState(link);
+  const [writing, setWriting] = useState(false);
+  if (writing)
+    return (
+      <div className="table-new-field">
+        <small>New formula “{name.trim()}”</small>
+        <FormulaEditor
+          path={table.path}
+          columns={columns}
+          column={null}
+          submit="Create field"
+          onSubmit={(formula) => onCreate(name.trim(), "formula", { formula })}
+          onCancel={() => setWriting(false)}
+        />
+      </div>
+    );
   if (linking)
     return (
       <div className="table-new-field">
-        <small>New field “{name.trim()}”</small>
+        {name.trim() && <small>New field “{name.trim()}”</small>}
         <RelationSetup
           table={table}
           submit="Create field"
-          onSubmit={(choice) => onCreate(name.trim(), "relation", choice)}
-          onCancel={() => setLinking(false)}
+          onSubmit={(relation) =>
+            onCreate(name.trim() || freeField(columns, tableName(relation.target)), "relation", {
+              relation,
+            })
+          }
+          onCancel={() => (link ? onCancel() : setLinking(false))}
         />
       </div>
     );
@@ -144,6 +194,7 @@ function NewFieldForm({
         e.preventDefault();
         if (!name.trim()) return;
         if (type === "relation") setLinking(true);
+        else if (type === "formula") setWriting(true);
         else onCreate(name.trim(), type);
       }}
     >
@@ -178,7 +229,7 @@ function NewFieldForm({
           Cancel
         </button>
         <button type="submit" className="table-button solid" disabled={!name.trim()}>
-          {type === "relation" ? "Next" : "Create field"}
+          {type === "relation" || type === "formula" ? "Next" : "Create field"}
         </button>
       </div>
     </form>
@@ -187,14 +238,39 @@ function NewFieldForm({
 
 export function TableViewBody({
   id,
-  props,
+  props: raw,
   editor,
 }: {
   id: string;
   props: TableViewProps;
   editor: GraiteEditor;
 }) {
-  const { pagePath } = useContext(MediaContext);
+  // Named views (D79): the shown view's filter, sort and columns stand in for the block's own,
+  // so everything below reads `props` the same way in both forms.
+  const defs = useMemo(() => {
+    const views = parseViews(raw.views);
+    return views.length ? views : legacyView(raw);
+  }, [raw]);
+  const named = defs.length > 0;
+  const [active, setActive] = useState(0);
+  const at = Math.min(active, Math.max(0, defs.length - 1));
+  const current: TableViewDef | null = named ? defs[at]! : null;
+  const props: TableViewProps = useMemo(
+    () =>
+      current
+        ? {
+            ...raw,
+            source: current.source,
+            filter: current.filter ?? "",
+            sort: Array.isArray(current.sort) ? JSON.stringify(current.sort) : (current.sort ?? ""),
+            columns: current.columns ? JSON.stringify(current.columns) : "",
+            tabs: "",
+          }
+        : raw,
+    [raw, current],
+  );
+  const layout: TableLayout = current?.view ?? "table";
+  const { pagePath, navigate, openRow: openFullRow } = useContext(MediaContext);
   const dismissSurface = useDismissableLayerSurface();
   const [path, setPath] = useState<string | null>(null);
   const [missing, setMissing] = useState("");
@@ -204,14 +280,28 @@ export function TableViewBody({
   const [menu, setMenu] = useState<{ column: TableColumn; bounds: Rectangle } | null>(null);
   const [rename, setRename] = useState("");
   const [propsOpen, setPropsOpen] = useState(false);
-  const [addingField, setAddingField] = useState(false);
+  // The Fields menu's form: a new field, or a link to another database (D82).
+  const [addingField, setAddingField] = useState<false | "field" | "link">(false);
   const [openFilter, setOpenFilter] = useState<number | null>(null);
   const [customDraft, setCustomDraft] = useState(props.filter);
   const [fieldAnchor, setFieldAnchor] = useState<DOMRect | null>(null);
   const [openRow, setOpenRow] = useState<OpenRow | null>(null);
+  // A new card or list row being named.
+  const [draftRow, setDraftRow] = useState(false);
   // Switching a column to Relation: the setup opens in its own popover under the header.
   const [linking, setLinking] = useState<{ column: TableColumn; bounds: Rectangle } | null>(null);
+  // Editing a formula column's expression, in its own popover under the header (D75).
+  const [editing, setEditing] = useState<{ column: TableColumn; bounds: Rectangle } | null>(null);
   const [confirmDuplicates, setConfirmDuplicates] = useState(false);
+  // The column menu shows the currency list in place of its items.
+  const [pickingCurrency, setPickingCurrency] = useState(false);
+  const [hintSeen, setHintSeen] = useState(() => {
+    try {
+      return localStorage.getItem(HINT_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
   const [confirmType, setConfirmType] = useState<{
     column: TableColumn;
     type: TableType;
@@ -221,9 +311,43 @@ export function TableViewBody({
     examples: string[];
   } | null>(null);
 
-  const update = useCallback(
-    (next: Partial<TableViewProps>) => editor.updateBlock(id, { type: "tableView", props: next }),
+  /** Write the views (the block then holds only them), and show `select` when given. */
+  const writeViews = useCallback(
+    (next: TableViewDef[], select?: number) => {
+      editor.updateBlock(id, {
+        type: "tableView",
+        props: {
+          views: JSON.stringify(next.map(cleanView)),
+          source: "",
+          view: "",
+          filter: "",
+          sort: "",
+          columns: "",
+          tabs: "",
+          embed: false,
+        },
+      });
+      if (select !== undefined) setActive(select);
+    },
     [editor, id],
+  );
+  const patchView = useCallback(
+    (patch: Partial<TableViewDef>) =>
+      writeViews(defs.map((v, n) => (n === at ? { ...v, ...patch } : v))),
+    [defs, at, writeViews],
+  );
+  const update = useCallback(
+    (next: Partial<TableViewProps>) => {
+      if (!named) return editor.updateBlock(id, { type: "tableView", props: next });
+      const patch: Partial<TableViewDef> = {};
+      if (next.source) patch.source = next.source;
+      if ("filter" in next) patch.filter = next.filter || undefined;
+      if ("sort" in next) patch.sort = next.sort ? (list(next.sort) ?? next.sort) : undefined;
+      if ("columns" in next)
+        patch.columns = next.columns ? (list(next.columns) ?? undefined) : undefined;
+      if (Object.keys(patch).length) patchView(patch);
+    },
+    [editor, id, named, patchView],
   );
 
   useEffect(() => {
@@ -243,13 +367,28 @@ export function TableViewBody({
     () => ({
       filter: props.filter || undefined,
       sort: sortText(props.sort) || undefined,
-      columns: shown?.length ? shown : undefined,
+      // A board or list needs every field (its group, its card fields), not the table's.
+      columns: layout === "table" && shown?.length ? shown : undefined,
       search: search.trim() || undefined,
     }),
     // `shown` is derived from props.columns.
-    [props.filter, props.sort, props.columns, search],
+    [props.filter, props.sort, props.columns, search, layout],
   );
   const { meta, error, row, ensure, reload, patch, expectOwn } = useTableRows(path, query);
+
+  // A short loader when the view or table changes, so the switch reads as one (it is fast).
+  const viewKey = `${at}|${props.source}|${layout}`;
+  const [switching, setSwitching] = useState(false);
+  const firstView = useRef(true);
+  useEffect(() => {
+    if (firstView.current) {
+      firstView.current = false;
+      return;
+    }
+    setSwitching(true);
+    const timer = setTimeout(() => setSwitching(false), 280);
+    return () => clearTimeout(timer);
+  }, [viewKey]);
 
   // AI row changes to this table that wait for review: their rows are tinted in the grid.
   const { proposals } = useProposals(pagePath ? { page_path: pagePath, status: "pending" } : null);
@@ -293,7 +432,10 @@ export function TableViewBody({
 
   // Filter pills over the fence's filter text. Rules still missing a value live only here.
   const numeric = useCallback(
-    (field: string) => NUMERIC_TYPES.includes(columns.find((c) => c.name === field)?.type ?? ""),
+    (field: string) => {
+      const column = columns.find((c) => c.name === field);
+      return NUMERIC_TYPES.includes(column ? shownAs(column).type : "");
+    },
     [columns],
   );
   const parsed = useMemo(() => filterToRules(props.filter), [props.filter]);
@@ -312,7 +454,8 @@ export function TableViewBody({
     if (text !== props.filter) update({ filter: text });
   };
   const addRule = (field: string) => {
-    const type = columns.find((c) => c.name === field)?.type ?? "text";
+    const column = columns.find((c) => c.name === field);
+    const type = column ? shownAs(column).type : "text";
     const op: ViewFilter["op"] = [...CHOICE_TYPES, ...NUMERIC_TYPES, "checkbox", "date"].includes(
       type,
     )
@@ -366,6 +509,23 @@ export function TableViewBody({
     [reload, failed, expectOwn],
   );
 
+  const group = current?.group;
+  const cardFields = current?.show ?? (meta ? defaultShown(meta, group) : []);
+  const board = useTableBoard({ meta, row, ensure, group, show: cardFields, write });
+  const boardLayout = {
+    order: current?.boards?.order ?? [],
+    hidden: current?.boards?.hidden ?? [],
+  };
+  /** Table, board or list. An older block becomes a views block on its first other layout. */
+  const setLayout = (kind: TableLayout) => {
+    const patchFor = (g?: string): Partial<TableViewDef> => ({
+      view: kind,
+      ...(kind === "board" && !g && groupColumns(meta)[0]
+        ? { group: groupColumns(meta)[0]!.name }
+        : {}),
+    });
+    if (named) patchView(patchFor(current?.group));
+  };
   const setSchema = (name: string, spec: Record<string, unknown>) =>
     path && void run(() => tables.schema(path, { columns: { [name]: spec } }));
 
@@ -392,34 +552,25 @@ export function TableViewBody({
   const setShown = (names: string[] | null) =>
     update({ columns: names ? JSON.stringify(names) : "" });
 
-  /** New fields on `table` stay in sight: a saved field list (this tab's `columns`, or
-   *  another tab's in `tabs`) only shows the fields it names, so add them to it. */
+  /** New fields on this table stay in sight: a saved field list only shows the fields it
+   *  names, so add them to it. (Another table's views keep their own lists.) */
   const reveal = (table: string, names: string[]) => {
-    if (!names.length || !pagePath) return;
-    if (table === path) {
-      if (shown) setShown([...shown, ...names.filter((n) => !shown.includes(n))]);
-      return;
-    }
-    const [page, file] = table.split("/_data/");
-    if (!page || !file) return;
-    const key = sourceFor(pagePath, {
-      path: table,
-      page_path: page,
-      name: file.replace(/\.csv$/i, ""),
-    });
-    const views = tabViews(props.tabs);
-    const saved = views[key]?.columns;
-    if (!saved?.length) return;
-    views[key] = { ...views[key], columns: [...saved, ...names.filter((n) => !saved.includes(n))] };
-    update({ tabs: JSON.stringify(views) });
+    if (!names.length || table !== path) return;
+    if (shown) setShown([...shown, ...names.filter((n) => !shown.includes(n))]);
   };
 
-  const addField = (name: string, type: TableType, relation?: RelationChoice) => {
+  const addField = (name: string, type: TableType, setup: FieldSetup = {}) => {
     if (!path) return;
+    const { relation, formula } = setup;
     setAddingField(false);
     setPropsOpen(false);
     setFieldAnchor(null);
     void run(async () => {
+      if (formula) {
+        // A formula lives in the schema only; the CSV gets no column (D75).
+        await tables.schema(path, { columns: { [name]: { type: "formula", ...formula } } });
+        return;
+      }
       if (relation) {
         await tables.addRelation(
           path,
@@ -439,32 +590,6 @@ export function TableViewBody({
     reveal(path, relation?.reverse && relation.target === path ? [name, relation.reverse] : [name]);
   };
 
-  /** Show another table in this block, keeping each table's view in `tabs`. */
-  const switchTo = (table: Pick<TableInfo, "path" | "page_path" | "name">) => {
-    if (!pagePath || !meta || table.path === meta.path) return;
-    const views = tabViews(props.tabs);
-    const current: TabView = {};
-    if (props.filter) current.filter = props.filter;
-    if (props.sort) current.sort = list(props.sort) ?? props.sort;
-    if (props.columns) current.columns = list(props.columns) ?? [];
-    const here = sourceFor(pagePath, meta);
-    if (Object.keys(current).length) views[here] = current;
-    else delete views[here];
-    const next = sourceFor(pagePath, table);
-    const view = views[next] ?? {};
-    delete views[next];
-    setSearch("");
-    setSelection(emptySelection());
-    update({
-      source: next,
-      filter: view.filter ?? "",
-      sort: Array.isArray(view.sort) ? JSON.stringify(view.sort) : (view.sort ?? ""),
-      columns: view.columns ? JSON.stringify(view.columns) : "",
-      tabs: Object.keys(views).length ? JSON.stringify(views) : "",
-      embed: false,
-    });
-  };
-
   const openLink = useCallback((column: TableColumn, link: RelationLink) => {
     const target = column.target;
     if (!target) return;
@@ -473,6 +598,38 @@ export function TableViewBody({
     setSelection(emptySelection());
     setTimeout(() => setOpenRow({ table: target, id: link.id }), 0);
   }, []);
+
+  const openFile = useCallback(
+    (table: string, file: FileLink) =>
+      void tables.openFile(table, file).catch((e: Error) => toast.error(e.message)),
+    [],
+  );
+  const openPage = useCallback((target: string) => navigate?.(target), [navigate]);
+
+  /** Files dropped on a file cell: upload them, then add them to the cell (D76). */
+  const dropFiles = useCallback(
+    async (record: TableRow, column: TableColumn, files: File[]) => {
+      if (!path || !meta) return;
+      const single = column.cardinality === "one";
+      const added = await uploadAll(path, single ? files.slice(0, 1) : files);
+      if (!added.length) return;
+      const at = meta.visible.indexOf(column.name);
+      const current = (record.cells[at] as FileLink[] | null) ?? [];
+      const next = single ? added : [...current, ...added];
+      void write(
+        [
+          {
+            op: "update",
+            id: record.id,
+            values: { [column.name]: next },
+            base: { [column.name]: current },
+          },
+        ],
+        [[record.id, at, next]],
+      );
+    },
+    [path, meta, write],
+  );
 
   /** Make an existing column a relation, first asking when some values are no row there. */
   const convertToRelation = async (column: TableColumn, choice: RelationChoice) => {
@@ -552,7 +709,7 @@ export function TableViewBody({
   if (!props.source)
     return (
       <div ref={dismissSurface} className="page-view table-view" contentEditable={false}>
-        <TablePicker onPick={(source) => update({ source })} />
+        <DatabaseSetup blockId={id} onViews={(views) => writeViews(views, 0)} />
       </div>
     );
 
@@ -600,7 +757,22 @@ export function TableViewBody({
     <div ref={dismissSurface} className="page-view table-view" contentEditable={false}>
       <div className="view-toolbar">
         {meta ? (
-          <TableTabs meta={meta} onSwitch={switchTo} onChanged={reload} />
+          pagePath ? (
+            <ViewTabs
+              pagePath={pagePath}
+              views={defs}
+              active={at}
+              meta={meta}
+              onSelect={(index) => {
+                setActive(index);
+                setSearch("");
+                setSelection(emptySelection());
+              }}
+              onChange={writeViews}
+              onLayout={setLayout}
+              onTableChanged={reload}
+            />
+          ) : null
         ) : (
           <span className="table-title">
             <Table2 size={14} />
@@ -612,17 +784,63 @@ export function TableViewBody({
           {!rules.length && !custom && (
             <AddViewFilter fields={fields} onAdd={addRule} titleField={false} />
           )}
-          {sorted && (
-            <button
-              type="button"
-              className="view-button table-sort-chip"
-              title="Clear sort"
-              onClick={() => update({ sort: "" })}
-            >
-              {sorted[1] ? <ArrowDown size={13} /> : <ArrowUp size={13} />}
-              {sorted[0]}
-              <X size={12} />
-            </button>
+          <SortButton
+            fields={columns.map((c) => c.name)}
+            value={sorted && { field: sorted[0], direction: sorted[1] ? "desc" : "asc" }}
+            onChange={(next) => update({ sort: next ? `${next.field} ${next.direction}` : "" })}
+          />
+          {layout === "board" && (
+            <Popover>
+              <PopoverTrigger className="view-button" aria-label="Group by">
+                <Columns3 size={13} />
+                {group ?? "Group by"}
+              </PopoverTrigger>
+              <PopoverContent align="end" className="view-menu">
+                <small>Columns by</small>
+                {groupColumns(meta).map((c) => (
+                  <button
+                    key={c.name}
+                    className="view-menu-item"
+                    onClick={() => patchView({ group: c.name, boards: undefined })}
+                  >
+                    <TypeIcon type={c.type} size={14} />
+                    {c.name}
+                    {c.name === group && <Check size={13} className="ml-auto" />}
+                  </button>
+                ))}
+                {!groupColumns(meta).length && (
+                  <small>Add a status or select field to group by.</small>
+                )}
+                {board.groupField && (
+                  <>
+                    <small>Columns · drag to reorder</small>
+                    <ArrangeItems
+                      names={orderedNames(
+                        [
+                          ...board.groupField.options,
+                          ...(board.source?.rows.map((r) => board.source!.group(r)) ?? []),
+                          "",
+                        ],
+                        boardLayout.order,
+                      )}
+                      label={(name) => <>{name || `No ${board.groupField!.name}`}</>}
+                      shown={(name) => !boardLayout.hidden.includes(name)}
+                      onToggle={(name) =>
+                        patchView({
+                          boards: {
+                            ...boardLayout,
+                            hidden: boardLayout.hidden.includes(name)
+                              ? boardLayout.hidden.filter((n) => n !== name)
+                              : [...boardLayout.hidden, name],
+                          },
+                        })
+                      }
+                      onOrder={(order) => patchView({ boards: { ...boardLayout, order } })}
+                    />
+                  </>
+                )}
+              </PopoverContent>
+            </Popover>
           )}
           <Popover
             open={propsOpen}
@@ -639,41 +857,79 @@ export function TableViewBody({
               {addingField ? (
                 <NewFieldForm
                   table={{ path: path ?? "", name: meta?.name ?? "" }}
+                  columns={columns}
+                  link={addingField === "link"}
                   onCreate={addField}
                   onCancel={() => setAddingField(false)}
                 />
               ) : (
                 <>
-                  <small>Fields in this view · drag to reorder</small>
-                  <ArrangeItems
-                    names={arranged}
-                    label={(name) => (
-                      <>
-                        <TypeIcon type={columns.find((c) => c.name === name)?.type ?? "text"} />
-                        {name}
-                      </>
-                    )}
-                    shown={(name) => visibleNames.includes(name)}
-                    onToggle={(name) =>
-                      setShown(
-                        visibleNames.includes(name)
-                          ? visibleNames.filter((n) => n !== name)
-                          : [...visibleNames, name],
-                      )
-                    }
-                    onOrder={(order) => setShown(order.filter((n) => visibleNames.includes(n)))}
-                  />
-                  {shown && (
+                  <small>
+                    {layout === "table" ? "Fields in this view" : "Shown on cards"} · drag to
+                    reorder
+                  </small>
+                  {layout !== "table" ? (
+                    <ArrangeItems
+                      names={[
+                        ...cardFields,
+                        ...columns.map((c) => c.name).filter((n) => !cardFields.includes(n)),
+                      ]}
+                      label={(name) => (
+                        <>
+                          <TypeIcon type={columns.find((c) => c.name === name)?.type ?? "text"} />
+                          {name}
+                        </>
+                      )}
+                      shown={(name) => cardFields.includes(name)}
+                      onToggle={(name) =>
+                        patchView({
+                          show: cardFields.includes(name)
+                            ? cardFields.filter((n) => n !== name)
+                            : [...cardFields, name],
+                        })
+                      }
+                      onOrder={(order) =>
+                        patchView({ show: order.filter((n) => cardFields.includes(n)) })
+                      }
+                    />
+                  ) : (
+                    <ArrangeItems
+                      names={arranged}
+                      label={(name) => (
+                        <>
+                          <TypeIcon type={columns.find((c) => c.name === name)?.type ?? "text"} />
+                          {name}
+                        </>
+                      )}
+                      shown={(name) => visibleNames.includes(name)}
+                      onToggle={(name) =>
+                        setShown(
+                          visibleNames.includes(name)
+                            ? visibleNames.filter((n) => n !== name)
+                            : [...visibleNames, name],
+                        )
+                      }
+                      onOrder={(order) => setShown(order.filter((n) => visibleNames.includes(n)))}
+                    />
+                  )}
+                  {shown && layout === "table" && (
                     <button className="view-menu-item" onClick={() => setShown(null)}>
                       Show all fields
                     </button>
                   )}
                   <button
                     className="view-menu-item view-menu-add"
-                    onClick={() => setAddingField(true)}
+                    onClick={() => setAddingField("field")}
                   >
                     <Plus size={13} />
                     New field
+                  </button>
+                  <button
+                    className="view-menu-item view-menu-add"
+                    onClick={() => setAddingField("link")}
+                  >
+                    <Link2 size={13} />
+                    Link to another database
                   </button>
                 </>
               )}
@@ -696,6 +952,30 @@ export function TableViewBody({
           )
         )}
       </div>
+      {meta && !hintSeen && columns.length < 3 && !columns.some((c) => c.type === "relation") && (
+        <div className="table-hint">
+          <Info size={13} />
+          <span>
+            Add fields with <b>Fields → New field</b>. To connect rows to another database (say
+            books to authors), use <b>Fields → Link to another database</b>.
+          </span>
+          <button
+            type="button"
+            className="table-hint-close"
+            aria-label="Hide tip"
+            onClick={() => {
+              setHintSeen(true);
+              try {
+                localStorage.setItem(HINT_KEY, "1");
+              } catch {
+                // Storage can be unavailable; the tip then shows again next time.
+              }
+            }}
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
       {meta?.warnings?.map((w) => (
         <div key={w} className="table-warning">
           <TriangleAlert size={13} />
@@ -779,6 +1059,39 @@ export function TableViewBody({
         </div>
       ) : error ? (
         <div className="table-empty error">{error}</div>
+      ) : meta && layout !== "table" ? (
+        <div className={`table-board ${switching ? "switching" : ""}`}>
+          {board.more > 0 && (
+            <div className="table-warning">
+              <TriangleAlert size={13} />
+              <span>
+                Showing the first {BOARD_ROWS} of {total} rows. Narrow it down with a filter.
+              </span>
+            </div>
+          )}
+          {!board.source ? null : layout === "list" ? (
+            <ListView
+              source={board.source}
+              draft={draftRow}
+              onDraftDone={() => setDraftRow(false)}
+              onOpen={(r) => path && setOpenRow({ table: path, id: r.id })}
+            />
+          ) : board.groupField ? (
+            <BoardView
+              source={board.source}
+              groupField={board.groupField}
+              board={boardLayout}
+              onBoard={(next) => patchView({ boards: next })}
+              draft={draftRow ? (board.groupField.options[0] ?? "") : null}
+              onDraftDone={() => setDraftRow(false)}
+              onOpen={(r) => path && setOpenRow({ table: path, id: r.id })}
+            />
+          ) : (
+            <div className="table-empty">
+              Choose a status or select field to group by, under the board button in the toolbar.
+            </div>
+          )}
+        </div>
       ) : meta ? (
         <TableGrid
           columns={visible}
@@ -809,18 +1122,34 @@ export function TableViewBody({
           onHeaderMenu={(column, bounds) => {
             setRename(column.name);
             setLinking(null);
+            setEditing(null);
             setMenu({ column, bounds });
           }}
           onOpenLink={openLink}
+          onOpenRow={(r) => {
+            setSelection(emptySelection());
+            if (path) setTimeout(() => setOpenRow({ table: path, id: r.id }), 0);
+          }}
+          table={path ?? undefined}
+          onOpenFile={openFile}
+          onOpenPage={openPage}
+          onDropFiles={(record, column, files) => void dropFiles(record, column, files)}
         />
       ) : (
         <div className="table-empty">Loading…</div>
       )}
-      {meta && !missing && !error && (
+      {(switching || (!!path && !meta && !error && !missing)) && (
+        <div className="table-switching" role="status" aria-label="Loading">
+          <Loader2 size={16} className="animate-spin" />
+        </div>
+      )}
+      {meta && !missing && !error && (layout === "table" || layout === "list") && (
         <button
           type="button"
           className="table-new-row"
-          onClick={() => void write([{ op: "insert", values: {} }])}
+          onClick={() =>
+            layout === "list" ? setDraftRow(true) : void write([{ op: "insert", values: {} }])
+          }
         >
           <Plus size={13} /> New
         </button>
@@ -841,6 +1170,7 @@ export function TableViewBody({
           {fieldAnchor && (
             <NewFieldForm
               table={{ path: path ?? "", name: meta?.name ?? "" }}
+              columns={columns}
               onCreate={addField}
               onCancel={() => setFieldAnchor(null)}
             />
@@ -854,6 +1184,7 @@ export function TableViewBody({
           commitRename();
           setMenu(null);
           setConfirmType(null);
+          setPickingCurrency(false);
         }}
       >
         <PopoverAnchor asChild>
@@ -868,163 +1199,197 @@ export function TableViewBody({
           />
         </PopoverAnchor>
         <PopoverContent align="start" className="view-menu table-column-menu">
-          {menu && (
-            <>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  commitRename();
-                  setMenu(null);
-                }}
-              >
-                <input
-                  className="table-input"
-                  value={rename}
-                  onChange={(e) => setRename(e.target.value)}
-                  aria-label="Field name"
-                />
-              </form>
-              {menu.column.type === "relation" && (
-                <div className="table-menu-note info">
-                  <TypeIcon type="relation" size={13} />
-                  {menu.column.reverse
-                    ? `Rows of ${tableName(menu.column.target ?? menu.column.table)} that link here`
-                    : `Links to ${menu.column.cardinality === "one" ? "one row" : "rows"} of ${tableName(menu.column.target ?? menu.column.table)}`}
-                </div>
-              )}
-              {!menu.column.reverse && (
-                <Popover>
-                  <PopoverTrigger className="view-menu-item">
-                    <TypeIcon type={menu.column.type} size={14} />
-                    Type
-                    <span className="table-menu-value">{typeLabel(menu.column.type)}</span>
-                    <ChevronRight size={13} />
-                  </PopoverTrigger>
-                  <PopoverContent side="right" align="start" className="view-menu table-type-menu">
-                    {TABLE_TYPES.map(([type, label]) => (
-                      <button
-                        key={type}
-                        className="view-menu-item"
-                        onClick={() => void changeType(menu.column, type)}
-                      >
-                        <TypeIcon type={type} size={14} />
-                        {label}
-                        {menu.column.type === type && <Check size={13} className="ml-auto" />}
-                      </button>
-                    ))}
-                  </PopoverContent>
-                </Popover>
-              )}
-              {confirmType && (
-                <div className="table-confirm" role="alert">
-                  <p>
-                    {confirmType.invalid} of {confirmType.total} values don’t read as{" "}
-                    {typeLabel(confirmType.type).toLowerCase()}
-                    {confirmType.examples.length > 0 &&
-                      ` (e.g. ${confirmType.examples.map((x) => `“${x}”`).join(", ")})`}
-                    . They stay in the CSV as they are and show in red until you fix them.
-                  </p>
-                  <div className="table-form-actions">
-                    <button
-                      type="button"
-                      className="table-button ghost"
-                      onClick={() => setConfirmType(null)}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className="table-button solid"
-                      onClick={() => {
-                        setSchema(confirmType.column.name, confirmType.spec);
-                        setConfirmType(null);
-                        setMenu(null);
-                      }}
-                    >
-                      Change type
-                    </button>
-                  </div>
-                </div>
-              )}
-              {menu.column.invalid > 0 && !confirmType && (
-                <div className="table-menu-note">
-                  <TriangleAlert size={13} />
-                  {menu.column.invalid} value{menu.column.invalid === 1 ? "" : "s"} don’t fit this
-                  type
-                </div>
-              )}
-              {menu.column.type === "text" && (
-                <button
-                  className="view-menu-item"
-                  onClick={() => {
-                    setSchema(menu.column.name, { wrap: menu.column.wrap ? null : true });
+          {menu && pickingCurrency ? (
+            <CurrencyList
+              value={menu.column.currency || "EUR"}
+              onBack={() => setPickingCurrency(false)}
+              onPick={(currency) => {
+                setSchema(menu.column.name, { currency });
+                setPickingCurrency(false);
+                setMenu(null);
+              }}
+            />
+          ) : (
+            menu && (
+              <>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    commitRename();
                     setMenu(null);
                   }}
                 >
-                  <WrapText size={14} /> Wrap text
-                  {menu.column.wrap && <Check size={13} className="ml-auto" />}
-                </button>
-              )}
-              {menu.column.type === "currency" && (
-                <label className="view-menu-item">
-                  Currency
-                  <select
-                    className="table-menu-value"
-                    value={menu.column.currency || "EUR"}
-                    onChange={(e) => {
-                      setSchema(menu.column.name, { currency: e.target.value });
+                  <input
+                    className="table-input"
+                    value={rename}
+                    onChange={(e) => setRename(e.target.value)}
+                    aria-label="Field name"
+                  />
+                </form>
+                {menu.column.type === "relation" && (
+                  <div className="table-menu-note info">
+                    <TypeIcon type="relation" size={13} />
+                    {menu.column.reverse
+                      ? `Rows of ${tableName(menu.column.target ?? menu.column.table)} that link here`
+                      : `Links to ${menu.column.cardinality === "one" ? "one row" : "rows"} of ${tableName(menu.column.target ?? menu.column.table)}`}
+                  </div>
+                )}
+                {menu.column.type === "formula" && (
+                  <>
+                    <div className="table-menu-note info mono" title={menu.column.formula ?? ""}>
+                      <Sigma size={13} />
+                      {menu.column.formula}
+                    </div>
+                    <button
+                      className="view-menu-item"
+                      onClick={() => {
+                        setEditing({ column: menu.column, bounds: menu.bounds });
+                        setMenu(null);
+                      }}
+                    >
+                      <Sigma size={14} /> Edit formula…
+                    </button>
+                  </>
+                )}
+                {!menu.column.reverse && menu.column.type !== "formula" && (
+                  <Popover>
+                    <PopoverTrigger className="view-menu-item">
+                      <TypeIcon type={menu.column.type} size={14} />
+                      Type
+                      <span className="table-menu-value">{typeLabel(menu.column.type)}</span>
+                      <ChevronRight size={13} />
+                    </PopoverTrigger>
+                    <PopoverContent
+                      side="right"
+                      align="start"
+                      className="view-menu table-type-menu"
+                    >
+                      {TABLE_TYPES.filter(([type]) => type !== "formula").map(([type, label]) => (
+                        <button
+                          key={type}
+                          className="view-menu-item"
+                          onClick={() => void changeType(menu.column, type)}
+                        >
+                          <TypeIcon type={type} size={14} />
+                          {label}
+                          {menu.column.type === type && <Check size={13} className="ml-auto" />}
+                        </button>
+                      ))}
+                    </PopoverContent>
+                  </Popover>
+                )}
+                {confirmType && (
+                  <div className="table-confirm" role="alert">
+                    <p>
+                      {confirmType.invalid} of {confirmType.total} values don’t read as{" "}
+                      {typeLabel(confirmType.type).toLowerCase()}
+                      {confirmType.examples.length > 0 &&
+                        ` (e.g. ${confirmType.examples.map((x) => `“${x}”`).join(", ")})`}
+                      . They stay in the CSV as they are and show in red until you fix them.
+                    </p>
+                    <div className="table-form-actions">
+                      <button
+                        type="button"
+                        className="table-button ghost"
+                        onClick={() => setConfirmType(null)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="table-button solid"
+                        onClick={() => {
+                          setSchema(confirmType.column.name, confirmType.spec);
+                          setConfirmType(null);
+                          setMenu(null);
+                        }}
+                      >
+                        Change type
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {menu.column.invalid > 0 && !confirmType && (
+                  <div className="table-menu-note">
+                    <TriangleAlert size={13} />
+                    {menu.column.invalid} value{menu.column.invalid === 1 ? "" : "s"} don’t fit this
+                    type
+                  </div>
+                )}
+                {menu.column.type === "text" && (
+                  <button
+                    className="view-menu-item"
+                    onClick={() => {
+                      setSchema(menu.column.name, { wrap: menu.column.wrap ? null : true });
                       setMenu(null);
                     }}
                   >
-                    {CURRENCIES.map((code) => (
-                      <option key={code}>{code}</option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              <div className="table-menu-separator" />
-              <button
-                className="view-menu-item"
-                onClick={() => {
-                  update({ sort: `${menu.column.name} asc` });
-                  setMenu(null);
-                }}
-              >
-                <ArrowUp size={14} /> Sort ascending
-              </button>
-              <button
-                className="view-menu-item"
-                onClick={() => {
-                  update({ sort: `${menu.column.name} desc` });
-                  setMenu(null);
-                }}
-              >
-                <ArrowDown size={14} /> Sort descending
-              </button>
-              <button
-                className="view-menu-item"
-                onClick={() => {
-                  setShown(visibleNames.filter((n) => n !== menu.column.name));
-                  setMenu(null);
-                }}
-              >
-                <EyeOff size={14} /> Hide in this view
-              </button>
-              <div className="table-menu-separator" />
-              <button
-                className="view-menu-item danger"
-                onClick={() => {
-                  if (path)
-                    void run(() =>
-                      tables.columns(path, [{ op: "delete", name: menu.column.name }]),
-                    );
-                  if (shown) setShown(shown.filter((n) => n !== menu.column.name));
-                  setMenu(null);
-                }}
-              >
-                <Trash2 size={14} /> Delete field
-              </button>
-            </>
+                    <WrapText size={14} /> Wrap text
+                    {menu.column.wrap && <Check size={13} className="ml-auto" />}
+                  </button>
+                )}
+                {NUMERIC_TYPES.includes(shownAs(menu.column).type) && (
+                  <>
+                    {shownAs(menu.column).type === "currency" && (
+                      <CurrencyRow
+                        value={menu.column.currency || "EUR"}
+                        onOpen={() => setPickingCurrency(true)}
+                      />
+                    )}
+                    <DecimalsChoice
+                      value={menu.column.decimals}
+                      example={(decimals) => formatNumber({ ...menu.column, decimals }, 1234.5)}
+                      onChange={(decimals) => {
+                        setSchema(menu.column.name, { decimals });
+                        setMenu({ ...menu, column: { ...menu.column, decimals } });
+                      }}
+                    />
+                  </>
+                )}
+                <div className="table-menu-separator" />
+                <button
+                  className="view-menu-item"
+                  onClick={() => {
+                    update({ sort: `${menu.column.name} asc` });
+                    setMenu(null);
+                  }}
+                >
+                  <ArrowUp size={14} /> Sort ascending
+                </button>
+                <button
+                  className="view-menu-item"
+                  onClick={() => {
+                    update({ sort: `${menu.column.name} desc` });
+                    setMenu(null);
+                  }}
+                >
+                  <ArrowDown size={14} /> Sort descending
+                </button>
+                <button
+                  className="view-menu-item"
+                  onClick={() => {
+                    setShown(visibleNames.filter((n) => n !== menu.column.name));
+                    setMenu(null);
+                  }}
+                >
+                  <EyeOff size={14} /> Hide in this view
+                </button>
+                <div className="table-menu-separator" />
+                <button
+                  className="view-menu-item danger"
+                  onClick={() => {
+                    if (path)
+                      void run(() =>
+                        tables.columns(path, [{ op: "delete", name: menu.column.name }]),
+                      );
+                    if (shown) setShown(shown.filter((n) => n !== menu.column.name));
+                    setMenu(null);
+                  }}
+                >
+                  <Trash2 size={14} /> Delete field
+                </button>
+              </>
+            )
           )}
         </PopoverContent>
       </Popover>
@@ -1051,19 +1416,64 @@ export function TableViewBody({
           )}
         </PopoverContent>
       </Popover>
+      <Popover open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
+        <PopoverAnchor asChild>
+          <span
+            style={{
+              position: "fixed",
+              left: editing?.bounds.x ?? 0,
+              top: (editing?.bounds.y ?? 0) + (editing?.bounds.height ?? 0),
+              width: editing?.bounds.width ?? 0,
+              height: 0,
+            }}
+          />
+        </PopoverAnchor>
+        <PopoverContent align="start" className="view-menu formula-popover">
+          {editing && path && (
+            <FormulaEditor
+              path={path}
+              columns={columns.filter((c) => c.name !== editing.column.name)}
+              column={editing.column.name}
+              initial={{
+                formula: editing.column.formula ?? "",
+                format: editing.column.format ?? "number",
+                currency: editing.column.currency ?? "EUR",
+                decimals: editing.column.decimals ?? null,
+              }}
+              submit="Save formula"
+              onSubmit={(formula) => {
+                setSchema(editing.column.name, { ...formula });
+                setEditing(null);
+              }}
+              onCancel={() => setEditing(null)}
+            />
+          )}
+        </PopoverContent>
+      </Popover>
       <RowPanel
         row={openRow}
         onClose={() => setOpenRow(null)}
+        onOpenPage={openPage}
+        onOpenFull={openFullRow ? (r) => openFullRow(r.table, r.id) : undefined}
         onOpenTable={(table) => {
           if (table === path) return true;
-          const [page, name] = table.split("/_data/");
-          if (!page || !name) return false;
-          switchTo({ path: table, page_path: page, name: name.replace(/\.csv$/i, "") });
+          // One database per block (D82): another table opens on the page that holds it.
+          const [page] = table.split("/_data/");
+          if (!page || !navigate) return false;
+          navigate(page);
           return true;
         }}
       />
     </div>
   );
+}
+
+/** `base`, or `base 2`, ... when the table already has a field by that name. */
+function freeField(columns: TableColumn[], base: string): string {
+  const taken = new Set(columns.map((c) => c.name.toLowerCase()));
+  let name = base;
+  for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${base} ${n}`;
+  return name;
 }
 
 /** A table's name from its path (`Clients/_data/companies.csv` -> companies). */

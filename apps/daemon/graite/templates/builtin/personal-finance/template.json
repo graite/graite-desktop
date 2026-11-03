@@ -1,0 +1,22 @@
+{
+  "name": "Personal finance",
+  "description": "Accounts, spending against a monthly budget, savings rate and net worth, with receipts attached where you need them.",
+  "icon": "💶",
+  "category": "Finance",
+  "order": 30,
+  "tags": [
+    "budget",
+    "money",
+    "net worth"
+  ],
+  "highlights": [
+    "One transactions table: positive is money in, negative is money out",
+    "A monthly budget per category, with spending against it",
+    "Savings rate and income vs spending per month",
+    "Net worth from your accounts plus a house, car or loan"
+  ],
+  "keep_rows": [
+    "accounts",
+    "categories"
+  ]
+}

@@ -1,0 +1,16 @@
+id;name;section;description
+{{id:cat_services}};Services;Revenue;
+{{id:cat_products}};Product sales;Revenue;
+{{id:cat_subcontract}};Subcontractors;Cost of sales;
+{{id:cat_materials}};Materials;Cost of sales;
+{{id:cat_software}};Software & subscriptions;Operating expenses;
+{{id:cat_office}};Office & rent;Operating expenses;
+{{id:cat_equipment}};Equipment;Operating expenses;
+{{id:cat_travel}};Travel;Operating expenses;
+{{id:cat_marketing}};Marketing;Operating expenses;
+{{id:cat_phone}};Phone & internet;Operating expenses;
+{{id:cat_insurance}};Insurance;Operating expenses;
+{{id:cat_meals}};Meals & entertainment;Operating expenses;
+{{id:cat_training}};Training & books;Operating expenses;
+{{id:cat_bank}};Bank fees;Other expenses;
+{{id:cat_interest}};Interest received;Other income;

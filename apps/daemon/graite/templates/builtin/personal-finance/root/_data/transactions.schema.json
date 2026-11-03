@@ -1,0 +1,53 @@
+{
+  "id": "{{table:transactions}}",
+  "display": "description",
+  "display_secondary": "date",
+  "columns": {
+    "date": {
+      "type": "date"
+    },
+    "amount": {
+      "type": "currency",
+      "currency": "EUR"
+    },
+    "category": {
+      "type": "relation",
+      "table": "categories",
+      "table_id": "{{table:categories}}",
+      "cardinality": "one"
+    },
+    "account": {
+      "type": "relation",
+      "table": "accounts",
+      "table_id": "{{table:accounts}}",
+      "cardinality": "one"
+    },
+    "receipt": {
+      "type": "file"
+    },
+    "earned": {
+      "type": "formula",
+      "formula": "if(amount > 0, amount, 0)",
+      "format": "currency",
+      "currency": "EUR"
+    },
+    "spent": {
+      "type": "formula",
+      "formula": "if(amount < 0, -amount, 0)",
+      "format": "currency",
+      "currency": "EUR"
+    }
+  },
+  "order": [
+    "id",
+    "date",
+    "description",
+    "amount",
+    "category",
+    "account",
+    "receipt",
+    "note",
+    "earned",
+    "spent"
+  ]
+}

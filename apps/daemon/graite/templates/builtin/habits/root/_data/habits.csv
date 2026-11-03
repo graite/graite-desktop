@@ -1,0 +1,5 @@
+id;name;icon;area;target_per_week;cue;unit;active
+{{id:h_walk}};Walk 30 minutes;🚶;Health;5;After lunch;minutes;true
+{{id:h_read}};Read;📖;Mind;7;Before bed;pages;true
+{{id:h_water}};Two litres of water;💧;Health;7;Bottle on the desk;;true
+{{id:h_language}};Spanish practice;🗣️;Mind;4;With coffee;minutes;true

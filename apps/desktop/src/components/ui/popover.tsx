@@ -1,6 +1,13 @@
 import * as React from "react";
 import { Popover as PopoverPrimitive } from "radix-ui";
 
+/**
+ * Where popovers render. Inside a modal sheet (a table row's panel) they must render within
+ * it: the sheet blocks scrolling everywhere else, so a list in a popover outside it would not
+ * scroll with the wheel.
+ */
+export const PopoverContainer = React.createContext<HTMLElement | null>(null);
+
 import { cn } from "@/lib/utils";
 
 function Popover({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
@@ -17,8 +24,9 @@ function PopoverContent({
   sideOffset = 4,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+  const container = React.useContext(PopoverContainer);
   return (
-    <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Portal container={container ?? undefined}>
       <PopoverPrimitive.Content
         data-slot="popover-content"
         align={align}

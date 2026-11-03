@@ -1,0 +1,184 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Balance sheet</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 4px 2px 12px; color: var(--graite-fg); font: 13px/1.45 var(--graite-font, system-ui, sans-serif); }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 0 2px 16px; flex-wrap: wrap; }
+  .eyebrow { margin: 0 0 4px; color: var(--graite-muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  h1 { margin: 0; font-size: 21px; line-height: 1.2; letter-spacing: -.03em; }
+  h2 { margin: 0 0 2px; font-size: 13px; font-weight: 650; letter-spacing: -.01em; }
+  .sub { margin: 4px 0 0; color: var(--graite-muted); font-size: 12px; }
+  .controls { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  select, input[type=date] { font: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid var(--graite-border); border-radius: 8px; background: var(--graite-bg); color: var(--graite-fg); }
+  .grid { display: grid; gap: 10px; }
+  .kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-top: 10px; }
+  .card { min-width: 0; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--graite-border) 86%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--graite-bg) 97%, var(--graite-accent)); box-shadow: 0 1px 2px rgb(0 0 0 / 3%), 0 10px 28px -26px rgb(0 0 0 / 28%); }
+  .card.wide { margin-top: 10px; }
+  .kpi-label { color: var(--graite-muted); font-size: 10px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; }
+  .kpi { margin-top: 8px; font-size: 24px; font-weight: 650; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .kpi-note { margin-top: 2px; color: var(--graite-muted); font-size: 11px; }
+  .chart { width: 100%; height: 260px; margin-top: 6px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+  th { text-align: left; color: var(--graite-muted); font-weight: 600; font-size: 11px; padding: 6px 6px; border-bottom: 1px solid var(--graite-border); }
+  td { padding: 6px 6px; border-bottom: 1px solid color-mix(in srgb, var(--graite-border) 60%, transparent); vertical-align: top; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.total td { font-weight: 650; border-bottom: none; border-top: 1px solid var(--graite-border); }
+  tr.section td { padding-top: 12px; font-weight: 650; color: var(--graite-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  .empty { color: var(--graite-muted); font-size: 12px; padding: 10px 0 2px; }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; background: var(--graite-accent); color: var(--graite-muted); font-size: 11px; }
+  .ok { color: var(--graite-color-2); }
+  .warn { color: #c0563f; }
+  .bar { height: 6px; border-radius: 3px; background: var(--graite-accent); overflow: hidden; margin-top: 4px; }
+  .bar i { display: block; height: 100%; background: var(--graite-fg); opacity: .75; }
+  .bar i.over { background: #c0563f; opacity: 1; }
+  @media (max-width: 520px) { .kpis { grid-template-columns: 1fr 1fr; } .two { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="head">
+  <div>
+    <p class="eyebrow">Bookkeeping</p>
+    <h1>Balance sheet</h1>
+    <p class="sub">What the business owns and owes on one day.</p>
+  </div>
+  <div class="controls"><label class="sub" for="asof">As of</label> <input type="date" id="asof"></div>
+</header>
+<section class="grid kpis">
+<article class="card"><div class="kpi-label">Assets</div><div class="kpi" id="assets">—</div></article>
+<article class="card"><div class="kpi-label">Liabilities</div><div class="kpi" id="liabilities">—</div></article>
+<article class="card"><div class="kpi-label">Equity</div><div class="kpi" id="equity">—</div></article>
+<article class="card"><div class="kpi-label">Check</div><div class="kpi" id="check">—</div><div class="kpi-note" id="check-note"></div></article>
+</section>
+<section class="grid two">
+  <article class="card"><h2>Assets</h2><div id="assets-table"></div></article>
+  <article class="card"><h2>Liabilities and equity</h2><div id="claims-table"></div></article>
+</section>
+<script>
+  // The SQL behind this dashboard. Tables are named as on the page; `links` joins relations
+  // and `page_links` joins page columns. $NAME variables are dates filled in below.
+  const QUERIES = {
+  "cash": "WITH flows AS (\n  SELECT a.id AS account, a.opening_balance AS amount FROM accounts a WHERE coalesce(a.opening_date, '0000') <= '$ASOF'\n  UNION ALL\n  SELECT l.target_id, i.total FROM invoices i\n  JOIN links l ON l.\"table\" = 'invoices' AND l.column = 'account' AND l.row_id = i.id\n  WHERE i.status = 'Paid' AND coalesce(i.paid_on, i.issue_date) <= '$ASOF'\n  UNION ALL\n  SELECT l.target_id, -r.total FROM receipts r\n  JOIN links l ON l.\"table\" = 'receipts' AND l.column = 'account' AND l.row_id = r.id\n  WHERE r.paid = 1 AND coalesce(r.paid_on, r.date) <= '$ASOF'\n  UNION ALL\n  SELECT l.target_id, m.amount FROM movements m\n  JOIN links l ON l.\"table\" = 'movements' AND l.column = 'account' AND l.row_id = m.id\n  WHERE m.date <= '$ASOF'\n)\nSELECT a.name, a.type, coalesce(sum(f.amount), 0) AS balance\nFROM accounts a LEFT JOIN flows f ON f.account = a.id\nGROUP BY a.id ORDER BY a.name",
+  "cash_unassigned": "SELECT\n  coalesce((SELECT sum(i.total) FROM invoices i WHERE i.status = 'Paid' AND coalesce(i.paid_on, i.issue_date) <= '$ASOF' AND NOT EXISTS (SELECT 1 FROM links l WHERE l.\"table\" = 'invoices' AND l.column = 'account' AND l.row_id = i.id)), 0)\n  - coalesce((SELECT sum(r.total) FROM receipts r WHERE r.paid = 1 AND coalesce(r.paid_on, r.date) <= '$ASOF' AND NOT EXISTS (SELECT 1 FROM links l WHERE l.\"table\" = 'receipts' AND l.column = 'account' AND l.row_id = r.id)), 0)\n  + coalesce((SELECT sum(m.amount) FROM movements m WHERE m.date <= '$ASOF' AND NOT EXISTS (SELECT 1 FROM links l WHERE l.\"table\" = 'movements' AND l.column = 'account' AND l.row_id = m.id)), 0) AS amount",
+  "position": "SELECT\n  (SELECT coalesce(sum(total), 0) FROM invoices WHERE status NOT IN ('Draft', 'Void') AND issue_date <= '$ASOF'\n     AND NOT (status = 'Paid' AND coalesce(paid_on, issue_date) <= '$ASOF')) AS receivables,\n  (SELECT coalesce(sum(total), 0) FROM receipts WHERE date <= '$ASOF'\n     AND NOT (paid = 1 AND coalesce(paid_on, date) <= '$ASOF')) AS payables,\n  (SELECT coalesce(sum(vat), 0) FROM invoices WHERE status NOT IN ('Draft', 'Void') AND issue_date <= '$ASOF')\n    - (SELECT coalesce(sum(vat), 0) FROM receipts WHERE date <= '$ASOF')\n    + (SELECT coalesce(sum(amount), 0) FROM movements WHERE type = 'VAT payment' AND date <= '$ASOF') AS vat_payable,\n  (SELECT coalesce(sum(amount), 0) FROM movements WHERE type IN ('Loan received', 'Loan repayment') AND date <= '$ASOF') AS loans,\n  (SELECT coalesce(sum(opening_balance), 0) FROM accounts WHERE coalesce(opening_date, '0000') <= '$ASOF') AS opening,\n  (SELECT coalesce(sum(amount), 0) FROM movements WHERE type IN ('Owner contribution', 'Owner drawing') AND date <= '$ASOF') AS owner,\n  (SELECT coalesce(sum(net), 0) FROM invoices WHERE status NOT IN ('Draft', 'Void') AND issue_date <= '$ASOF')\n    - (SELECT coalesce(sum(net), 0) FROM receipts WHERE date <= '$ASOF') AS profit,\n  (SELECT coalesce(sum(amount), 0) FROM movements WHERE type = 'Transfer' AND date <= '$ASOF') AS transfers"
+};
+
+  const $ = (selector) => document.querySelector(selector);
+  const esc = (text) =>
+    String(text ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const eur = (value) => graite.format(Number(value) || 0, "EUR");
+  const num = (value, digits = 0) =>
+    new Intl.NumberFormat(undefined, { maximumFractionDigits: digits }).format(Number(value) || 0);
+  const pct = (value) => (value === null || value === undefined ? "—" : `${num(value, 0)}%`);
+  /** A date as YYYY-MM-DD in local time. */
+  const iso = (date) => {
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+  };
+  const addDays = (date, days) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+  const today = new Date();
+  /** Run one of QUERIES with $NAME variables filled in (dates only, so quoting is enough). */
+  async function q(key, vars = {}) {
+    let sql = QUERIES[key];
+    for (const [name, value] of Object.entries(vars))
+      sql = sql.split("$" + name).join(String(value).replace(/'/g, "''"));
+    return graite.query(sql);
+  }
+  /** Rows as an HTML table: columns are [label, key, format?] with format "eur", "num", "pct", "date". */
+  function grid(rows, columns, empty = "Nothing here yet.") {
+    if (!rows.length) return `<div class="empty">${esc(empty)}</div>`;
+    const cell = (row, [, key, format]) => {
+      const value = typeof key === "function" ? key(row) : row[key];
+      if (format === "eur") return `<td class="num">${esc(eur(value))}</td>`;
+      if (format === "num") return `<td class="num">${esc(num(value, 1))}</td>`;
+      if (format === "pct") return `<td class="num">${esc(pct(value))}</td>`;
+      if (format === "html") return `<td>${value ?? ""}</td>`;
+      return `<td>${esc(value ?? "")}</td>`;
+    };
+    const head = columns
+      .map(([label, , format]) => `<th class="${["eur", "num", "pct"].includes(format) ? "num" : ""}">${esc(label)}</th>`)
+      .join("");
+    const body = rows.map((row) => `<tr>${columns.map((c) => cell(row, c)).join("")}</tr>`).join("");
+    return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  }
+  /** Theme colors for hand-made ECharts options. */
+  const ink = () => {
+    const t = graite.theme();
+    return { fg: t.colors.foreground, muted: t.colors.muted, border: t.colors.border, palette: t.colors.palette };
+  };
+  function barOption(categories, series, { stacked = false, horizontal = false, money = true } = {}) {
+    const c = ink();
+    const value = { type: "value", axisLabel: { color: c.muted, formatter: (v) => (money ? eur(v) : num(v)) }, splitLine: { lineStyle: { color: c.border } } };
+    const cat = { type: "category", data: categories, axisLabel: { color: c.muted }, axisTick: { show: false }, axisLine: { lineStyle: { color: c.border } } };
+    return {
+      grid: { left: 4, right: 12, top: 26, bottom: 4, containLabel: true },
+      legend: series.length > 1 ? { top: 0, textStyle: { color: c.muted } } : undefined,
+      tooltip: { trigger: "axis", valueFormatter: (v) => (money ? eur(v) : num(v, 1)) },
+      xAxis: horizontal ? value : cat,
+      yAxis: horizontal ? cat : value,
+      series: series.map((s, i) => ({
+        type: s.type || "bar",
+        name: s.name,
+        data: s.data,
+        stack: stacked ? "all" : undefined,
+        smooth: true,
+        barMaxWidth: 28,
+        itemStyle: { borderRadius: stacked ? 0 : 3, color: s.color || c.palette[i * 2 % c.palette.length] },
+        lineStyle: s.type === "line" ? { width: 2 } : undefined,
+      })),
+    };
+  }
+
+$("#asof").value = iso(today);
+  const row = (label, value, cls = "") =>
+    `<tr class="${cls}"><td>${esc(label)}</td><td class="num">${esc(eur(value))}</td></tr>`;
+  async function render() {
+    const vars = { ASOF: $("#asof").value || iso(today) };
+    const cash = await q("cash", vars);
+    const [{ amount: unassigned }] = await q("cash_unassigned", vars);
+    const [p] = await q("position", vars);
+    const cashTotal = cash.reduce((s, a) => s + a.balance, 0) + unassigned;
+    const assets = cashTotal + p.receivables;
+    const liabilities = p.payables + p.vat_payable + p.loans;
+    const equity = p.opening + p.owner + p.profit;
+    const gap = assets - liabilities - equity;
+    $("#assets").textContent = eur(assets);
+    $("#liabilities").textContent = eur(liabilities);
+    $("#equity").textContent = eur(equity);
+    const balanced = Math.abs(gap) < 0.005;
+    $("#check").innerHTML = balanced ? '<span class="ok">✓ Balances</span>' : '<span class="warn">Off</span>';
+    $("#check-note").textContent = balanced
+      ? "Assets = liabilities + equity"
+      : `${eur(gap)} unexplained: check that every transfer has both sides (out of one account, into another).`;
+    $("#assets-table").innerHTML = `<table><tbody>
+      <tr class="section"><td colspan="2">Cash and bank</td></tr>
+      ${cash.map((a) => row(a.name, a.balance)).join("")}
+      ${Math.abs(unassigned) > 0.005 ? row("Paid, but no account chosen", unassigned) : ""}
+      ${row("Total cash", cashTotal, "total")}
+      <tr class="section"><td colspan="2">Receivables</td></tr>
+      ${row("Invoices not yet paid", p.receivables)}
+      ${row("Total assets", assets, "total")}
+    </tbody></table>`;
+    $("#claims-table").innerHTML = `<table><tbody>
+      <tr class="section"><td colspan="2">Liabilities</td></tr>
+      ${row("Bills not yet paid", p.payables)}
+      ${row(p.vat_payable >= 0 ? "VAT to pay" : "VAT to get back", p.vat_payable)}
+      ${Math.abs(p.loans) > 0.005 ? row("Loans", p.loans) : ""}
+      ${row("Total liabilities", liabilities, "total")}
+      <tr class="section"><td colspan="2">Equity</td></tr>
+      ${row("Opening balances", p.opening)}
+      ${row("Contributions minus drawings", p.owner)}
+      ${row("Profit to date", p.profit)}
+      ${row("Total equity", equity, "total")}
+      ${row("Liabilities + equity", liabilities + equity, "total")}
+    </tbody></table>`;
+  }
+  $("#asof").addEventListener("change", render);
+  render();
+  graite.onChange(render);
+</script>
+</body>
+</html>

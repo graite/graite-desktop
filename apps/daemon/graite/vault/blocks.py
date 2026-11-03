@@ -25,7 +25,11 @@ from graite.vault.properties import PageProperty, PropertyKind, from_compact
 
 VIEW_KINDS = ("table", "kanban", "list")
 VIEW_KEYS = ("view", "group", "field", "show", "settings")
-TABLE_KEYS = ("source", "view", "filter", "sort", "columns", "height", "tabs")
+TABLE_KEYS = ("views", "source", "view", "filter", "sort", "columns", "height", "tabs")
+# Named views (D79): each shows one table of the block as a table, board or list.
+VIEW_ITEM_KEYS = ("name", "source", "view", "group", "filter", "sort", "columns", "show", "boards")
+TABLE_VIEW_LAYOUTS = ("table", "board", "list")
+MAX_TABLE_VIEWS = 20
 # The view each other tab of a table block keeps (D71): tabs: {<source>: {filter, sort, ...}}.
 TAB_KEYS = ("filter", "sort", "columns")
 TABLE_VIEWS = ("table",)
@@ -128,13 +132,56 @@ def _check_columns(value: dict[str, Any]) -> str | None:
     return None
 
 
+def _check_view_item(item: Any) -> str | None:
+    if not isinstance(item, dict):
+        return "each view must be a mapping with name, source and view."
+    unknown = [k for k in item if k not in VIEW_ITEM_KEYS]
+    if unknown:
+        return f"{unknown[0]!r} is not a key of a view. Use {', '.join(VIEW_ITEM_KEYS)}."
+    name = item.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return "every view needs a name."
+    if "view" in item and item["view"] not in TABLE_VIEW_LAYOUTS:
+        return f"{name!r}: view must be {', '.join(TABLE_VIEW_LAYOUTS)}. Got {item['view']!r}."
+    if "group" in item and not isinstance(item["group"], str):
+        return f"{name!r}: group must be the name of a status or select column."
+    show = item.get("show")
+    if show is not None and not (_names(show) or show == []):
+        return f"{name!r}: show must be a list of column names."
+    boards = item.get("boards")
+    if boards is not None:
+        if not isinstance(boards, dict) or any(k not in ("order", "hidden") for k in boards):
+            return f"{name!r}: boards may hold only order and hidden."
+        for key in ("order", "hidden"):
+            # Option names, or "" for the column of rows without a value.
+            value = boards.get(key, [])
+            if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
+                return f"{name!r}: boards.{key} must be a list of column values."
+    rest = {k: v for k, v in item.items() if k in ("source", "filter", "sort", "columns")}
+    problem = _check_table(rest)
+    return f"{name!r}: {problem}" if problem else None
+
+
 def _check_table(value: dict[str, Any]) -> str | None:
     unknown = [k for k in value if k not in TABLE_KEYS]
     if unknown:
         return (
             f"{unknown[0]!r} is not a key of a graite:table fence. "
-            "Use source, view, filter, sort, columns, height or tabs."
+            "Use views, source, view, filter, sort, columns, height or tabs."
         )
+    views = value.get("views")
+    if views is not None:
+        if not isinstance(views, list) or not views or len(views) > MAX_TABLE_VIEWS:
+            return f"views: must be a list of 1 to {MAX_TABLE_VIEWS} views."
+        for item in views:
+            problem = _check_view_item(item)
+            if problem:
+                return f"views: {problem}"
+        names = [str(v["name"]).strip().lower() for v in views]
+        if len(set(names)) != len(names):
+            return "views: every view needs its own name."
+        if "source" not in value:
+            value = {**value, "source": views[0]["source"]}
     tabs = value.get("tabs")
     if tabs is not None:
         if not isinstance(tabs, dict):

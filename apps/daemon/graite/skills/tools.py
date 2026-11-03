@@ -610,6 +610,11 @@ async def read_tables(
                         "type": c.type,
                         **({"options": c.options} if c.options else {}),
                         **(
+                            {"formula": c.formula, "format": c.format, "read_only": True}
+                            if c.type == "formula"
+                            else {}
+                        ),
+                        **(
                             {
                                 "links_to": c.target or c.table,
                                 "cardinality": c.cardinality,

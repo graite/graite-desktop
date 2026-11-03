@@ -1,0 +1,9 @@
+id;name;kind;email;vat_number;address
+{{id:pt_northwind}};Northwind Traders;Customer;billing@northwind.example;NL000000001B01;Havenstraat 1, Rotterdam
+{{id:pt_bluefjord}};Blue Fjord Analytics;Customer;finance@bluefjord.example;NO000000002;Fjordveien 2, Oslo
+{{id:pt_cedar}};Cedar & Pine Interiors;Customer;mara@cedarpine.example;BE0000000003;Meir 3, Antwerp
+{{id:pt_cloudco}};CloudCo Hosting;Supplier;billing@cloudco.example;;
+{{id:pt_officehub}};OfficeHub Coworking;Supplier;admin@officehub.example;;
+{{id:pt_railway}};National Railways;Supplier;;;
+{{id:pt_studio}};Studio Vos Design;Supplier;hello@studiovos.example;;
+{{id:pt_telco}};Telco One;Supplier;;;

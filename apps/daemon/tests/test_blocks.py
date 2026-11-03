@@ -99,3 +99,23 @@ def test_table_fences_the_converter_would_drop_are_refused(body: str) -> None:
 def test_a_table_filter_the_daemon_cannot_compile_is_refused() -> None:
     problem = check_fences("```graite:table\nsource: _data/x.csv\nfilter: amount >\n```\n")
     assert problem and "filter" in problem
+
+
+def test_table_views_d79() -> None:
+    good = (
+        "```graite:table\nviews:\n  - name: Pipeline\n    source: _data/deals.csv\n"
+        "    view: board\n    group: stage\n    sort: value desc\n    show: [company, value]\n"
+        "    boards:\n      order: [Lead, Won]\n      hidden: [Lost]\n"
+        "  - name: All\n    source: _data/deals.csv\n    columns: []\nheight: 560\n```\n"
+    )
+    assert check_fences(good) is None
+    bad = {
+        "unknown layout": good.replace("view: board", "view: calendar"),
+        "same name": good.replace("name: All", "name: pipeline"),
+        "bad filter": good.replace("sort: value desc", 'filter: "stage ="'),
+        "no source": good.replace("    source: _data/deals.csv\n    columns", "    columns"),
+        "bad boards": good.replace("hidden: [Lost]", "open: [x]"),
+        "empty": "```graite:table\nviews: []\n```\n",
+    }
+    for name, text in bad.items():
+        assert check_fences(text) is not None, name

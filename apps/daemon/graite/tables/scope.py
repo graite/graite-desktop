@@ -86,7 +86,7 @@ def query_pages(db: sqlite3.Connection, contains: Callable[[str], bool]) -> list
                 parent_path=row["parent_path"],
                 created=row["created"],
                 updated=row["updated"],
-                tags="; ".join(str(t) for t in tags or []),
+                tags="|".join(str(t) for t in tags or []),
                 props=list(compact_values(parse_properties(meta.get("properties")), 100).items()),
             )
         )

@@ -1,0 +1,206 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Money overview</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 4px 2px 12px; color: var(--graite-fg); font: 13px/1.45 var(--graite-font, system-ui, sans-serif); }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 0 2px 16px; flex-wrap: wrap; }
+  .eyebrow { margin: 0 0 4px; color: var(--graite-muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  h1 { margin: 0; font-size: 21px; line-height: 1.2; letter-spacing: -.03em; }
+  h2 { margin: 0 0 2px; font-size: 13px; font-weight: 650; letter-spacing: -.01em; }
+  .sub { margin: 4px 0 0; color: var(--graite-muted); font-size: 12px; }
+  .controls { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  select, input[type=date] { font: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid var(--graite-border); border-radius: 8px; background: var(--graite-bg); color: var(--graite-fg); }
+  .grid { display: grid; gap: 10px; }
+  .kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-top: 10px; }
+  .card { min-width: 0; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--graite-border) 86%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--graite-bg) 97%, var(--graite-accent)); box-shadow: 0 1px 2px rgb(0 0 0 / 3%), 0 10px 28px -26px rgb(0 0 0 / 28%); }
+  .card.wide { margin-top: 10px; }
+  .kpi-label { color: var(--graite-muted); font-size: 10px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; }
+  .kpi { margin-top: 8px; font-size: 24px; font-weight: 650; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .kpi-note { margin-top: 2px; color: var(--graite-muted); font-size: 11px; }
+  .chart { width: 100%; height: 260px; margin-top: 6px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+  th { text-align: left; color: var(--graite-muted); font-weight: 600; font-size: 11px; padding: 6px 6px; border-bottom: 1px solid var(--graite-border); }
+  td { padding: 6px 6px; border-bottom: 1px solid color-mix(in srgb, var(--graite-border) 60%, transparent); vertical-align: top; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.total td { font-weight: 650; border-bottom: none; border-top: 1px solid var(--graite-border); }
+  tr.section td { padding-top: 12px; font-weight: 650; color: var(--graite-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  .empty { color: var(--graite-muted); font-size: 12px; padding: 10px 0 2px; }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; background: var(--graite-accent); color: var(--graite-muted); font-size: 11px; }
+  .ok { color: var(--graite-color-2); }
+  .warn { color: #c0563f; }
+  .bar { height: 6px; border-radius: 3px; background: var(--graite-accent); overflow: hidden; margin-top: 4px; }
+  .bar i { display: block; height: 100%; background: var(--graite-fg); opacity: .75; }
+  .bar i.over { background: #c0563f; opacity: 1; }
+  @media (max-width: 520px) { .kpis { grid-template-columns: 1fr 1fr; } .two { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="head">
+  <div>
+    <p class="eyebrow">Personal finance</p>
+    <h1>Money overview</h1>
+    <p class="sub">This month against your budget, and where you stand.</p>
+  </div>
+  <div class="controls"></div>
+</header>
+<section class="grid kpis">
+<article class="card"><div class="kpi-label">Income this month</div><div class="kpi" id="income">—</div></article>
+<article class="card"><div class="kpi-label">Spent this month</div><div class="kpi" id="spending">—</div><div class="kpi-note" id="budget-note"></div></article>
+<article class="card"><div class="kpi-label">Savings rate</div><div class="kpi" id="rate">—</div><div class="kpi-note" id="saved-note"></div></article>
+<article class="card"><div class="kpi-label">Net worth</div><div class="kpi" id="worth">—</div><div class="kpi-note" id="worth-note"></div></article>
+</section>
+<section class="grid two">
+  <article class="card"><h2>Budget this month</h2><div id="budget"></div></article>
+  <article class="card"><h2>Income and spending</h2><div class="chart" id="months"></div></article>
+</section>
+<section class="grid two">
+  <article class="card"><h2>Accounts and other assets</h2><div id="accounts"></div></article>
+  <article class="card"><h2>Account balances over time</h2><div class="chart" id="trend"></div></article>
+</section>
+<script>
+  // The SQL behind this dashboard. Tables are named as on the page; `links` joins relations
+  // and `page_links` joins page columns. $NAME variables are dates filled in below.
+  const QUERIES = {
+  "month": "SELECT\n  coalesce(sum(CASE WHEN (c.kind = 'Income' OR (c.kind IS NULL AND t.amount > 0)) THEN t.amount END), 0) AS income,\n  coalesce(sum(CASE WHEN (c.kind IN ('Fixed costs', 'Variable costs') OR (c.kind IS NULL AND t.amount < 0)) THEN -t.amount END), 0) AS spending\nFROM transactions t\nLEFT JOIN links l ON l.\"table\" = 'transactions' AND l.column = 'category' AND l.row_id = t.id\nLEFT JOIN categories c ON c.id = l.target_id\nWHERE t.date >= '$MONTH_START' AND t.date <= '$MONTH_END'",
+  "budget": "SELECT c.name, c.kind, coalesce(c.monthly_budget, 0) AS budget, coalesce(sum(-t.amount), 0) AS spent\nFROM categories c\nLEFT JOIN links l ON l.\"table\" = 'transactions' AND l.column = 'category' AND l.target_id = c.id\nLEFT JOIN transactions t ON t.id = l.row_id AND t.date >= '$MONTH_START' AND t.date <= '$MONTH_END'\nWHERE c.kind IN ('Fixed costs', 'Variable costs')\nGROUP BY c.id\nORDER BY c.kind, spent DESC",
+  "months": "SELECT substr(t.date, 1, 7) AS month,\n  coalesce(sum(CASE WHEN (c.kind = 'Income' OR (c.kind IS NULL AND t.amount > 0)) THEN t.amount END), 0) AS income,\n  coalesce(sum(CASE WHEN (c.kind IN ('Fixed costs', 'Variable costs') OR (c.kind IS NULL AND t.amount < 0)) THEN -t.amount END), 0) AS spending\nFROM transactions t\nLEFT JOIN links l ON l.\"table\" = 'transactions' AND l.column = 'category' AND l.row_id = t.id\nLEFT JOIN categories c ON c.id = l.target_id\nWHERE t.date >= '$YEAR_AGO'\nGROUP BY month ORDER BY month",
+  "accounts": "SELECT a.name, a.type, coalesce(a.opening_balance, 0) + coalesce(sum(t.amount), 0) AS balance\nFROM accounts a\nLEFT JOIN links l ON l.\"table\" = 'transactions' AND l.column = 'account' AND l.target_id = a.id\nLEFT JOIN transactions t ON t.id = l.row_id AND t.date <= '$TODAY'\nGROUP BY a.id ORDER BY balance DESC",
+  "other": "SELECT name, kind, value, as_of FROM assets_liabilities a\nWHERE as_of = (SELECT max(as_of) FROM assets_liabilities b WHERE b.name = a.name)\nORDER BY kind, value DESC",
+  "flow": "SELECT substr(date, 1, 7) AS month, sum(amount) AS change FROM transactions\nGROUP BY month ORDER BY month",
+  "opening": "SELECT coalesce(sum(opening_balance), 0) AS total FROM accounts"
+};
+
+  const $ = (selector) => document.querySelector(selector);
+  const esc = (text) =>
+    String(text ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const eur = (value) => graite.format(Number(value) || 0, "EUR");
+  const num = (value, digits = 0) =>
+    new Intl.NumberFormat(undefined, { maximumFractionDigits: digits }).format(Number(value) || 0);
+  const pct = (value) => (value === null || value === undefined ? "—" : `${num(value, 0)}%`);
+  /** A date as YYYY-MM-DD in local time. */
+  const iso = (date) => {
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+  };
+  const addDays = (date, days) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+  const today = new Date();
+  /** Run one of QUERIES with $NAME variables filled in (dates only, so quoting is enough). */
+  async function q(key, vars = {}) {
+    let sql = QUERIES[key];
+    for (const [name, value] of Object.entries(vars))
+      sql = sql.split("$" + name).join(String(value).replace(/'/g, "''"));
+    return graite.query(sql);
+  }
+  /** Rows as an HTML table: columns are [label, key, format?] with format "eur", "num", "pct", "date". */
+  function grid(rows, columns, empty = "Nothing here yet.") {
+    if (!rows.length) return `<div class="empty">${esc(empty)}</div>`;
+    const cell = (row, [, key, format]) => {
+      const value = typeof key === "function" ? key(row) : row[key];
+      if (format === "eur") return `<td class="num">${esc(eur(value))}</td>`;
+      if (format === "num") return `<td class="num">${esc(num(value, 1))}</td>`;
+      if (format === "pct") return `<td class="num">${esc(pct(value))}</td>`;
+      if (format === "html") return `<td>${value ?? ""}</td>`;
+      return `<td>${esc(value ?? "")}</td>`;
+    };
+    const head = columns
+      .map(([label, , format]) => `<th class="${["eur", "num", "pct"].includes(format) ? "num" : ""}">${esc(label)}</th>`)
+      .join("");
+    const body = rows.map((row) => `<tr>${columns.map((c) => cell(row, c)).join("")}</tr>`).join("");
+    return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  }
+  /** Theme colors for hand-made ECharts options. */
+  const ink = () => {
+    const t = graite.theme();
+    return { fg: t.colors.foreground, muted: t.colors.muted, border: t.colors.border, palette: t.colors.palette };
+  };
+  function barOption(categories, series, { stacked = false, horizontal = false, money = true } = {}) {
+    const c = ink();
+    const value = { type: "value", axisLabel: { color: c.muted, formatter: (v) => (money ? eur(v) : num(v)) }, splitLine: { lineStyle: { color: c.border } } };
+    const cat = { type: "category", data: categories, axisLabel: { color: c.muted }, axisTick: { show: false }, axisLine: { lineStyle: { color: c.border } } };
+    return {
+      grid: { left: 4, right: 12, top: 26, bottom: 4, containLabel: true },
+      legend: series.length > 1 ? { top: 0, textStyle: { color: c.muted } } : undefined,
+      tooltip: { trigger: "axis", valueFormatter: (v) => (money ? eur(v) : num(v, 1)) },
+      xAxis: horizontal ? value : cat,
+      yAxis: horizontal ? cat : value,
+      series: series.map((s, i) => ({
+        type: s.type || "bar",
+        name: s.name,
+        data: s.data,
+        stack: stacked ? "all" : undefined,
+        smooth: true,
+        barMaxWidth: 28,
+        itemStyle: { borderRadius: stacked ? 0 : 3, color: s.color || c.palette[i * 2 % c.palette.length] },
+        lineStyle: s.type === "line" ? { width: 2 } : undefined,
+      })),
+    };
+  }
+
+async function render() {
+    const vars = {
+      MONTH_START: iso(new Date(today.getFullYear(), today.getMonth(), 1)),
+      MONTH_END: iso(new Date(today.getFullYear(), today.getMonth() + 1, 0)),
+      YEAR_AGO: iso(new Date(today.getFullYear() - 1, today.getMonth() + 1, 1)),
+      TODAY: iso(today),
+    };
+    const [m] = await q("month", vars);
+    $("#income").textContent = eur(m.income);
+    $("#spending").textContent = eur(m.spending);
+    $("#rate").textContent = m.income ? pct(((m.income - m.spending) / m.income) * 100) : "—";
+    $("#saved-note").textContent = `${eur(m.income - m.spending)} kept`;
+
+    const budget = await q("budget", vars);
+    const planned = budget.reduce((s, b) => s + b.budget, 0);
+    $("#budget-note").textContent = planned ? `of ${eur(planned)} budgeted` : "";
+    $("#budget").innerHTML = budget.length
+      ? `<table><tbody>${budget
+          .map((b) => {
+            const share = b.budget ? Math.min((b.spent / b.budget) * 100, 100) : b.spent ? 100 : 0;
+            const over = b.budget && b.spent > b.budget;
+            return `<tr><td>${esc(b.name)}<div class="bar"><i class="${over ? "over" : ""}" style="width:${share}%"></i></div></td>
+              <td class="num">${esc(eur(b.spent))}<div class="kpi-note">${b.budget ? `of ${esc(eur(b.budget))}` : "no budget"}</div></td></tr>`;
+          })
+          .join("")}</tbody></table>`
+      : `<div class="empty">Add categories with a monthly budget.</div>`;
+
+    const months = await q("months", vars);
+    graite.chart("#months", barOption(
+      months.map((r) => r.month),
+      [
+        { name: "Income", data: months.map((r) => r.income) },
+        { name: "Spending", data: months.map((r) => r.spending) },
+      ],
+    ));
+
+    const accounts = await q("accounts", vars);
+    const other = await q("other");
+    const cash = accounts.reduce((s, a) => s + a.balance, 0);
+    const owned = other.filter((o) => o.kind === "Asset").reduce((s, o) => s + o.value, 0);
+    const owed = other.filter((o) => o.kind === "Liability").reduce((s, o) => s + o.value, 0);
+    $("#worth").textContent = eur(cash + owned - owed);
+    $("#worth-note").textContent = `${eur(cash)} in accounts`;
+    $("#accounts").innerHTML = grid(
+      [
+        ...accounts.map((a) => ({ name: a.name, kind: a.type, value: a.balance })),
+        ...other.map((o) => ({ name: o.name, kind: o.kind, value: o.kind === "Liability" ? -o.value : o.value })),
+      ],
+      [["", "name"], ["", "kind"], ["Value", "value", "eur"]],
+    );
+
+    const [{ total: opening }] = await q("opening");
+    const flow = await q("flow");
+    let running = opening;
+    graite.chart("#trend", barOption(
+      flow.map((f) => f.month),
+      [{ name: "Balance", type: "line", data: flow.map((f) => (running += f.change)) }],
+    ));
+  }
+  render();
+  graite.onChange(render);
+</script>
+</body>
+</html>

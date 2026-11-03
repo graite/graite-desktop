@@ -3,8 +3,9 @@
 The query runs on its own `mode=ro` connection to `.graite/tables.sqlite`. Before it runs, the
 connection gets a TEMP VIEW per table in scope, named for the model (`expenses`, or
 `"Projects/Atlas/expenses"` for another page's table), and TEMP tables `pages` and
-`page_props` holding only the pages in scope, and a view `links(table, column, row_id,
-target_table, target_id)` with every relation link between tables in scope (D72). Then an
+`page_props` holding only the pages in scope, a view `links(table, column, row_id,
+target_table, target_id)` with every relation link between tables in scope (D72), and a view
+`page_links(table, column, row_id, page_path)` with the links in their page columns (D76). Then an
 authorizer allows nothing but reads, a progress handler stops runaway queries, and at most
 `max_rows` rows come back.
 """
@@ -52,7 +53,7 @@ class QueryPage:
 
 def _plain(value: Any) -> Any:
     if isinstance(value, list):
-        return "; ".join(str(v) for v in value)
+        return "|".join(str(v) for v in value)
     if isinstance(value, bool):
         return int(value)
     if value is None or isinstance(value, int | float | str):
@@ -91,6 +92,26 @@ def _links_view(conn: sqlite3.Connection, tables: list[QueryTable]) -> None:
         f"FROM {source} l JOIN temp._scope s ON s.path = l.src_path "
         "JOIN temp._relations r ON r.path = l.src_path AND r.column = l.column "
         "JOIN temp._scope t ON t.path = r.target ORDER BY s.alias, l.src_rid, l.pos"
+    )
+    if any(t.alias.lower() == "page_links" for t in tables):
+        return
+    has_pages = conn.execute(
+        "SELECT 1 FROM main.sqlite_master WHERE type='table' AND name='_page_links'"
+    ).fetchone()
+    pages_source = (
+        "main._page_links"
+        if has_pages
+        else (
+            "(SELECT NULL AS src_path, NULL AS column, NULL AS src_rid, NULL AS pos, "
+            "NULL AS page_path WHERE 0)"
+        )
+    )
+    # Page columns (D76): join `page_path` to `pages.path` for titles and properties.
+    conn.execute(
+        'CREATE TEMP VIEW page_links AS SELECT s.alias AS "table", l.column AS column, '
+        "l.src_rid AS row_id, l.page_path AS page_path "
+        f"FROM {pages_source} l JOIN temp._scope s ON s.path = l.src_path "
+        "ORDER BY s.alias, l.src_rid, l.pos"
     )
 
 

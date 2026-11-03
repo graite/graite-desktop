@@ -160,6 +160,13 @@
   color: var(--muted-foreground);
   opacity: 0.7;
 }
+.table-add-field.pinned {
+  z-index: 1;
+  opacity: 1;
+  border-left: 1px solid var(--border);
+  background: var(--background);
+  box-shadow: -6px 0 8px -6px rgb(0 0 0 / 18%);
+}
 .table-add-field:hover {
   opacity: 1;
   color: var(--foreground);
@@ -230,8 +237,7 @@
 }
 
 /* Messages, empty states and the table picker */
-.table-warning,
-.table-picker-row {
+.table-warning {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -254,26 +260,6 @@
   padding: 12px;
   border: 1px dashed var(--border);
   border-radius: 8px;
-}
-.table-picker-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.table-picker-label {
-  font-size: 12px;
-  color: var(--muted-foreground);
-  margin: 4px 0;
-}
-.table-picker-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 5px 8px;
-  border-radius: 6px;
-  text-align: left;
-}
-.table-picker-item:hover {
-  background: var(--muted);
 }
 
 /* AI row changes waiting for review (their rows are tinted amber in the grid). */
@@ -486,6 +472,7 @@ button.table-relation-pill:not(:disabled):hover {
   gap: 6px;
   width: min(460px, 100vw);
   padding: 20px 22px;
+  overflow-x: hidden;
   overflow-y: auto;
   border-left: 1px solid var(--border);
   background: var(--background);
@@ -543,7 +530,8 @@ button.table-relation-pill:not(:disabled):hover {
 }
 .table-row-field {
   display: grid;
-  grid-template-columns: 150px 1fr;
+  /* minmax(0, …): long values wrap instead of pushing the panel wider (D80). */
+  grid-template-columns: 150px minmax(0, 1fr);
   /* Long text grows downwards; names stay level with its first line. */
   align-items: start;
   gap: 8px;
@@ -892,4 +880,706 @@ button.table-relation-pill.link:not(:disabled):hover {
 .table-row-check:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+/* Formula columns (D75): FormulaEditor.tsx */
+.formula-popover,
+.view-menu:has(.formula-editor) {
+  width: 340px;
+}
+.formula-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.formula-editor textarea {
+  resize: vertical;
+  min-height: 64px;
+}
+.formula-editor small {
+  padding: 2px 2px 0;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.formula-status {
+  min-height: 18px;
+  font-size: 12px;
+}
+.formula-status span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.formula-status .muted {
+  color: var(--muted-foreground);
+}
+.formula-status .error {
+  color: var(--destructive);
+}
+.formula-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 96px;
+  overflow-y: auto;
+}
+.formula-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--foreground);
+  cursor: pointer;
+}
+.formula-chip:hover {
+  background: var(--accent);
+}
+.formula-help summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.formula-help ul {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+}
+.formula-help li {
+  display: flex;
+  flex-direction: column;
+}
+.formula-help code {
+  font-size: 11px;
+}
+.formula-help li span {
+  color: var(--muted-foreground);
+  font-family: var(--font-mono, monospace);
+}
+.formula-format {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.formula-format-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.table-menu-note.mono {
+  overflow: hidden;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.table-row-computed {
+  display: block;
+  padding: 4px 6px;
+  color: var(--muted-foreground);
+}
+
+/* File and page cells (D76): linkcells.tsx */
+.table-files-editor {
+  min-width: 260px;
+  max-width: 360px;
+  padding: 6px;
+}
+.table-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 2px;
+  border: 1px dashed transparent;
+  border-radius: 6px;
+}
+.table-files.over {
+  border-color: var(--ring);
+  background: color-mix(in srgb, var(--ring) 8%, transparent);
+}
+.table-file-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border-radius: 4px;
+  background: color-mix(in srgb, #808080 14%, var(--background));
+  font-size: 12px;
+  line-height: 18px;
+}
+.table-file-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 1px 4px 1px 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.table-file-open:hover {
+  text-decoration: underline;
+}
+.table-file-chip > button:last-child {
+  display: inline-flex;
+  margin-right: 3px;
+  padding: 1px;
+  border-radius: 3px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.table-file-chip > button:last-child:hover {
+  background: var(--accent);
+}
+.table-file-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.table-file-add:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.table-page-icon {
+  display: inline-flex;
+  width: 16px;
+  justify-content: center;
+  color: var(--muted-foreground);
+}
+.table-relation-pill.page {
+  background: color-mix(in srgb, #986f50 14%, var(--background));
+}
+
+/* Named views (D79): view tabs, layout switch, boards and lists of table rows */
+.table-tab.drop {
+  box-shadow: inset 2px 0 0 var(--ring);
+}
+.table-layouts .view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 5px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.table-layouts .view-tab:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.table-layouts .view-tab.active {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.table-add-view {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 260px;
+}
+.table-add-view small {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.table-layouts {
+  display: flex;
+  gap: 4px;
+  font-size: 12px;
+}
+.table-board {
+  position: relative;
+  max-height: 640px;
+  overflow: auto;
+  padding: 4px 0;
+  transition: opacity 0.15s;
+}
+.table-board .view-board {
+  min-height: 160px;
+}
+.table-view {
+  position: relative;
+}
+.table-switching {
+  position: absolute;
+  inset: 44px 0 0 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 48px;
+  background: color-mix(in srgb, var(--background) 65%, transparent);
+  color: var(--muted-foreground);
+  z-index: 3;
+  pointer-events: none;
+  animation: table-fade 0.12s ease-out;
+}
+@keyframes table-fade {
+  from {
+    opacity: 0;
+  }
+}
+.view-chip-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.view-chip-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.view-chip-link svg {
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}
+
+/* Add view: layout cards, the table list, a board's grouping (ViewTabs.tsx) */
+.table-add-view {
+  width: 340px;
+}
+.table-layout-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.table-layout-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-align: left;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.table-layout-card b {
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 600;
+}
+.table-layout-card span {
+  font-size: 10.5px;
+  line-height: 1.3;
+}
+.table-layout-card:hover {
+  background: var(--accent);
+}
+.table-layout-card.active {
+  border-color: var(--foreground);
+  color: var(--foreground);
+}
+.table-list.relation-setup {
+  padding: 0;
+  gap: 6px;
+}
+.table-list .relation-setup-list {
+  max-height: 180px;
+  gap: 0;
+}
+.relation-setup-table.chosen {
+  background: var(--accent);
+}
+.relation-setup-table.muted {
+  color: var(--muted-foreground);
+}
+.table-group-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* A row's panel and page (D80): RowView, RowLinks, RowDocument, app/RowPage.tsx */
+.row-view {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.table-row-field-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.table-row-links {
+  min-width: 0;
+}
+.table-row-links .table-relation-pill {
+  max-width: 100%;
+}
+.row-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 14px;
+}
+.row-links,
+.row-document {
+  min-width: 0;
+}
+.row-document {
+  margin-top: 14px;
+}
+.row-links-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.row-links-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+  cursor: pointer;
+}
+.row-links-chevron {
+  color: var(--muted-foreground);
+  transform: rotate(90deg);
+  transition: transform 0.12s;
+}
+.row-links.collapsed .row-links-chevron {
+  transform: none;
+}
+.row-links.collapsed .row-links-head {
+  border-bottom-color: transparent;
+}
+.row-links-count {
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+.row-links-grow {
+  flex: 1;
+}
+.row-links-action {
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 5px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.row-links-action:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.row-links-empty {
+  padding: 8px 2px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+/* Linked rows: the page views' list (name left, fields right), only separator lines */
+.row-links-list.view-list {
+  margin-top: 2px;
+  border: 0;
+  border-radius: 0;
+}
+.row-links-list .view-list-row,
+.row-links-list .view-list-row:last-child {
+  padding: 5px 2px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.row-links-list .view-page {
+  padding: 1px 2px;
+  font-size: 13px;
+  font-weight: 450;
+}
+.row-links-row .view-list-lead {
+  min-width: 0;
+  flex: 1;
+}
+.row-links-row .view-page {
+  max-width: 100%;
+}
+.row-links-row .view-page span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.row-links-row .view-chips {
+  flex-shrink: 1;
+  min-width: 0;
+}
+.row-links-row .property-tag {
+  margin: 0;
+}
+.row-links-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  color: var(--muted-foreground);
+  opacity: 0;
+  cursor: pointer;
+}
+.view-list-row:hover .row-links-remove,
+.row-links-remove:focus-visible {
+  opacity: 1;
+}
+.row-links-remove:hover {
+  color: var(--destructive);
+}
+.row-links-new {
+  display: block;
+  width: 100%;
+  padding: 7px 8px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  text-align: left;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.row-links-new:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+/* "Show as list" next to a link field's name, on hover */
+.table-row-as-list {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  opacity: 0;
+  cursor: pointer;
+}
+.table-row-field:hover .table-row-as-list,
+.table-row-as-list:focus-visible {
+  opacity: 1;
+}
+.table-row-as-list:hover {
+  color: var(--foreground);
+  text-decoration: underline;
+}
+
+/* The row's own document */
+.table-row-doc {
+  margin: 0 -8px;
+}
+.table-row-doc .bn-editor {
+  padding-inline: 8px;
+}
+.table-row-doc-empty {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+/* A row as a full page */
+.row-page-head {
+  margin-bottom: 10px;
+}
+.row-page-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 18px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.row-page-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted-foreground);
+}
+button.row-page-crumb:hover {
+  color: var(--foreground);
+  text-decoration: underline;
+}
+.row-page-title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+.row-page-secondary {
+  margin: 4px 0 0;
+  color: var(--muted-foreground);
+}
+.row-view-page .table-row-fields {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.row-delete {
+  color: var(--muted-foreground);
+}
+.row-delete:hover,
+.row-delete.armed {
+  color: var(--destructive);
+}
+
+/* An empty database block (D82): make a database here or on a subpage, or link one. */
+.database-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 520px;
+}
+.database-setup-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.database-setup-title > svg {
+  color: var(--muted-foreground);
+}
+.database-setup-hint {
+  flex-basis: 100%;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+.database-setup .table-menu-hint {
+  max-width: none;
+  padding: 0;
+}
+.database-setup .table-form-actions {
+  gap: 6px;
+}
+.database-setup-switch {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.database-setup-switch button {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.database-setup-switch button:hover {
+  color: var(--foreground);
+}
+.ranked-tables {
+  padding: 0;
+}
+.relation-setup-page {
+  overflow: hidden;
+  max-width: 40%;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.table-add-view-title {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.table-add-view-title b {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+/* A tip on a new database: how to add fields and link databases. */
+.table-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+.table-hint > svg {
+  flex: none;
+  margin-top: 2px;
+}
+.table-hint b {
+  color: var(--foreground);
+  font-weight: 500;
+}
+.table-hint-close {
+  flex: none;
+  margin-left: auto;
+  padding: 2px;
+  border-radius: 4px;
+}
+.table-hint-close:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+/* Number format (D82): the currency list in place of the menu, and the decimals choice. */
+.currency-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 260px;
+}
+.currency-list-items {
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.currency-symbol {
+  min-width: 26px;
+  color: var(--muted-foreground);
+}
+.currency-code {
+  font-weight: 500;
+}
+.currency-name {
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.table-menu-back {
+  color: var(--muted-foreground);
+}
+.table-menu-chevron {
+  color: var(--muted-foreground);
+}
+.decimals-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 8px 6px;
+}
+.decimals-choice-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.decimals-choice-label > svg {
+  color: var(--muted-foreground);
+}
+.decimals-choice-options {
+  display: flex;
+  gap: 4px;
+}
+.formula-format .decimals-choice {
+  padding: 0;
 }

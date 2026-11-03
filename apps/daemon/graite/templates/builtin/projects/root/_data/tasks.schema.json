@@ -1,0 +1,86 @@
+{
+  "id": "{{table:tasks}}",
+  "display": "title",
+  "columns": {
+    "project": {
+      "type": "relation",
+      "table": "projects",
+      "table_id": "{{table:projects}}",
+      "cardinality": "one"
+    },
+    "status": {
+      "type": "status",
+      "options": [
+        "To do",
+        "In progress",
+        "Blocked",
+        "Done"
+      ],
+      "colors": {
+        "To do": "gray",
+        "In progress": "blue",
+        "Blocked": "red",
+        "Done": "green"
+      }
+    },
+    "priority": {
+      "type": "single_select",
+      "options": [
+        "High",
+        "Medium",
+        "Low"
+      ],
+      "colors": {
+        "High": "red",
+        "Medium": "orange",
+        "Low": "blue"
+      }
+    },
+    "assignee": {
+      "type": "single_select",
+      "options": [
+        "Noor",
+        "Sam",
+        "Alex",
+        "Studio"
+      ]
+    },
+    "due": {
+      "type": "date"
+    },
+    "estimate_h": {
+      "type": "number"
+    },
+    "done_on": {
+      "type": "date"
+    },
+    "hours_left": {
+      "type": "formula",
+      "formula": "if(status = \"Done\", 0, coalesce(estimate_h, 0))",
+      "format": "number"
+    },
+    "days_late": {
+      "type": "formula",
+      "formula": "days_between(due, done_on)",
+      "format": "number"
+    },
+    "notes": {
+      "type": "text",
+      "wrap": true
+    }
+  },
+  "order": [
+    "id",
+    "title",
+    "project",
+    "status",
+    "priority",
+    "assignee",
+    "due",
+    "estimate_h",
+    "hours_left",
+    "done_on",
+    "days_late",
+    "notes"
+  ]
+}

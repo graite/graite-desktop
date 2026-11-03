@@ -5,20 +5,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { PageDoc } from "@/lib/api";
 
 /**
- * The menu of a card or row in a view (clicking the item itself opens the page). Tables and
+ * The menu of a card or row in a view (clicking the item itself opens it: a page or a row). Tables and
  * lists show it as a 6-dot handle like the editor's blocks; board cards as "…".
  */
-export function RowMenu({
+export function RowMenu<R extends { title: string }>({
   row,
   handle,
   onDelete,
 }: {
-  row: PageDoc;
+  row: R;
   handle: "grip" | "dots";
-  onDelete: (row: PageDoc) => void;
+  onDelete: (row: R) => void;
 }) {
   return (
     <DropdownMenu>

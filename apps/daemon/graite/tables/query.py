@@ -159,9 +159,11 @@ class _Parser:
         return "?"
 
     def element(self, col: str, value: Any) -> str:
-        """A multi-select cell (`a; b`) holds `value` as one whole element."""
-        items = f"';' || lower(replace(CAST({col} AS TEXT), '; ', ';')) || ';'"
-        return f"instr({items}, ';' || lower({self.bind(str(value).strip())}) || ';') > 0"
+        """A multi-select cell holds `value` as one whole element. The cache writes `a|b`; a
+        cache built before D78 may still hold `a; b`."""
+        cell = f"replace(replace(lower(CAST({col} AS TEXT)), '; ', '|'), ';', '|')"
+        items = f"'|' || {cell} || '|'"
+        return f"instr({items}, '|' || lower({self.bind(str(value).strip())}) || '|') > 0"
 
     def comparison(self) -> str:
         col, kind = self.column()

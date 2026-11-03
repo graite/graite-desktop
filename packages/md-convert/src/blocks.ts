@@ -256,10 +256,25 @@ function validFields(value: unknown): boolean {
   );
 }
 
-const TABLE_KEYS = ["source", "view", "filter", "sort", "columns", "height", "tabs"];
+const TABLE_KEYS = ["views", "source", "view", "filter", "sort", "columns", "height", "tabs"];
 const TAB_KEYS = ["filter", "sort", "columns"];
 const TABLE_VIEWS = ["table"];
+/** Named views (D79): each a table of the database shown as a table, board or list. */
+const VIEW_ITEM_KEYS = [
+  "name",
+  "source",
+  "view",
+  "group",
+  "filter",
+  "sort",
+  "columns",
+  "show",
+  "boards",
+];
+export const TABLE_VIEW_LAYOUTS = ["table", "board", "list"];
+const MAX_VIEWS = 20;
 const EMPTY_TABLE = {
+  views: "",
   source: "",
   view: "",
   filter: "",
@@ -291,6 +306,49 @@ function tableViewBlock(node: Code): Block | null {
           (Array.isArray(t.columns) && !t.columns.length))
       );
     };
+    const list = (x: unknown) => x === undefined || names(x) || (Array.isArray(x) && !x.length);
+    // Board columns are option names, or "" for the column of items without one.
+    const strings = (x: unknown) =>
+      x === undefined || (Array.isArray(x) && x.every((n) => typeof n === "string"));
+    const item = (x: unknown): boolean => {
+      if (!x || typeof x !== "object" || Array.isArray(x)) return false;
+      const t = x as Record<string, unknown>;
+      const boards = t.boards as Record<string, unknown> | undefined;
+      return (
+        Object.keys(t).every((k) => VIEW_ITEM_KEYS.includes(k)) &&
+        typeof t.name === "string" &&
+        !!t.name.trim() &&
+        typeof t.source === "string" &&
+        !!t.source.trim() &&
+        (t.view === undefined || TABLE_VIEW_LAYOUTS.includes(t.view as string)) &&
+        (t.group === undefined || typeof t.group === "string") &&
+        (t.filter === undefined || typeof t.filter === "string") &&
+        (t.sort === undefined || typeof t.sort === "string" || names(t.sort)) &&
+        list(t.columns) &&
+        list(t.show) &&
+        (boards === undefined ||
+          (!!boards &&
+            typeof boards === "object" &&
+            !Array.isArray(boards) &&
+            Object.keys(boards).every((k) => k === "order" || k === "hidden") &&
+            strings(boards.order) &&
+            strings(boards.hidden)))
+      );
+    };
+    const views = v.views as unknown[] | undefined;
+    if (views !== undefined) {
+      const labels = Array.isArray(views)
+        ? views.map((x) => String((x as Record<string, unknown>)?.name ?? "").toLowerCase())
+        : [];
+      if (
+        !Array.isArray(views) ||
+        !views.length ||
+        views.length > MAX_VIEWS ||
+        !views.every(item) ||
+        new Set(labels).size !== labels.length
+      )
+        return null;
+    }
     if (
       Object.keys(v).some((k) => !TABLE_KEYS.includes(k)) ||
       (v.tabs !== undefined &&
@@ -298,8 +356,8 @@ function tableViewBlock(node: Code): Block | null {
           typeof v.tabs !== "object" ||
           Array.isArray(v.tabs) ||
           !Object.values(v.tabs).every(tab))) ||
-      typeof v.source !== "string" ||
-      !v.source.trim() ||
+      (views === undefined && (typeof v.source !== "string" || !v.source.trim())) ||
+      (v.source !== undefined && typeof v.source !== "string") ||
       (v.view !== undefined && !TABLE_VIEWS.includes(v.view as string)) ||
       (v.filter !== undefined && typeof v.filter !== "string") ||
       (v.sort !== undefined && typeof v.sort !== "string" && !names(v.sort)) ||
@@ -314,7 +372,8 @@ function tableViewBlock(node: Code): Block | null {
     return {
       type: "tableView",
       props: {
-        source: v.source,
+        views: views === undefined ? "" : JSON.stringify(views),
+        source: (v.source as string | undefined) ?? "",
         view: (v.view as string | undefined) ?? "",
         filter: (v.filter as string | undefined) ?? "",
         sort: Array.isArray(v.sort) ? JSON.stringify(v.sort) : ((v.sort as string) ?? ""),
@@ -946,14 +1005,22 @@ function blockToNodes(block: Block): RootContent[] {
         /* Keep what parses. */
       }
       if (tabs && !Object.keys(tabs).length) tabs = undefined;
-      const plain = !p.view && !p.filter && !p.sort && !p.columns && !p.height && !tabs;
+      let views: unknown[] | undefined;
+      try {
+        if (p.views) views = JSON.parse(p.views) as unknown[];
+      } catch {
+        /* Keep what parses. */
+      }
+      if (views && !views.length) views = undefined;
+      const plain = !views && !p.view && !p.filter && !p.sort && !p.columns && !p.height && !tabs;
       if (p.embed && plain && /\.csv$/i.test(p.source) && !/[[\]\n]/.test(p.source))
         return [
           { type: "paragraph", children: [{ type: "embed", value: p.source }] },
           ...trailing(),
         ];
       const props = {
-        source: p.source,
+        ...(views ? { views } : {}),
+        ...(p.source ? { source: p.source } : {}),
         ...(p.view ? { view: p.view } : {}),
         ...(p.filter ? { filter: p.filter } : {}),
         ...(sort.length ? { sort } : {}),

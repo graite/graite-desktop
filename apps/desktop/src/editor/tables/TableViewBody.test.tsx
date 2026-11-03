@@ -65,6 +65,7 @@ it("lets pointer and clipboard events reach window, where the grid listens", asy
       <TableViewBody
         id="b"
         props={{
+          views: "",
           source: "_data/expenses.csv",
           view: "",
           filter: "",
@@ -103,6 +104,7 @@ it("tints rows an AI proposal would change and says a review is waiting", async 
       <TableViewBody
         id="b"
         props={{
+          views: "",
           source: "_data/expenses.csv",
           view: "",
           filter: "",

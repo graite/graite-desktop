@@ -1,0 +1,106 @@
+{
+  "id": "{{table:companies}}",
+  "display": "name",
+  "display_secondary": "city",
+  "columns": {
+    "domain": {
+      "type": "url"
+    },
+    "industry": {
+      "type": "single_select",
+      "options": [
+        "Software",
+        "Retail",
+        "Manufacturing",
+        "Healthcare",
+        "Logistics",
+        "Finance",
+        "Other"
+      ]
+    },
+    "size": {
+      "type": "single_select",
+      "options": [
+        "1-10",
+        "11-50",
+        "51-200",
+        "201-1000",
+        "1000+"
+      ]
+    },
+    "status": {
+      "type": "status",
+      "options": [
+        "Lead",
+        "Prospect",
+        "Customer",
+        "Churned",
+        "Partner"
+      ],
+      "colors": {
+        "Lead": "gray",
+        "Prospect": "blue",
+        "Customer": "green",
+        "Churned": "red",
+        "Partner": "purple"
+      }
+    },
+    "contacts": {
+      "type": "relation",
+      "table": "contacts",
+      "table_id": "{{table:contacts}}",
+      "reverse": "company",
+      "panel": {
+        "as": "auto",
+        "show": [
+          "title",
+          "role",
+          "email"
+        ]
+      }
+    },
+    "deals": {
+      "type": "relation",
+      "table": "deals",
+      "table_id": "{{table:deals}}",
+      "reverse": "company",
+      "panel": {
+        "as": "auto",
+        "show": [
+          "stage",
+          "value",
+          "expected_close"
+        ]
+      }
+    },
+    "activities": {
+      "type": "relation",
+      "table": "activities",
+      "table_id": "{{table:activities}}",
+      "reverse": "company",
+      "panel": {
+        "as": "list",
+        "show": [
+          "type",
+          "date",
+          "due",
+          "done"
+        ]
+      }
+    }
+  },
+  "order": [
+    "id",
+    "name",
+    "status",
+    "industry",
+    "size",
+    "contacts",
+    "deals",
+    "domain",
+    "owner",
+    "city",
+    "country",
+    "activities"
+  ]
+}

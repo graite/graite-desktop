@@ -3,7 +3,10 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { RelationSetup } from "./RelationSetup";
 
 const list = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/tables", () => ({ tables: { list } }));
+vi.mock("@/lib/tables", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/tables")>()),
+  tables: { list },
+}));
 
 afterEach(cleanup);
 

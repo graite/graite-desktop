@@ -1,0 +1,215 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Profit & loss</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 4px 2px 12px; color: var(--graite-fg); font: 13px/1.45 var(--graite-font, system-ui, sans-serif); }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 0 2px 16px; flex-wrap: wrap; }
+  .eyebrow { margin: 0 0 4px; color: var(--graite-muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  h1 { margin: 0; font-size: 21px; line-height: 1.2; letter-spacing: -.03em; }
+  h2 { margin: 0 0 2px; font-size: 13px; font-weight: 650; letter-spacing: -.01em; }
+  .sub { margin: 4px 0 0; color: var(--graite-muted); font-size: 12px; }
+  .controls { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  select, input[type=date] { font: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid var(--graite-border); border-radius: 8px; background: var(--graite-bg); color: var(--graite-fg); }
+  .grid { display: grid; gap: 10px; }
+  .kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-top: 10px; }
+  .card { min-width: 0; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--graite-border) 86%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--graite-bg) 97%, var(--graite-accent)); box-shadow: 0 1px 2px rgb(0 0 0 / 3%), 0 10px 28px -26px rgb(0 0 0 / 28%); }
+  .card.wide { margin-top: 10px; }
+  .kpi-label { color: var(--graite-muted); font-size: 10px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; }
+  .kpi { margin-top: 8px; font-size: 24px; font-weight: 650; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .kpi-note { margin-top: 2px; color: var(--graite-muted); font-size: 11px; }
+  .chart { width: 100%; height: 260px; margin-top: 6px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+  th { text-align: left; color: var(--graite-muted); font-weight: 600; font-size: 11px; padding: 6px 6px; border-bottom: 1px solid var(--graite-border); }
+  td { padding: 6px 6px; border-bottom: 1px solid color-mix(in srgb, var(--graite-border) 60%, transparent); vertical-align: top; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.total td { font-weight: 650; border-bottom: none; border-top: 1px solid var(--graite-border); }
+  tr.section td { padding-top: 12px; font-weight: 650; color: var(--graite-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  .empty { color: var(--graite-muted); font-size: 12px; padding: 10px 0 2px; }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; background: var(--graite-accent); color: var(--graite-muted); font-size: 11px; }
+  .ok { color: var(--graite-color-2); }
+  .warn { color: #c0563f; }
+  .bar { height: 6px; border-radius: 3px; background: var(--graite-accent); overflow: hidden; margin-top: 4px; }
+  .bar i { display: block; height: 100%; background: var(--graite-fg); opacity: .75; }
+  .bar i.over { background: #c0563f; opacity: 1; }
+  @media (max-width: 520px) { .kpis { grid-template-columns: 1fr 1fr; } .two { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="head">
+  <div>
+    <p class="eyebrow">Bookkeeping</p>
+    <h1>Profit & loss</h1>
+    <p class="sub">Income and costs by category, on the dates you invoiced and were billed.</p>
+  </div>
+  <div class="controls"><select id="period" aria-label="Period">
+  <option value="month">This month</option>
+  <option value="quarter">This quarter</option>
+  <option value="year" selected>This year</option>
+  <option value="last-year">Last year</option>
+  <option value="12m">Last 12 months</option>
+</select></div>
+</header>
+<section class="grid kpis">
+<article class="card"><div class="kpi-label">Income</div><div class="kpi" id="income">—</div></article>
+<article class="card"><div class="kpi-label">Costs</div><div class="kpi" id="costs">—</div></article>
+<article class="card"><div class="kpi-label">Profit</div><div class="kpi" id="profit">—</div><div class="kpi-note" id="margin"></div></article>
+<article class="card"><div class="kpi-label">Still to receive</div><div class="kpi" id="receivable">—</div><div class="kpi-note" id="receivable-note"></div></article>
+</section>
+<section class="grid two">
+  <article class="card"><h2>Statement</h2><p class="sub" id="range"></p><div id="statement"></div></article>
+  <article class="card"><h2>Per month</h2><div class="chart" id="months"></div></article>
+</section>
+<section class="grid two">
+  <article class="card"><h2>VAT per quarter</h2><p class="sub">Charged on invoices, paid on receipts, and paid to the tax office</p><div id="vat"></div></article>
+  <article class="card"><h2>Open invoices</h2><div id="open"></div></article>
+</section>
+<script>
+  // The SQL behind this dashboard. Tables are named as on the page; `links` joins relations
+  // and `page_links` joins page columns. $NAME variables are dates filled in below.
+  const QUERIES = {
+  "lines": "WITH lines AS (\n  SELECT i.issue_date AS day, coalesce(c.section, 'Revenue') AS section, coalesce(c.name, 'Uncategorized') AS category, i.net AS amount\n  FROM invoices i\n  LEFT JOIN links l ON l.\"table\" = 'invoices' AND l.column = 'category' AND l.row_id = i.id\n  LEFT JOIN categories c ON c.id = l.target_id\n  WHERE i.status NOT IN ('Draft', 'Void')\n  UNION ALL\n  SELECT r.date, coalesce(c.section, 'Operating expenses'), coalesce(c.name, 'Uncategorized'), r.net\n  FROM receipts r\n  LEFT JOIN links l ON l.\"table\" = 'receipts' AND l.column = 'category' AND l.row_id = r.id\n  LEFT JOIN categories c ON c.id = l.target_id\n)\nSELECT section, category, sum(amount) AS amount\nFROM lines WHERE day >= '$FROM' AND day <= '$TO'\nGROUP BY section, category ORDER BY section, amount DESC",
+  "months": "WITH lines AS (\n  SELECT i.issue_date AS day, coalesce(c.section, 'Revenue') AS section, coalesce(c.name, 'Uncategorized') AS category, i.net AS amount\n  FROM invoices i\n  LEFT JOIN links l ON l.\"table\" = 'invoices' AND l.column = 'category' AND l.row_id = i.id\n  LEFT JOIN categories c ON c.id = l.target_id\n  WHERE i.status NOT IN ('Draft', 'Void')\n  UNION ALL\n  SELECT r.date, coalesce(c.section, 'Operating expenses'), coalesce(c.name, 'Uncategorized'), r.net\n  FROM receipts r\n  LEFT JOIN links l ON l.\"table\" = 'receipts' AND l.column = 'category' AND l.row_id = r.id\n  LEFT JOIN categories c ON c.id = l.target_id\n)\nSELECT substr(day, 1, 7) AS month,\n  sum(CASE WHEN section IN ('Revenue', 'Other income') THEN amount ELSE 0 END) AS income,\n  sum(CASE WHEN section IN ('Revenue', 'Other income') THEN 0 ELSE amount END) AS costs\nFROM lines WHERE day >= '$FROM' AND day <= '$TO'\nGROUP BY month ORDER BY month",
+  "vat": "WITH v AS (\n  SELECT issue_date AS day, vat AS out_vat, 0 AS in_vat, 0 AS paid FROM invoices WHERE status NOT IN ('Draft', 'Void')\n  UNION ALL SELECT date, 0, vat, 0 FROM receipts\n  UNION ALL SELECT date, 0, 0, -amount FROM movements WHERE type = 'VAT payment'\n)\nSELECT substr(day, 1, 4) || ' Q' || ((CAST(substr(day, 6, 2) AS INTEGER) + 2) / 3) AS quarter,\n  sum(out_vat) AS out_vat, sum(in_vat) AS in_vat, sum(out_vat) - sum(in_vat) AS due, sum(paid) AS paid\nFROM v WHERE day IS NOT NULL\nGROUP BY quarter ORDER BY quarter DESC LIMIT 8",
+  "open": "SELECT i.number, p.name AS customer, i.issue_date, i.due_date, i.total, i.status\nFROM invoices i\nLEFT JOIN links l ON l.\"table\" = 'invoices' AND l.column = 'customer' AND l.row_id = i.id\nLEFT JOIN parties p ON p.id = l.target_id\nWHERE i.status IN ('Sent', 'Overdue')\nORDER BY i.due_date"
+};
+
+  const $ = (selector) => document.querySelector(selector);
+  const esc = (text) =>
+    String(text ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const eur = (value) => graite.format(Number(value) || 0, "EUR");
+  const num = (value, digits = 0) =>
+    new Intl.NumberFormat(undefined, { maximumFractionDigits: digits }).format(Number(value) || 0);
+  const pct = (value) => (value === null || value === undefined ? "—" : `${num(value, 0)}%`);
+  /** A date as YYYY-MM-DD in local time. */
+  const iso = (date) => {
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+  };
+  const addDays = (date, days) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+  const today = new Date();
+  /** Run one of QUERIES with $NAME variables filled in (dates only, so quoting is enough). */
+  async function q(key, vars = {}) {
+    let sql = QUERIES[key];
+    for (const [name, value] of Object.entries(vars))
+      sql = sql.split("$" + name).join(String(value).replace(/'/g, "''"));
+    return graite.query(sql);
+  }
+  /** Rows as an HTML table: columns are [label, key, format?] with format "eur", "num", "pct", "date". */
+  function grid(rows, columns, empty = "Nothing here yet.") {
+    if (!rows.length) return `<div class="empty">${esc(empty)}</div>`;
+    const cell = (row, [, key, format]) => {
+      const value = typeof key === "function" ? key(row) : row[key];
+      if (format === "eur") return `<td class="num">${esc(eur(value))}</td>`;
+      if (format === "num") return `<td class="num">${esc(num(value, 1))}</td>`;
+      if (format === "pct") return `<td class="num">${esc(pct(value))}</td>`;
+      if (format === "html") return `<td>${value ?? ""}</td>`;
+      return `<td>${esc(value ?? "")}</td>`;
+    };
+    const head = columns
+      .map(([label, , format]) => `<th class="${["eur", "num", "pct"].includes(format) ? "num" : ""}">${esc(label)}</th>`)
+      .join("");
+    const body = rows.map((row) => `<tr>${columns.map((c) => cell(row, c)).join("")}</tr>`).join("");
+    return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  }
+  /** Theme colors for hand-made ECharts options. */
+  const ink = () => {
+    const t = graite.theme();
+    return { fg: t.colors.foreground, muted: t.colors.muted, border: t.colors.border, palette: t.colors.palette };
+  };
+  function barOption(categories, series, { stacked = false, horizontal = false, money = true } = {}) {
+    const c = ink();
+    const value = { type: "value", axisLabel: { color: c.muted, formatter: (v) => (money ? eur(v) : num(v)) }, splitLine: { lineStyle: { color: c.border } } };
+    const cat = { type: "category", data: categories, axisLabel: { color: c.muted }, axisTick: { show: false }, axisLine: { lineStyle: { color: c.border } } };
+    return {
+      grid: { left: 4, right: 12, top: 26, bottom: 4, containLabel: true },
+      legend: series.length > 1 ? { top: 0, textStyle: { color: c.muted } } : undefined,
+      tooltip: { trigger: "axis", valueFormatter: (v) => (money ? eur(v) : num(v, 1)) },
+      xAxis: horizontal ? value : cat,
+      yAxis: horizontal ? cat : value,
+      series: series.map((s, i) => ({
+        type: s.type || "bar",
+        name: s.name,
+        data: s.data,
+        stack: stacked ? "all" : undefined,
+        smooth: true,
+        barMaxWidth: 28,
+        itemStyle: { borderRadius: stacked ? 0 : 3, color: s.color || c.palette[i * 2 % c.palette.length] },
+        lineStyle: s.type === "line" ? { width: 2 } : undefined,
+      })),
+    };
+  }
+
+const SECTIONS = ["Revenue", "Cost of sales", "Operating expenses", "Other income", "Other expenses"];
+  const INCOME = ["Revenue", "Other income"];
+  function period(kind) {
+    const y = today.getFullYear();
+    const m = today.getMonth();
+    if (kind === "month") return [new Date(y, m, 1), new Date(y, m + 1, 0)];
+    if (kind === "quarter") return [new Date(y, m - (m % 3), 1), new Date(y, m - (m % 3) + 3, 0)];
+    if (kind === "last-year") return [new Date(y - 1, 0, 1), new Date(y - 1, 11, 31)];
+    if (kind === "12m") return [new Date(y, m - 11, 1), new Date(y, m + 1, 0)];
+    return [new Date(y, 0, 1), new Date(y, 11, 31)];
+  }
+  async function render() {
+    const [from, to] = period($("#period").value);
+    const vars = { FROM: iso(from), TO: iso(to) };
+    $("#range").textContent = `${vars.FROM} to ${vars.TO}`;
+    const lines = await q("lines", vars);
+    let income = 0;
+    let costs = 0;
+    let html = "";
+    for (const section of SECTIONS) {
+      const items = lines.filter((l) => l.section === section);
+      if (!items.length) continue;
+      const sum = items.reduce((s, l) => s + l.amount, 0);
+      if (INCOME.includes(section)) income += sum;
+      else costs += sum;
+      html += `<tr class="section"><td colspan="2">${esc(section)}</td></tr>`;
+      html += items.map((l) => `<tr><td>${esc(l.category)}</td><td class="num">${esc(eur(l.amount))}</td></tr>`).join("");
+      html += `<tr class="total"><td>Total ${esc(section.toLowerCase())}</td><td class="num">${esc(eur(sum))}</td></tr>`;
+    }
+    html += `<tr class="total"><td>Profit</td><td class="num">${esc(eur(income - costs))}</td></tr>`;
+    $("#statement").innerHTML = lines.length ? `<table><tbody>${html}</tbody></table>` : `<div class="empty">No invoices or receipts in this period.</div>`;
+    $("#income").textContent = eur(income);
+    $("#costs").textContent = eur(costs);
+    $("#profit").textContent = eur(income - costs);
+    $("#margin").textContent = income ? `${pct(((income - costs) / income) * 100)} margin` : "";
+
+    const months = await q("months", vars);
+    graite.chart("#months", barOption(
+      months.map((m) => m.month),
+      [
+        { name: "Income", data: months.map((m) => m.income) },
+        { name: "Costs", data: months.map((m) => m.costs) },
+        { name: "Profit", type: "line", data: months.map((m) => m.income - m.costs) },
+      ],
+    ));
+    const vat = await q("vat");
+    $("#vat").innerHTML = grid(vat, [
+      ["Quarter", "quarter"],
+      ["Charged", "out_vat", "eur"],
+      ["Paid on costs", "in_vat", "eur"],
+      ["Due", "due", "eur"],
+      ["Paid to tax office", "paid", "eur"],
+    ], "No VAT yet.");
+    const open = await q("open");
+    const todayIso = iso(today);
+    $("#receivable").textContent = eur(open.reduce((s, r) => s + (r.total || 0), 0));
+    $("#receivable-note").textContent = `${open.length} open invoice${open.length === 1 ? "" : "s"}`;
+    $("#open").innerHTML = grid(open, [
+      ["Invoice", "number"],
+      ["Customer", "customer"],
+      ["Due", (r) => (r.due_date && r.due_date < todayIso ? `⚠ ${r.due_date}` : r.due_date)],
+      ["Total", "total", "eur"],
+    ], "Every invoice is paid.");
+  }
+  $("#period").addEventListener("change", render);
+  render();
+  graite.onChange(render);
+</script>
+</body>
+</html>

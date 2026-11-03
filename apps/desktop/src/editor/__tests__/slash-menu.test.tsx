@@ -4,6 +4,7 @@ import { BlockNoteEditor } from "@blocknote/core";
 import { schema, type GraiteEditor } from "../schema";
 import { EditorSurface } from "../EditorSurface";
 import type { PickedPage, SlashMenuDeps } from "../slash-menu";
+import { takeSetup } from "../tables/setup";
 
 // jsdom has no layout: give floating-ui/ProseMirror the rect APIs they call.
 const rect = () => ({
@@ -91,12 +92,51 @@ function chooseFirstItem() {
 afterEach(cleanup);
 
 describe("slash menu (mounted)", () => {
-  it("inserts a board view from the Views group", async () => {
+  it("inserts subpages as a board from the Subpages group", async () => {
     const { editor, dom } = mount();
-    await typeSlashQuery(editor, dom, "board");
+    await typeSlashQuery(editor, dom, "subpages as board");
     chooseFirstItem();
     expect(editor.document[0]!.type).toBe("pageView");
     expect(editor.document[0]!.props).toMatchObject({ view: "kanban", group: "", show: "" });
+  });
+
+  it("makes and opens a database page at once, listed first in the Database group", async () => {
+    const page: PickedPage = {
+      path: "P/Untitled",
+      title: "Untitled",
+      icon: null,
+      target: "Untitled",
+    };
+    const navigate = vi.fn();
+    const { editor, dom, slashDeps } = mount({
+      createDatabasePage: vi.fn(async () => page),
+      navigate,
+    });
+    await typeSlashQuery(editor, dom, "database");
+    const titles = [...document.querySelectorAll(".bn-suggestion-menu-item")].map(
+      (item) => item.textContent ?? "",
+    );
+    const first = titles.findIndex((t) => t.startsWith("Database page"));
+    expect(first).toBe(0);
+    expect(titles.findIndex((t) => t.startsWith("DatabaseRows"))).toBeGreaterThan(first);
+    chooseFirstItem();
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("P/Untitled"));
+    expect(editor.document[0]!.type).toBe("pageLink");
+    expect(editor.document[0]!.props).toMatchObject({ path: "P/Untitled", title: "Untitled" });
+    expect(slashDeps.onTreeChanged).toHaveBeenCalled();
+  });
+
+  it.each([
+    ["database", "new"],
+    ["linked view", "linked"],
+  ])("/%s inserts an empty database block that starts as %s", async (query, mode) => {
+    const { editor, dom } = mount();
+    await typeSlashQuery(editor, dom, query);
+    chooseFirstItem();
+    const block = editor.document[0]!;
+    expect(block.type).toBe("tableView");
+    expect(block.props).toMatchObject({ source: "", views: "" });
+    expect(takeSetup(block.id)).toBe(mode);
   });
 
   it.each([2, 3, 4])("inserts %s editable columns", async (count) => {

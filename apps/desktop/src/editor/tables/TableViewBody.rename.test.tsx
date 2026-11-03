@@ -62,6 +62,7 @@ it("renames a field when only its capitals change", async () => {
       <TableViewBody
         id="b"
         props={{
+          views: "",
           source: "_data/t.csv",
           view: "",
           filter: "",
@@ -95,6 +96,7 @@ it("keeps a rename when the menu closes without Enter", async () => {
       <TableViewBody
         id="b"
         props={{
+          views: "",
           source: "_data/t.csv",
           view: "",
           filter: "",

@@ -1,0 +1,8 @@
+id;name;title;company;email;phone;linkedin;role;last_contacted;tags
+{{id:ct_lena}};Lena Hart;Head of Operations;[[{{id:co_northwind}}|Northwind Traders]];lena@northwind.example;+31 10 000 0101;;Decision maker;{{date:-6}};warm
+{{id:ct_omar}};Omar Haddad;Warehouse lead;[[{{id:co_northwind}}|Northwind Traders]];omar@northwind.example;;;User;{{date:-6}};
+{{id:ct_ines}};Ines Duarte;CTO;[[{{id:co_acme}}|Acme Robotics]];ines@acme-robotics.example;+31 40 000 0202;;Decision maker;{{date:-12}};technical
+{{id:ct_jon}};Jon Berg;Data lead;[[{{id:co_bluefjord}}|Blue Fjord Analytics]];jon@bluefjord.example;;;Champion;{{date:-3}};warm|technical
+{{id:ct_mara}};Mara Willems;Owner;[[{{id:co_cedar}}|Cedar & Pine Interiors]];mara@cedarpine.example;;;Decision maker;{{date:-40}};
+{{id:ct_tom}};Tom Visser;Procurement;[[{{id:co_helix}}|Helix Health]];tom@helix-health.example;;;Influencer;{{date:-20}};procurement
+{{id:ct_kai}};Kai Neumann;COO;[[{{id:co_orbit}}|Orbit Logistics]];kai@orbit-logistics.example;;;Decision maker;{{date:-150}};

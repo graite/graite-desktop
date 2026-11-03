@@ -1,0 +1,65 @@
+{
+  "id": "{{table:key_results}}",
+  "display": "title",
+  "columns": {
+    "objective": {
+      "type": "relation",
+      "table": "objectives",
+      "table_id": "{{table:objectives}}",
+      "cardinality": "one"
+    },
+    "start": {
+      "type": "number"
+    },
+    "target": {
+      "type": "number"
+    },
+    "current": {
+      "type": "number"
+    },
+    "progress": {
+      "type": "formula",
+      "formula": "round(max(min((current - start) / (target - start) * 100, 100), 0), 0)",
+      "format": "percent"
+    },
+    "confidence": {
+      "type": "number"
+    },
+    "owner": {
+      "type": "single_select",
+      "options": [
+        "Noor",
+        "Sam",
+        "Alex"
+      ]
+    },
+    "check_ins": {
+      "type": "relation",
+      "table": "check_ins",
+      "table_id": "{{table:check_ins}}",
+      "reverse": "key_result",
+      "panel": {
+        "as": "auto",
+        "show": [
+          "date",
+          "value",
+          "confidence"
+        ]
+      }
+    }
+  },
+  "order": [
+    "id",
+    "title",
+    "objective",
+    "start",
+    "target",
+    "current",
+    "unit",
+    "progress",
+    "confidence",
+    "owner",
+    "metric",
+    "check_ins"
+  ]
+}

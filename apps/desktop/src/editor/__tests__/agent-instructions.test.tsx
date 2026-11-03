@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { AgentInstructionsEditor } from "../AgentInstructionsEditor";
+import { AgentInstructionsEditor } from "../MarkdownEditor";
 
 const rect = () => ({
   x: 0,

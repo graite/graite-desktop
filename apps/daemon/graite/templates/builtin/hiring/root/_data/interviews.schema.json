@@ -1,0 +1,56 @@
+{
+  "id": "{{table:interviews}}",
+  "display": "type",
+  "display_secondary": "date",
+  "columns": {
+    "candidate": {
+      "type": "relation",
+      "table": "candidates",
+      "table_id": "{{table:candidates}}",
+      "cardinality": "one"
+    },
+    "date": {
+      "type": "date"
+    },
+    "type": {
+      "type": "single_select",
+      "options": [
+        "Phone screen",
+        "Technical",
+        "Assignment review",
+        "Culture",
+        "Final"
+      ]
+    },
+    "interviewer": {
+      "type": "single_select",
+      "options": [
+        "Noor",
+        "Alex",
+        "Sam"
+      ]
+    },
+    "score": {
+      "type": "number"
+    },
+    "recommendation": {
+      "type": "single_select",
+      "options": [
+        "Strong yes",
+        "Yes",
+        "No",
+        "Strong no"
+      ],
+      "colors": {
+        "Strong yes": "green",
+        "Yes": "blue",
+        "No": "orange",
+        "Strong no": "red"
+      }
+    },
+    "notes": {
+      "type": "page",
+      "cardinality": "one"
+    }
+  }
+}

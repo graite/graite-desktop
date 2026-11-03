@@ -786,3 +786,44 @@ tr:focus-within .view-row-menu {
     opacity: 1;
   }
 }
+
+/* A choice shown as a pill (layouts, grouping, sort direction). */
+.view-chip-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.view-chip-choice.active {
+  border-color: var(--foreground);
+  color: var(--foreground);
+  background: var(--accent);
+}
+.view-chip-choice:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* The Sort button's menu (D82), on database blocks and subpage views. */
+.view-sort-menu {
+  width: 220px;
+}
+.view-sort-fields {
+  display: flex;
+  flex-direction: column;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.view-sort-direction {
+  display: flex;
+  gap: 4px;
+  padding: 4px 0;
+}
+.view-button-active {
+  color: var(--foreground);
+}

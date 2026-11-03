@@ -1,0 +1,3 @@
+id;name;goal;start;end;status
+{{id:cp_autumn}};Autumn launch;500 sign-ups for the new plan;{{date:10}};{{date:50}};Active
+{{id:cp_basics}};Spreadsheet basics;Grow the newsletter;{{date:-60}};{{date:30}};Active

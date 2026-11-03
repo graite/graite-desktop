@@ -10,12 +10,16 @@ import {
   ScanText,
   NotebookPen,
   Table2,
+  Kanban,
+  Database,
+  FileStack,
   FileUp,
   BarChart3,
   Code2,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { GraiteEditor } from "./schema";
+import { startSetup, type SetupMode } from "./tables/setup";
 
 export interface PickedPage {
   path: string;
@@ -34,6 +38,10 @@ export interface SlashMenuDeps {
   onTreeChanged: () => void;
   /** Copies a CSV into this page's `_data/`; resolves with the block `source` for it. */
   importTable?: (file: File) => Promise<string>;
+  /** Creates an Untitled child page holding an empty database (D82) and returns it. */
+  createDatabasePage?: () => Promise<PickedPage>;
+  /** Opens a page. */
+  navigate?: (path: string) => void;
 }
 
 /** Default items we do not offer: toggle headings (we offer plain toggles only). */
@@ -158,37 +166,102 @@ export function getSlashMenuItems(
       });
     },
   }));
+  // Subpages (pages with properties) and databases (rows in a CSV) are different things, so
+  // they are separate groups with plain names (D82).
   const views: DefaultReactSuggestionItem[] = (
     [
-      ["table", "Table", "A table of this page's subpages and their properties"],
-      ["kanban", "Board", "Nested pages as cards grouped by a status"],
-      ["list", "List", "Nested pages as a simple list"],
+      ["table", "table", "Your subpages and their properties in a table", Table2],
+      ["kanban", "board", "Your subpages as cards, grouped by a status", Kanban],
+      ["list", "list", "Your subpages as a simple list", LayoutList],
     ] as const
-  ).map(([view, label, subtext]) => ({
-    title: `${label} view`,
+  ).map(([view, label, subtext, Icon]) => ({
+    title: `Subpages as ${label}`,
     subtext,
-    aliases: [view, "view", "database"],
-    group: "Views",
-    icon: <LayoutList size={16} />,
+    aliases: [view, label, "view", "subpages", "children", "pages"],
+    group: "Subpages",
+    icon: <Icon size={16} />,
     onItemClick: () => {
       insertOrUpdateBlockForSlashMenu(editor, { type: "pageView", props: { view } });
     },
   }));
-  const tableItem: DefaultReactSuggestionItem = {
-    title: "Database table",
-    subtext: "Typed columns saved as a CSV in this page; filter, sort and edit like a spreadsheet",
-    aliases: ["csv", "table", "database", "spreadsheet", "data", "grid", "rows"],
-    group: "Views",
-    icon: <Table2 size={16} />,
-    onItemClick: () => {
-      insertOrUpdateBlockForSlashMenu(editor, { type: "tableView", props: { source: "" } });
-    },
+  const database = (mode: SetupMode) => () => {
+    const block = insertOrUpdateBlockForSlashMenu(editor, {
+      type: "tableView",
+      props: { source: "" },
+    });
+    startSetup(block.id, mode);
   };
+  // Like "Page": made at once (an Untitled page with an empty table) and opened.
+  const databasePageItem: DefaultReactSuggestionItem | null = deps.createDatabasePage
+    ? {
+        title: "Database page",
+        subtext: "A new page holding a database; opens right away",
+        aliases: ["database", "full page", "table page", "data", "new page"],
+        group: "Database",
+        icon: <FileStack size={16} />,
+        onItemClick: () => {
+          // Synchronous insert: BlockNote loses the position after an await.
+          const inserted = insertOrUpdateBlockForSlashMenu(editor, {
+            type: "pageLink",
+            props: { path: "", title: "Creating…", icon: "", target: "" },
+          });
+          void (async () => {
+            try {
+              const page = await deps.createDatabasePage!();
+              editor.updateBlock(inserted, {
+                type: "pageLink",
+                props: {
+                  path: page.path,
+                  title: page.title,
+                  icon: page.icon ?? "",
+                  target: page.target,
+                },
+              });
+              deps.onTreeChanged();
+              deps.navigate?.(page.path);
+            } catch (e) {
+              editor.removeBlocks([inserted]);
+              toast.error(`Could not create the database page: ${(e as Error).message}`);
+            }
+          })();
+        },
+      }
+    : null;
+  const databaseItems: DefaultReactSuggestionItem[] = [
+    ...(databasePageItem ? [databasePageItem] : []),
+    {
+      title: "Database",
+      subtext:
+        "Rows with typed fields, shown as a table, board or list; can link to other databases",
+      aliases: [
+        "database",
+        "table",
+        "board",
+        "kanban",
+        "list",
+        "csv",
+        "spreadsheet",
+        "data",
+        "rows",
+      ],
+      group: "Database",
+      icon: <Database size={16} />,
+      onItemClick: database("new"),
+    },
+    {
+      title: "Linked view of a database",
+      subtext: "Show a database that already exists, as a table, board or list",
+      aliases: ["linked", "view", "existing", "database", "table", "board", "kanban"],
+      group: "Database",
+      icon: <Link2 size={16} />,
+      onItemClick: database("linked"),
+    },
+  ];
   const chartItem: DefaultReactSuggestionItem = {
     title: "Chart",
-    subtext: "Bar, line, pie or a number from this page's tables, updated as rows change",
+    subtext: "Bar, line, pie or a number from a database, updated as rows change",
     aliases: ["chart", "graph", "plot", "bar", "line", "pie", "kpi", "visual"],
-    group: "Views",
+    group: "Database",
     icon: <BarChart3 size={16} />,
     onItemClick: () => {
       insertOrUpdateBlockForSlashMenu(editor, { type: "chart", props: { source: "" } });
@@ -198,7 +271,7 @@ export function getSlashMenuItems(
     title: "HTML",
     subtext: "Upload an HTML file or create a report or dashboard with the page’s AI chat",
     aliases: ["dashboard", "html", "report", "overview", "kpi", "panel"],
-    group: "Views",
+    group: "Database",
     icon: <Code2 size={16} />,
     onItemClick: () => {
       insertOrUpdateBlockForSlashMenu(editor, { type: "dashboard", props: { src: "" } });
@@ -207,9 +280,9 @@ export function getSlashMenuItems(
   const importItem: DefaultReactSuggestionItem | null = deps.importTable
     ? {
         title: "Import CSV",
-        subtext: "Turn a .csv file into a table on this page",
+        subtext: "Turn a .csv file into a database on this page",
         aliases: ["csv", "import", "spreadsheet", "excel", "upload"],
-        group: "Views",
+        group: "Database",
         icon: <FileUp size={16} />,
         onItemClick: () => {
           // Insert now (BlockNote loses the position after an await), then choose the file.
@@ -217,6 +290,8 @@ export function getSlashMenuItems(
             type: "tableView",
             props: { source: "" },
           });
+          const views = (source: string) =>
+            JSON.stringify([{ name: "Table", source, view: "table" }]);
           const input = document.createElement("input");
           input.type = "file";
           input.accept = ".csv,text/csv";
@@ -224,7 +299,11 @@ export function getSlashMenuItems(
             const file = input.files?.[0];
             if (!file) return;
             deps.importTable!(file).then(
-              (source) => editor.updateBlock(inserted, { type: "tableView", props: { source } }),
+              (source) =>
+                editor.updateBlock(inserted, {
+                  type: "tableView",
+                  props: { views: views(source) },
+                }),
               (e: Error) => toast.error(e.message),
             );
           };
@@ -254,11 +333,11 @@ export function getSlashMenuItems(
     linkItem,
     ...mediaItems,
     ...layouts,
-    ...views,
-    tableItem,
+    ...databaseItems,
     ...(importItem ? [importItem] : []),
     chartItem,
     dashboardItem,
+    ...views,
     ...withCallout,
   ];
 }

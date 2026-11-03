@@ -1,0 +1,69 @@
+{
+  "id": "{{table:contacts}}",
+  "display": "name",
+  "display_secondary": "title",
+  "columns": {
+    "company": {
+      "type": "relation",
+      "table": "companies",
+      "table_id": "{{table:companies}}",
+      "cardinality": "one"
+    },
+    "email": {
+      "type": "email"
+    },
+    "linkedin": {
+      "type": "url"
+    },
+    "role": {
+      "type": "single_select",
+      "options": [
+        "Decision maker",
+        "Champion",
+        "Influencer",
+        "User",
+        "Blocker"
+      ]
+    },
+    "last_contacted": {
+      "type": "date"
+    },
+    "tags": {
+      "type": "multi_select",
+      "options": [
+        "warm",
+        "technical",
+        "procurement",
+        "event"
+      ]
+    },
+    "deals": {
+      "type": "relation",
+      "table": "deals",
+      "table_id": "{{table:deals}}",
+      "reverse": "contacts",
+      "panel": {
+        "as": "auto",
+        "show": [
+          "stage",
+          "value"
+        ]
+      }
+    },
+    "activities": {
+      "type": "relation",
+      "table": "activities",
+      "table_id": "{{table:activities}}",
+      "reverse": "contact",
+      "panel": {
+        "as": "list",
+        "show": [
+          "type",
+          "date",
+          "due",
+          "done"
+        ]
+      }
+    }
+  }
+}

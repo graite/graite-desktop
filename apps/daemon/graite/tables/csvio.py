@@ -19,7 +19,9 @@ DELIMITERS = ",;\t|"
 
 @dataclass
 class Dialect:
-    delimiter: str = ","
+    # New tables are `;`-separated (D78): what European spreadsheet apps expect, and safe for
+    # text full of commas. A file Graite did not create keeps whatever it uses.
+    delimiter: str = ";"
     newline: str = "\n"
     bom: bool = False
     trailing_newline: bool = True
@@ -58,14 +60,14 @@ def _detect(text: str) -> Dialect:
     newline = first.group(0) if first else "\n"
     sample = text[:8192]
     head = sample.split(newline, 1)[0] if first else sample
-    delimiter = ","
+    delimiter = ";"
     try:
         delimiter = csv.Sniffer().sniff(sample, delimiters=DELIMITERS).delimiter
     except csv.Error:
         # Sniffer gives up on one-column and one-line files; count in the header instead.
         counts = {d: head.count(d) for d in DELIMITERS}
         best = max(counts, key=lambda d: counts[d])
-        delimiter = best if counts[best] else ","
+        delimiter = best if counts[best] else ";"
     # The sniffer can pick a character that only appears inside quoted values of the header.
     if head.count(delimiter) == 0 and head.count(",") > 0:
         delimiter = ","

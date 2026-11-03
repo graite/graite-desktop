@@ -10,6 +10,8 @@ export type TableRow = components["schemas"]["RowModel"];
 export type RowOp = components["schemas"]["RowOpModel"];
 export type ColumnOp = components["schemas"]["ColumnOpModel"];
 export type WriteResult = components["schemas"]["WriteResult"];
+export type FormulaCheck = components["schemas"]["FormulaCheck"];
+export type RowDoc = components["schemas"]["RowDoc"];
 
 /** One linked row in a relation cell (D71), labeled with its current display value. */
 export interface RelationLink {
@@ -24,6 +26,34 @@ export function isRelationLinks(value: unknown): value is RelationLink[] {
   return (
     Array.isArray(value) &&
     value.every((v) => !!v && typeof v === "object" && typeof (v as RelationLink).id === "string")
+  );
+}
+
+/** One attachment in a file cell (D76): the stored name in the table page's `_assets/`. */
+export interface FileLink {
+  file: string;
+  name: string;
+}
+
+/** One linked page in a page cell (D76), titled live; `broken` when the page is gone. */
+export interface PageLink {
+  path: string;
+  title: string;
+  icon?: string | null;
+  broken?: boolean;
+}
+
+export function isFileLinks(value: unknown): value is FileLink[] {
+  return (
+    Array.isArray(value) &&
+    value.every((v) => !!v && typeof v === "object" && typeof (v as FileLink).file === "string")
+  );
+}
+
+export function isPageLinks(value: unknown): value is PageLink[] {
+  return (
+    Array.isArray(value) &&
+    value.every((v) => !!v && typeof v === "object" && typeof (v as PageLink).path === "string")
   );
 }
 
@@ -126,9 +156,74 @@ export const tables = {
       method: "POST",
       ...json({ path, column, old, new: next }),
     }),
+  /** Store a file in the table page's attachments for a file column (D76); write the
+   *  returned `{file, name}` into the cell afterwards. */
+  async uploadFile(path: string, file: File): Promise<FileLink> {
+    const { url, token } = await platform.getDaemonInfo();
+    const res = await fetch(`${url}/api/v1/tables/files?${query({ path, name: file.name })}`, {
+      method: "POST",
+      body: file,
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" },
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { detail?: string };
+      throw new Error(data.detail || `Upload failed (${res.status}).`);
+    }
+    return (await res.json()) as FileLink;
+  },
+  /** Open a file column's file in the system's app (desktop) or a new tab (web). */
+  async openFile(path: string, item: FileLink): Promise<void> {
+    if (platform.openPath) {
+      const where = await request<{ path: string }>(
+        `/api/v1/tables/files/location?${query({ path, file: item.file })}`,
+      );
+      return platform.openPath(where.path);
+    }
+    const { url, token } = await platform.getDaemonInfo();
+    const res = await fetch(
+      `${url}/api/v1/tables/files/content?${query({ path, file: item.file })}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!res.ok) throw new Error("Could not open this file.");
+    const objectUrl = URL.createObjectURL(await res.blob());
+    window.open(objectUrl, "_blank", "noopener");
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+  },
+  /** A row's own document (D80), as Markdown with the hash a save must name. */
+  rowDoc: (path: string, id: string) =>
+    request<RowDoc>(`/api/v1/tables/row-doc?${query({ path, id })}`),
+  /** Save a row's document; `baseHash` "" for a new one. A stale hash is a 409 (ApiError). */
+  writeRowDoc: (path: string, id: string, body: string, baseHash: string, title: string) =>
+    request<RowDoc>("/api/v1/tables/row-doc", {
+      method: "PUT",
+      ...json({ path, id, body, base_hash: baseHash, title }),
+    }),
+  /** Whether a formula works on this table, with its values for the first rows (D75). */
+  checkFormula: (path: string, formula: string, column?: string | null) =>
+    request<FormulaCheck>("/api/v1/tables/formula/check", {
+      method: "POST",
+      ...json({ path, formula, column: column ?? null }),
+    }),
   /** Merge into the schema file: `columns.<name>` merges key by key; null removes a key. */
   schema: (path: string, schema: Record<string, unknown>) =>
     request<TableInfo>("/api/v1/tables/schema", { method: "PATCH", ...json({ path, schema }) }),
+  /** Add a Status field (Todo / Doing / Done) so a board has columns to group by (D82). */
+  async addStatusField(table: Pick<TableInfo, "path" | "columns">): Promise<string> {
+    const taken = new Set((table.columns ?? []).map((c) => c.name.toLowerCase()));
+    let name = "status";
+    for (let n = 2; taken.has(name); n++) name = `status ${n}`;
+    await tables.columns(table.path, [{ op: "add", name }]);
+    await tables.schema(table.path, {
+      columns: {
+        [name]: {
+          type: "status",
+          options: ["Todo", "Doing", "Done"],
+          colors: { Todo: "gray", Doing: "blue", Done: "green" },
+        },
+      },
+    });
+    return name;
+  },
 };
 
 /** How a block on `pagePath` refers to a table: short for its own `_data/`, else the path. */
@@ -158,9 +253,64 @@ export function describeWarning(warning: string): string {
       return `${count} link(s) point to rows that no longer exist. They show in red.`;
     case "relation_target_missing":
       return `The table that “${count}” links to cannot be found.`;
+    case "formula_invalid": {
+      // `formula_invalid:<column>:<message>`
+      const colon = count.indexOf(":");
+      const column = colon < 0 ? count : count.slice(0, colon);
+      const message = colon < 0 ? "" : count.slice(colon + 1);
+      return `The formula of “${column}” has a problem: ${message} Its cells stay empty.`;
+    }
     case "table_id_duplicate":
       return "Another table has the same id (a copied folder?). Links may pick either table.";
     default:
       return warning;
   }
+}
+
+/** Tables in groups, nearest first: this page, the rest of its top-level page, everything else. */
+export interface TableGroup {
+  key: "here" | "near" | "other";
+  label: string;
+  tables: TableInfo[];
+}
+
+/** How far apart two pages are in the tree: steps up to the shared parent, then down. */
+function treeDistance(a: string, b: string): number {
+  const x = a ? a.split("/") : [];
+  const y = b ? b.split("/") : [];
+  let shared = 0;
+  while (shared < x.length && shared < y.length && x[shared] === y[shared]) shared++;
+  return x.length - shared + (y.length - shared);
+}
+
+/**
+ * The tables a page would want first (D82): its own, then those under the same top-level page
+ * (closest pages first, e.g. the CRM's tables when inside the CRM), then all others.
+ */
+export function rankTables(list: TableInfo[], pagePath: string): TableGroup[] {
+  const top = pagePath.split("/")[0] ?? "";
+  const byName = (a: TableInfo, b: TableInfo) => a.name.localeCompare(b.name);
+  const here = list.filter((t) => t.page_path === pagePath).sort(byName);
+  const near = list
+    .filter(
+      (t) =>
+        t.page_path !== pagePath &&
+        top &&
+        (t.page_path === top || t.page_path.startsWith(`${top}/`)),
+    )
+    .sort(
+      (a, b) =>
+        treeDistance(pagePath, a.page_path) - treeDistance(pagePath, b.page_path) ||
+        a.page_path.localeCompare(b.page_path) ||
+        byName(a, b),
+    );
+  const other = list
+    .filter((t) => !here.includes(t) && !near.includes(t))
+    .sort((a, b) => a.page_path.localeCompare(b.page_path) || byName(a, b));
+  const groups: TableGroup[] = [
+    { key: "here", label: "On this page", tables: here },
+    { key: "near", label: `In ${top.split("/").pop() || "this workspace"}`, tables: near },
+    { key: "other", label: "Other pages", tables: other },
+  ];
+  return groups.filter((g) => g.tables.length);
 }

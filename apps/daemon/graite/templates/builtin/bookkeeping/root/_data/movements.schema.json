@@ -1,0 +1,39 @@
+{
+  "id": "{{table:movements}}",
+  "display": "note",
+  "display_secondary": "date",
+  "columns": {
+    "date": {
+      "type": "date"
+    },
+    "account": {
+      "type": "relation",
+      "table": "accounts",
+      "table_id": "{{table:accounts}}",
+      "cardinality": "one"
+    },
+    "type": {
+      "type": "single_select",
+      "options": [
+        "Owner contribution",
+        "Owner drawing",
+        "VAT payment",
+        "Transfer",
+        "Loan received",
+        "Loan repayment"
+      ],
+      "colors": {
+        "Owner contribution": "green",
+        "Owner drawing": "orange",
+        "VAT payment": "red",
+        "Transfer": "gray",
+        "Loan received": "blue",
+        "Loan repayment": "purple"
+      }
+    },
+    "amount": {
+      "type": "currency",
+      "currency": "EUR"
+    }
+  }
+}

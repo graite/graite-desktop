@@ -1,0 +1,7 @@
+id;date;account;type;amount;note
+{{id:mv1}};{{date:-195}};[[{{id:ac_bank}}|Business account]];Owner contribution;3000;Start capital
+{{id:mv2}};{{date:-90}};[[{{id:ac_bank}}|Business account]];Transfer;-2000;To savings
+{{id:mv3}};{{date:-90}};[[{{id:ac_savings}}|Savings]];Transfer;2000;From bank
+{{id:mv4}};{{date:-60}};[[{{id:ac_bank}}|Business account]];VAT payment;-1450.5;VAT for last quarter
+{{id:mv5}};{{date:-35}};[[{{id:ac_bank}}|Business account]];Owner drawing;-2500;Monthly draw
+{{id:mv6}};{{date:-5}};[[{{id:ac_bank}}|Business account]];Owner drawing;-2500;Monthly draw

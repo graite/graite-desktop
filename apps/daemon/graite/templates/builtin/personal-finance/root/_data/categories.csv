@@ -1,0 +1,16 @@
+id;name;kind;monthly_budget
+{{id:c_salary}};Salary;Income;
+{{id:c_side}};Side income;Income;
+{{id:c_rent}};Rent;Fixed costs;1150
+{{id:c_utilities}};Energy & water;Fixed costs;140
+{{id:c_insurance}};Insurance;Fixed costs;160
+{{id:c_phone}};Phone & internet;Fixed costs;55
+{{id:c_subs}};Subscriptions;Fixed costs;35
+{{id:c_groceries}};Groceries;Variable costs;450
+{{id:c_eating}};Eating out;Variable costs;150
+{{id:c_transport}};Transport;Variable costs;120
+{{id:c_shopping}};Shopping;Variable costs;150
+{{id:c_health}};Health;Variable costs;50
+{{id:c_fun}};Going out & hobbies;Variable costs;100
+{{id:c_gifts}};Gifts;Variable costs;40
+{{id:c_transfer}};Transfers;Transfers;

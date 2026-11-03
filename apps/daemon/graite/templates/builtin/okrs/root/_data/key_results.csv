@@ -1,0 +1,8 @@
+id;title;objective;metric;start;target;current;unit;confidence;owner
+{{id:kr_new}};New paying customers;[[{{id:ob_customers}}|Win customers who stay]];;0;40;23;customers;7;Sam
+{{id:kr_churn}};Monthly churn;[[{{id:ob_customers}}|Win customers who stay]];;4;2;3.1;%;6;Sam
+{{id:kr_nps}};Customer satisfaction score;[[{{id:ob_customers}}|Win customers who stay]];;38;50;44;NPS;7;Noor
+{{id:kr_load}};Page load on phones;[[{{id:ob_product}}|Make the product fast and dependable]];;3.8;1.5;2.9;seconds;4;Alex
+{{id:kr_uptime}};Uptime;[[{{id:ob_product}}|Make the product fast and dependable]];;99.2;99.9;99.7;%;6;Alex
+{{id:kr_hires}};Roles filled;[[{{id:ob_team}}|Grow a team that works well together]];;0;2;1;people;8;Noor
+{{id:kr_survey}};Team survey score;[[{{id:ob_team}}|Grow a team that works well together]];;7.1;8;7.6;of 10;7;Noor

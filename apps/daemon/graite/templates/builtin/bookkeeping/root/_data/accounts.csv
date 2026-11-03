@@ -1,0 +1,4 @@
+id;name;type;opening_balance;opening_date;iban
+{{id:ac_bank}};Business account;Bank;2500;{{date:-200}};NL00 BANK 0000 0000 00
+{{id:ac_savings}};Savings;Savings;5000;{{date:-200}};
+{{id:ac_cash}};Cash;Cash;150;{{date:-200}};

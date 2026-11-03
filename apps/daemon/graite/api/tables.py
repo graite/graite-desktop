@@ -10,19 +10,30 @@ import asyncio
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
+from graite.media.decode import MIMES
+from graite.tables import paths as table_paths
 from graite.tables.cache import TablesCache
 from graite.tables.edit import ColumnOp, RowOp, TableConflict
 from graite.tables.query import QueryError
 from graite.vault.fileops import FileOps
+from graite.vault.models import ConflictError
 from graite.vault.paths import VaultPathError, validate_rel
 
 router = APIRouter(prefix="/tables", tags=["tables"])
 
 UI_ACTOR = "ui"
 MAX_IMPORT = 100 * 1024 * 1024
+MAX_FILE = 200 * 1024 * 1024
+# What a file column (D76) takes: documents, images, sound and video, never programs.
+FILE_TYPES = {
+    *(".pdf", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".heic", ".tif", ".tiff", ".svg"),
+    *(".txt", ".md", ".csv", ".json", ".xml", ".rtf", ".eml", ".msg", ".ics", ".vcf"),
+    *(".doc", ".docx", ".odt", ".xls", ".xlsx", ".ods", ".ppt", ".pptx", ".odp", ".pages"),
+    *(".numbers", ".key", ".zip", ".mp3", ".m4a", ".wav", ".ogg", ".mp4", ".mov", ".webm"),
+}
 
 
 class ColumnModel(BaseModel):
@@ -49,6 +60,15 @@ class ColumnModel(BaseModel):
     reverse: str | None = None
     via: str | None = None
     target: str | None = None
+    # Formula columns (D75): the expression, and how values show (number, currency,
+    # percent, date, text, checkbox). Computed by the cache, never typed.
+    formula: str | None = None
+    format: str | None = None
+    # Relations (D80): how the row panel and page show the links,
+    # {as: auto|pills|list, show: [fields a list row shows]}.
+    panel: dict[str, Any] | None = None
+    # Numeric columns (D82): fixed decimals (0-6); null shows what the value has.
+    decimals: int | None = None
 
 
 class TableModel(BaseModel):
@@ -80,6 +100,8 @@ class RowsPage(TableModel):
     total: int
     offset: int
     rows: list[RowModel]
+    # Ids of these rows that have their own document (D80).
+    docs: list[str] = Field(default_factory=list)
 
 
 class RowOpModel(BaseModel):
@@ -106,6 +128,12 @@ class RowConflictModel(BaseModel):
     id: str
     reason: Literal["missing", "changed"]
     column: str | None = None
+
+
+class ConflictBody(BaseModel):
+    detail: str
+    hash: str
+    body: str
 
 
 class TableConflictBody(BaseModel):
@@ -200,6 +228,31 @@ class Resolved(BaseModel):
     path: str
 
 
+class TableFile(BaseModel):
+    # The stored name in the table page's `_assets/`, and the name the user knows.
+    file: str
+    name: str
+
+
+class FileLocation(BaseModel):
+    folder: str
+    path: str
+
+
+class FormulaBody(BaseModel):
+    path: str
+    formula: str = Field(max_length=2000)
+    # The formula column being edited, or null for a new one.
+    column: str | None = None
+
+
+class FormulaCheck(BaseModel):
+    ok: bool
+    error: str | None = None
+    # The values for the first rows.
+    sample: list[Any] = Field(default_factory=list)
+
+
 CONFLICT: dict[int | str, dict[str, Any]] = {409: {"model": TableConflictBody}}
 
 
@@ -264,20 +317,65 @@ async def rows(
     limit: Annotated[int, Query(ge=0, le=1000)] = 200,
 ) -> dict[str, Any]:
     cache = _cache(request)
-    try:
-        return await asyncio.to_thread(
-            lambda: cache.select(
-                path,
-                filter=filter,
-                sort=sort,
-                columns=columns or None,
-                search=search,
-                ids=ids,
-                offset=offset,
-                limit=limit,
-            )
+
+    def read() -> dict[str, Any]:
+        page = cache.select(
+            path,
+            filter=filter,
+            sort=sort,
+            columns=columns or None,
+            search=search,
+            ids=ids,
+            offset=offset,
+            limit=limit,
         )
+        with_docs = _ops(request).row_doc_ids(page["path"])
+        page["docs"] = [r["id"] for r in page["rows"] if r["id"] in with_docs]
+        return page
+
+    try:
+        return await asyncio.to_thread(read)
     except (QueryError, VaultPathError, FileNotFoundError) as exc:
+        raise _errors(exc) from exc
+
+
+class RowDoc(BaseModel):
+    # The row's document as Markdown (no frontmatter), and the hash a save must name.
+    body: str
+    hash: str
+    exists: bool
+
+
+class WriteRowDoc(BaseModel):
+    path: str
+    id: str = Field(min_length=1, max_length=200)
+    body: str = Field(max_length=2_000_000)
+    # The hash the editor loaded ("" for a document that did not exist), or null to overwrite.
+    base_hash: str | None = None
+    # The row's name, kept in the file's frontmatter for Obsidian.
+    title: str = Field(default="", max_length=300)
+
+
+@router.get("/row-doc", response_model=RowDoc)
+async def read_row_doc(request: Request, path: str, id: str) -> dict[str, Any]:
+    """A row's own document (D80): `<page>/_data/<table>/<row id>.md`."""
+    try:
+        return await _ops(request).read_row_doc(path, id)
+    except (ValueError, FileNotFoundError) as exc:
+        raise _errors(exc) from exc
+
+
+@router.put("/row-doc", response_model=RowDoc, responses={409: {"model": ConflictBody}})
+async def write_row_doc(request: Request, payload: WriteRowDoc) -> Any:
+    try:
+        return await _ops(request).write_row_doc(
+            payload.path, payload.id, payload.body, payload.base_hash, payload.title, UI_ACTOR
+        )
+    except ConflictError as exc:
+        return JSONResponse(
+            status_code=409, content={"detail": "conflict", "hash": exc.hash, "body": exc.body}
+        )
+    except (ValueError, FileNotFoundError) as exc:
         raise _errors(exc) from exc
 
 
@@ -415,6 +513,76 @@ async def check_type(
     try:
         return await _ops(request).check_table_type(path, column, type, target)
     except (ValueError, FileNotFoundError) as exc:
+        raise _errors(exc) from exc
+
+
+def _table_file(request: Request, path: str, file: str) -> Any:
+    table = table_paths.checked(_ops(request).vault, table_paths.parse(path))
+    page_id = _ops(request).page_id_of(table.page)
+    target = _ops(request).attachment_path(page_id, file)
+    if not target.is_file():
+        raise FileNotFoundError("This file is no longer in the page's attachments.")
+    return target
+
+
+@router.post("/files", response_model=TableFile)
+async def upload_file(request: Request, path: str, name: str) -> dict[str, str]:
+    """Store an uploaded file (request body) in the table page's `_assets/` for a file
+    column (D76). The caller then writes the cell like any other value."""
+    from pathlib import Path
+
+    if Path(name).suffix.lower() not in FILE_TYPES:
+        raise HTTPException(
+            400, "Attach a document, spreadsheet, image, sound or video file (not a program)."
+        )
+    data = bytearray()
+    async for chunk in request.stream():
+        data.extend(chunk)
+        if len(data) > MAX_FILE:
+            raise HTTPException(413, "Files can be up to 200 MB.")
+    if not data:
+        raise HTTPException(400, "This file is empty.")
+    try:
+        ops = _ops(request)
+        table = table_paths.checked(ops.vault, table_paths.parse(path))
+        file = await ops.add_attachment(ops.page_id_of(table.page), name, bytes(data))
+    except (ValueError, FileNotFoundError) as exc:
+        raise _errors(exc) from exc
+    return {"file": file, "name": Path(name).name}
+
+
+@router.get("/files/location", response_model=FileLocation)
+async def file_location(request: Request, path: str, file: str) -> dict[str, str]:
+    """Where a file column's file is on disk, to open it in the system's app."""
+    try:
+        target = _table_file(request, path, file)
+    except (ValueError, FileNotFoundError) as exc:
+        raise _errors(exc) from exc
+    return {"folder": str(target.parent), "path": str(target)}
+
+
+@router.get("/files/content")
+async def file_content(request: Request, path: str, file: str) -> FileResponse:
+    """A file column's file, for hosts that cannot open it in a system app (the web)."""
+    try:
+        target = _table_file(request, path, file)
+    except (ValueError, FileNotFoundError) as exc:
+        raise _errors(exc) from exc
+    return FileResponse(
+        target,
+        media_type=MIMES.get(target.suffix.lower(), "application/octet-stream"),
+        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "no-store"},
+    )
+
+
+@router.post("/formula/check", response_model=FormulaCheck)
+async def check_formula(request: Request, payload: FormulaBody) -> dict[str, Any]:
+    """Whether a formula works on this table, with its first values (D75)."""
+    try:
+        return await asyncio.to_thread(
+            _cache(request).check_formula, payload.path, payload.formula, payload.column
+        )
+    except (ValueError, FileNotFoundError, VaultPathError) as exc:
         raise _errors(exc) from exc
 
 

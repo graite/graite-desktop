@@ -235,7 +235,7 @@ class _Builder:
             if column.type == "relation":
                 raise ChartError(f"Follow one relation at a time; {rest!r} is another relation.")
             self.last = column
-            return f"{other}.{quote(column.name)}", column.type
+            return f"{other}.{quote(column.name)}", sch.value_kind(column)
         column = self.column(self.source, name)
         if column.type == "relation":
             other, target = self.related(column)
@@ -244,7 +244,10 @@ class _Builder:
                 raise ChartError(f"{target.name} has no field that names its rows.")
             return f"{other}.{quote(label)}", "text"
         self.last = column
-        return f"s.{quote(column.name)}", column.type
+        if column.type in ("page", "file"):
+            # Labelled by the first link's label (a page's title, a file's name) (D76).
+            return _first_label(f"s.{quote(column.name)}"), "text"
+        return f"s.{quote(column.name)}", sch.value_kind(column)
 
     def measure(self, text: str) -> tuple[str, str, str]:
         """SQL for one y value, its label, and how its values read (`number`,
@@ -267,9 +270,9 @@ class _Builder:
         column = self.last
         fmt = (
             f"currency:{column.currency or 'EUR'}"
-            if column is not None and column.type == "currency"
+            if column is not None and sch.value_kind(column) == "currency"
             else "percent"
-            if column is not None and column.type == "percent"
+            if column is not None and sch.value_kind(column) == "percent"
             else "number"
         )
         if not agg:
@@ -350,7 +353,9 @@ def chart_data(cache: TablesCache, db: Any, page: str, spec: dict[str, Any]) -> 
         column = b.column(source, name)
         if column.reverse:
             raise QueryError(f"{column.name!r} lists another table's rows; filter there instead.")
-        return f"s.{quote(column.name)}", "text" if column.type == "relation" else column.type
+        return f"s.{quote(column.name)}", "text" if column.type == "relation" else sch.value_kind(
+            column
+        )
 
     where = compile_filter(spec.get("filter"), resolve)
     if kind == "scatter":
@@ -454,3 +459,15 @@ def chart_data(cache: TablesCache, db: Any, page: str, spec: dict[str, Any]) -> 
                     values[index[c]] = _number(r[1 + i])
             series.append({"name": label, "data": values, "format": fmt})
     return {"categories": categories, "series": series, "tables": sorted(b.tables)}
+
+
+def _first_label(col: str) -> str:
+    """SQL for the label of the first `[[target|label]]` link in a cell (the target when it
+    has no label)."""
+    inner = f"substr({col}, 3, instr({col}, ']]') - 3)"
+    return (
+        f"(CASE WHEN {col} IS NULL OR {col} = '' THEN NULL "
+        f"WHEN substr({col}, 1, 2) != '[[' THEN {col} "
+        f"WHEN instr({inner}, '|') > 0 THEN substr({inner}, instr({inner}, '|') + 1) "
+        f"ELSE {inner} END)"
+    )

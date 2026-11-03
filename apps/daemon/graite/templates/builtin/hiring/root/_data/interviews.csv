@@ -1,0 +1,12 @@
+id;candidate;date;type;interviewer;score;recommendation;notes
+{{id:iv0}};[[{{id:ca_priya}}|Priya Raman]];{{date:-14}};Phone screen;Noor;4;Yes;
+{{id:iv1}};[[{{id:ca_priya}}|Priya Raman]];{{date:-6}};Technical;Alex;4;Yes;[[{{page:notes_priya}}|Interview notes Priya]]
+{{id:iv2}};[[{{id:ca_lucas}}|Lucas Meyer]];{{date:-6}};Phone screen;Noor;3;Yes;
+{{id:iv3}};[[{{id:ca_lucas}}|Lucas Meyer]];{{date:2}};Technical;Alex;;;
+{{id:iv4}};[[{{id:ca_ana}}|Ana Sousa]];{{date:-15}};Phone screen;Alex;5;Strong yes;
+{{id:iv5}};[[{{id:ca_ana}}|Ana Sousa]];{{date:-8}};Technical;Sam;5;Strong yes;
+{{id:iv6}};[[{{id:ca_ana}}|Ana Sousa]];{{date:-4}};Final;Noor;4;Yes;
+{{id:iv7}};[[{{id:ca_ben}}|Ben Okafor]];{{date:-5}};Phone screen;Alex;4;Yes;
+{{id:iv8}};[[{{id:ca_ben}}|Ben Okafor]];{{date:4}};Technical;Sam;;;
+{{id:iv9}};[[{{id:ca_yusuf}}|Yusuf Kaya]];{{date:-22}};Phone screen;Noor;2;No;
+{{id:iv10}};[[{{id:ca_sara}}|Sara Lind]];{{date:-50}};Final;Sam;5;Strong yes;

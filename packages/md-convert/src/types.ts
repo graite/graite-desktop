@@ -202,6 +202,9 @@ export interface PageViewBlock extends BlockBase {
 export interface TableViewBlock extends BlockBase {
   type: "tableView";
   props: {
+    /** JSON list of named views (D79): `{ name, source, view: table|board|list, group?, filter?,
+     *  sort?, columns?, show?, boards?: { order?, hidden? } }`. "" for a fence without views. */
+    views: string;
     source: string;
     view: string;
     filter: string;

@@ -1,0 +1,83 @@
+{
+  "id": "{{table:projects}}",
+  "display": "name",
+  "columns": {
+    "status": {
+      "type": "status",
+      "options": [
+        "Planned",
+        "Active",
+        "On hold",
+        "Done"
+      ],
+      "colors": {
+        "Planned": "gray",
+        "Active": "blue",
+        "On hold": "orange",
+        "Done": "green"
+      }
+    },
+    "start": {
+      "type": "date"
+    },
+    "due": {
+      "type": "date"
+    },
+    "priority": {
+      "type": "single_select",
+      "options": [
+        "High",
+        "Medium",
+        "Low"
+      ],
+      "colors": {
+        "High": "red",
+        "Medium": "orange",
+        "Low": "blue"
+      }
+    },
+    "brief": {
+      "type": "page",
+      "cardinality": "one"
+    },
+    "tasks": {
+      "type": "relation",
+      "table": "tasks",
+      "table_id": "{{table:tasks}}",
+      "reverse": "project",
+      "panel": {
+        "as": "auto",
+        "show": [
+          "status",
+          "assignee",
+          "due"
+        ]
+      }
+    },
+    "milestones": {
+      "type": "relation",
+      "table": "milestones",
+      "table_id": "{{table:milestones}}",
+      "reverse": "project",
+      "panel": {
+        "as": "auto",
+        "show": [
+          "date",
+          "done"
+        ]
+      }
+    }
+  },
+  "order": [
+    "id",
+    "name",
+    "status",
+    "owner",
+    "priority",
+    "start",
+    "due",
+    "tasks",
+    "milestones",
+    "brief"
+  ]
+}

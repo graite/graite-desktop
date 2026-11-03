@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { AgentInstructionsEditor } from "@/editor/AgentInstructionsEditor";
+import { AgentInstructionsEditor } from "@/editor/MarkdownEditor";
 import type { TreeNode } from "@/lib/api";
 import { onDaemonEvent } from "@/lib/api";
 import {

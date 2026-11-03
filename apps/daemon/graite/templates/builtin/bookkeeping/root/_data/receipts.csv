@@ -1,0 +1,20 @@
+id;date;supplier;description;category;net;vat_rate;paid;paid_on;account;receipt
+{{id:rc1}};{{date:-178}};[[{{id:pt_cloudco}}|CloudCo Hosting]];Hosting, monthly;[[{{id:cat_software}}|Software & subscriptions]];49;21;true;{{date:-178}};[[{{id:ac_bank}}|Business account]];
+{{id:rc2}};{{date:-170}};[[{{id:pt_officehub}}|OfficeHub Coworking]];Desk rent;[[{{id:cat_office}}|Office & rent]];350;21;true;{{date:-168}};[[{{id:ac_bank}}|Business account]];
+{{id:rc3}};{{date:-160}};[[{{id:pt_railway}}|National Railways]];Train to Oslo workshop;[[{{id:cat_travel}}|Travel]];186.4;9;true;{{date:-160}};[[{{id:ac_bank}}|Business account]];
+{{id:rc4}};{{date:-140}};[[{{id:pt_studio}}|Studio Vos Design]];Logo and style guide;[[{{id:cat_marketing}}|Marketing]];1200;21;true;{{date:-126}};[[{{id:ac_bank}}|Business account]];
+{{id:rc5}};{{date:-148}};[[{{id:pt_cloudco}}|CloudCo Hosting]];Hosting, monthly;[[{{id:cat_software}}|Software & subscriptions]];49;21;true;{{date:-148}};[[{{id:ac_bank}}|Business account]];
+{{id:rc6}};{{date:-140}};[[{{id:pt_officehub}}|OfficeHub Coworking]];Desk rent;[[{{id:cat_office}}|Office & rent]];350;21;true;{{date:-138}};[[{{id:ac_bank}}|Business account]];
+{{id:rc7}};{{date:-135}};[[{{id:pt_telco}}|Telco One]];Phone and internet;[[{{id:cat_phone}}|Phone & internet]];62;21;true;{{date:-135}};[[{{id:ac_bank}}|Business account]];
+{{id:rc8}};{{date:-118}};[[{{id:pt_cloudco}}|CloudCo Hosting]];Hosting, monthly;[[{{id:cat_software}}|Software & subscriptions]];49;21;true;{{date:-118}};[[{{id:ac_bank}}|Business account]];
+{{id:rc9}};{{date:-110}};[[{{id:pt_officehub}}|OfficeHub Coworking]];Desk rent;[[{{id:cat_office}}|Office & rent]];350;21;true;{{date:-108}};[[{{id:ac_bank}}|Business account]];
+{{id:rc10}};{{date:-95}};[[{{id:pt_studio}}|Studio Vos Design]];Subcontracted design work;[[{{id:cat_subcontract}}|Subcontractors]];1600;21;true;{{date:-75}};[[{{id:ac_bank}}|Business account]];
+{{id:rc11}};{{date:-88}};[[{{id:pt_cloudco}}|CloudCo Hosting]];Hosting, monthly;[[{{id:cat_software}}|Software & subscriptions]];49;21;true;{{date:-88}};[[{{id:ac_bank}}|Business account]];
+{{id:rc12}};{{date:-80}};[[{{id:pt_officehub}}|OfficeHub Coworking]];Desk rent;[[{{id:cat_office}}|Office & rent]];350;21;true;{{date:-78}};[[{{id:ac_bank}}|Business account]];
+{{id:rc13}};{{date:-64}};[[{{id:pt_railway}}|National Railways]];Client visit Rotterdam;[[{{id:cat_travel}}|Travel]];32.6;9;true;{{date:-64}};[[{{id:ac_cash}}|Cash]];
+{{id:rc14}};{{date:-58}};[[{{id:pt_cloudco}}|CloudCo Hosting]];Hosting, monthly;[[{{id:cat_software}}|Software & subscriptions]];49;21;true;{{date:-58}};[[{{id:ac_bank}}|Business account]];
+{{id:rc15}};{{date:-50}};[[{{id:pt_officehub}}|OfficeHub Coworking]];Desk rent;[[{{id:cat_office}}|Office & rent]];350;21;true;{{date:-48}};[[{{id:ac_bank}}|Business account]];
+{{id:rc16}};{{date:-45}};[[{{id:pt_telco}}|Telco One]];Phone and internet;[[{{id:cat_phone}}|Phone & internet]];62;21;true;{{date:-45}};[[{{id:ac_bank}}|Business account]];
+{{id:rc17}};{{date:-28}};[[{{id:pt_cloudco}}|CloudCo Hosting]];Hosting, monthly;[[{{id:cat_software}}|Software & subscriptions]];49;21;true;{{date:-28}};[[{{id:ac_bank}}|Business account]];
+{{id:rc18}};{{date:-20}};[[{{id:pt_officehub}}|OfficeHub Coworking]];Desk rent;[[{{id:cat_office}}|Office & rent]];350;21;false;;;
+{{id:rc19}};{{date:-8}};[[{{id:pt_studio}}|Studio Vos Design]];Presentation template;[[{{id:cat_marketing}}|Marketing]];400;21;false;;;

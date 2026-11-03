@@ -1,0 +1,6 @@
+id;name;project;date;done
+{{id:ms0}};Design approved;[[{{id:pr_web}}|Website relaunch]];{{date:-5}};true
+{{id:ms1}};Site live;[[{{id:pr_web}}|Website relaunch]];{{date:35}};false
+{{id:ms2}};Clean CRM;[[{{id:pr_crm}}|CRM cleanup]];{{date:20}};false
+{{id:ms3}};Kit ready for first customer;[[{{id:pr_onboard}}|Customer onboarding kit]];{{date:70}};false
+{{id:ms4}};Moved in;[[{{id:pr_office}}|Office move]];{{date:-30}};true

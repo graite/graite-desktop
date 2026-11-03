@@ -1,0 +1,12 @@
+id;title;week;day;area;status;time_block;estimate_h;goal
+{{id:p0}};Test the contact form on phones;[[{{id:w0}}|{{week:0}}]];Mon;Work;Done;;2;[[{{id:g_launch}}|Launch the new website]]
+{{id:p1}};Interval run;[[{{id:w0}}|{{week:0}}]];Mon;Health;Done;;1;[[{{id:g_run}}|Run 10 km without stopping]]
+{{id:p2}};Fix the form bugs;[[{{id:w0}}|{{week:0}}]];Tue;Work;Doing;;3;[[{{id:g_launch}}|Launch the new website]]
+{{id:p3}};Launch post draft;[[{{id:w0}}|{{week:0}}]];Wed;Work;Todo;;2;[[{{id:g_launch}}|Launch the new website]]
+{{id:p4}};Long run, 7 km;[[{{id:w0}}|{{week:0}}]];Wed;Health;Todo;;1;[[{{id:g_run}}|Run 10 km without stopping]]
+{{id:p5}};Dinner with parents;[[{{id:w0}}|{{week:0}}]];Thu;Family;Todo;;2;
+{{id:p6}};Weekly review;[[{{id:w0}}|{{week:0}}]];Fri;Work;Todo;;0.5;
+{{id:p7}};Approve the design;[[{{id:w1}}|{{week:-1}}]];Tue;Work;Done;;2;[[{{id:g_launch}}|Launch the new website]]
+{{id:p8}};First run in a month;[[{{id:w1}}|{{week:-1}}]];Wed;Health;Done;;1;[[{{id:g_run}}|Run 10 km without stopping]]
+{{id:p9}};Spanish lesson;[[{{id:w1}}|{{week:-1}}]];Thu;Learning;Done;;1;[[{{id:g_spanish}}|Hold a 15-minute conversation in Spanish]]
+{{id:p10}};Buy plants for the garden;[[{{id:w1}}|{{week:-1}}]];Sat;Home;Moved;;2;[[{{id:g_garden}}|Finish the garden]]

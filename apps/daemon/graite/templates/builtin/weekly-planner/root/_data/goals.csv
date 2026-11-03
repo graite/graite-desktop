@@ -1,0 +1,5 @@
+id;goal;area;quarter;status
+{{id:g_launch}};Launch the new website;Work;{{quarter:0}};Doing
+{{id:g_run}};Run 10 km without stopping;Health;{{quarter:0}};Doing
+{{id:g_spanish}};Hold a 15-minute conversation in Spanish;Learning;{{quarter:0}};Doing
+{{id:g_garden}};Finish the garden;Home;{{quarter:0}};Not started

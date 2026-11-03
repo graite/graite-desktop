@@ -1,0 +1,40 @@
+{
+  "id": "{{table:actions}}",
+  "display": "item",
+  "columns": {
+    "owner": {
+      "type": "single_select",
+      "options": [
+        "Noor",
+        "Sam",
+        "Alex"
+      ]
+    },
+    "due": {
+      "type": "date"
+    },
+    "status": {
+      "type": "status",
+      "options": [
+        "Open",
+        "Doing",
+        "Done"
+      ],
+      "colors": {
+        "Open": "gray",
+        "Doing": "blue",
+        "Done": "green"
+      }
+    },
+    "meeting": {
+      "type": "relation",
+      "table": "meetings",
+      "table_id": "{{table:meetings}}",
+      "cardinality": "one"
+    },
+    "note": {
+      "type": "text",
+      "wrap": true
+    }
+  }
+}

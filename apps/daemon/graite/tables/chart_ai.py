@@ -60,6 +60,11 @@ def table_context(cache: TablesCache, db: Any, page: str) -> list[dict[str, Any]
                         "type": c.type,
                         **({"options": c.options[:20]} if c.options else {}),
                         **(
+                            {"formula": c.formula, "format": c.format, "read_only": True}
+                            if c.type == "formula"
+                            else {}
+                        ),
+                        **(
                             {
                                 "links_to": c.target,
                                 **({"reverse_of": c.reverse} if c.reverse else {}),
