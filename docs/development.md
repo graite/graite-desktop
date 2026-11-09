@@ -184,6 +184,10 @@ Upload that file in Partner Center under the submission's **Packages**; the Stor
   placeholder identity and warns; the Store refuses such a package.
 - The MSIX version is the `tauri.conf.json` version plus `.0`; the Store needs the 4th part to be 0
   and every submission to have a higher version than the last.
+- App icons, including the Store tiles (`Square*Logo.png`, `StoreLogo.png`), are generated from
+  `apps/desktop/public/app-icon.svg`: `pnpm tauri icon public/app-icon.svg -o src-tauri/icons` in
+  `apps/desktop`, then delete the `android/`, `ios/` and `64x64.png` outputs. Never ship Tauri's
+  default icons: the Store rejects tiles that show another product's logo (policy 10.1.1.11).
 - Local test on Windows (Developer Mode on): `Add-AppxPackage -Register <layout>\AppxManifest.xml`
   installs the unpacked layout without signing.
 - Known gap: an MSIX installs into a versioned folder under `WindowsApps`, so MCP client configs
