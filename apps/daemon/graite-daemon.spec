@@ -75,5 +75,8 @@ exe = EXE(
     strip=False,
     upx=False,
     console=True,
+    # The Graite icon, not PyInstaller's default: the exe ships inside the Store package
+    # (Windows only; macOS and Linux ignore it for a plain executable).
+    icon=os.path.join(SPECPATH, "..", "desktop", "src-tauri", "icons", "icon.ico"),
 )
 coll = COLLECT(exe, a.binaries, a.zipfiles, a.datas, strip=False, upx=False, name="graite-daemon")
