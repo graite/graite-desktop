@@ -45,6 +45,12 @@ Thumbs.db
 .env.*
 !apps/daemon/.env.example
 
+# Signing material never enters the repository (it lives in GitHub Actions secrets)
+*.p12
+*.p8
+AuthKey_*
+*.keychain-db
+
 # Daemon sidecar build output (produced by `just sidecar`)
 apps/desktop/src-tauri/resources/daemon/*
 !apps/desktop/src-tauri/resources/daemon/.gitkeep

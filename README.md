@@ -27,7 +27,7 @@ Cloud models (Claude, OpenAI-compatible servers, OpenRouter) plug into the same 
 optional escape hatch. The product does not depend on them.
 
 > **Status: pre-release (0.1.0).** The source is complete and the app runs on Linux, macOS
-> and Windows. Packaged builds are unsigned previews. Read `ROADMAP.md` for what is shipped,
+> and Windows. Packaged builds are previews; the macOS build is signed and notarized. Read `ROADMAP.md` for what is shipped,
 > in progress and planned.
 
 ## A look inside
@@ -97,8 +97,8 @@ Download the build for your platform from the
 folder (an existing Obsidian vault works) and install an engine and a chat model from
 Settings. Everything is stored under `~/.graite/`.
 
-The preview builds are not signed yet: on macOS run `xattr -cr /Applications/Graite.app` after
-copying the app; on Windows SmartScreen shows "unknown publisher".
+The macOS build is signed with a Developer ID and notarized by Apple. The Windows build is not
+signed yet: SmartScreen shows "unknown publisher".
 
 ## Develop
 

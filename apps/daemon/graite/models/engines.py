@@ -455,6 +455,9 @@ class EngineInstaller:
 
             # Files Graite downloads itself are not quarantined, but be explicit; and Apple
             # Silicon refuses unsigned code, so give an unsigned build an ad-hoc signature.
+            # The released daemon runs under the hardened runtime; that restricts only its own
+            # process. Each engine is exec'd as its own image and judged by its own signature
+            # (ad-hoc, no runtime flag), so DYLD_LIBRARY_PATH from library_env() still applies.
             subprocess.run(
                 ["xattr", "-dr", "com.apple.quarantine", str(binary.parent)],
                 capture_output=True,
