@@ -149,8 +149,9 @@ it to Claude Code, Codex or Cursor in one click (as `graite-local`).
 
 ### What exists today
 
-`.github/workflows/release.yml` builds **unsigned** bundles on a `v*` tag: AppImage and deb
-(Ubuntu 22.04), dmg (macOS, Apple silicon), NSIS installer (Windows). Each job builds the
+`.github/workflows/release.yml` builds bundles on a `v*` tag: AppImage and deb
+(Ubuntu 22.04), a **signed and notarized** dmg (macOS, Apple silicon, Developer ID, see
+*macOS signing and notarization*), and an unsigned NSIS installer (Windows). Each job builds the
 PyInstaller sidecar first, smoke-tests it, places it in `src-tauri/resources/daemon`, then
 runs `tauri-action`, which creates a **draft** GitHub release with the bundles attached. On
 Linux the workflow also checks that the AppImage's GStreamer plugins load and that no GPL
@@ -169,6 +170,58 @@ artifacts, no release.
    push the tag.
 3. Review the draft release, write the notes there, publish. Tags with a suffix
    (e.g. `v0.2.0-rc.1`) are marked as pre-releases; use them for test builds.
+
+### macOS signing and notarization
+
+The macOS build is distributed from our website with a Developer ID (not the Mac App Store).
+It needs these repository secrets (Settings > Secrets and variables > Actions):
+
+| Secret | Contents |
+|---|---|
+| `APPLE_CERTIFICATE` | The Developer ID Application certificate and its private key, as a base64 `.p12` (`base64 -i cert.p12 \| pbcopy`) |
+| `APPLE_CERTIFICATE_PASSWORD` | The `.p12` export password |
+| `APPLE_SIGNING_IDENTITY` | `Developer ID Application: ROGB Studio B.V. (TEAMID)`, exactly as `security find-identity -v -p codesigning` prints it |
+| `APPLE_API_KEY` | App Store Connect API key ID (for `notarytool`) |
+| `APPLE_API_ISSUER` | App Store Connect issuer ID |
+| `APPLE_API_KEY_P8` | The full text of `AuthKey_<KEYID>.p8` |
+
+Never commit a certificate, key or `.p8` file; `.gitignore` refuses the usual names.
+
+What the macOS job does with them:
+
+1. **Keychain.** Imports `APPLE_CERTIFICATE` into a temporary keychain together with Apple's
+   *Developer ID - G2* intermediate, puts it first in the search list, and writes
+   `APPLE_API_KEY_P8` to `$RUNNER_TEMP/AuthKey.p8`. It exports `APPLE_SIGNING_IDENTITY`,
+   `APPLE_API_KEY`, `APPLE_API_ISSUER` and `APPLE_API_KEY_PATH` to the later steps.
+   `tauri-action` never sees `APPLE_CERTIFICATE`, so Tauri signs with this keychain instead of
+   importing the certificate a second time. The keychain and key file are deleted at the end.
+2. **Daemon.** Notarization rejects any unsigned Mach-O in the `.app`, and Tauri does not sign
+   resources. `scripts/sign-sidecar-macos.sh` signs every Mach-O file in
+   `src-tauri/resources/daemon` (found with `file`, deepest first) with the hardened runtime,
+   a secure timestamp and `packaging/macos/daemon.entitlements`
+   (`allow-unsigned-executable-memory` for ctypes/libffi, `disable-library-validation` for the
+   bundled Python libraries). The signed daemon is smoke-tested right away.
+3. **App.** Tauri signs `Graite.app` with the hardened runtime and
+   `src-tauri/Entitlements.plist` (`device.audio-input`, for voice notes), merges
+   `src-tauri/Info.plist` (`NSMicrophoneUsageDescription`), notarizes and staples the app.
+   `minimumSystemVersion` is 12.0.
+4. **DMG.** Tauri signs the dmg but does not notarize it. The workflow submits it with
+   `notarytool`, staples it, and on a tag replaces the dmg on the draft release.
+5. **Checks.** `codesign --verify --deep --strict`, `spctl -a -t exec` on the app,
+   `stapler validate` on the dmg, then the existing in-bundle daemon smoke test.
+
+Without the secrets (forks, or a repository that has not set them) the job warns and builds an
+unsigned bundle as before. A tag push in `graite/graite-desktop` with the secrets missing fails
+rather than ship an unsigned release.
+
+Engines the daemon downloads (`llama-server`, `crispasr`) are not part of the bundle: the
+daemon gives an unsigned engine an ad-hoc signature (`EngineInstaller._prepare`). The daemon's
+hardened runtime does not apply to those separate processes.
+
+Local check of the daemon signing, without a certificate: after `just sidecar`, run
+`APPLE_SIGNING_IDENTITY=- scripts/sign-sidecar-macos.sh` (ad-hoc, no timestamp) and then
+`scripts/smoke-sidecar.sh apps/desktop/src-tauri/resources/daemon/graite-daemon`. With a
+Developer ID in your login keychain, set `APPLE_SIGNING_IDENTITY` to its name instead.
 
 ### Microsoft Store (MSIX)
 
@@ -196,8 +249,8 @@ Upload that file in Partner Center under the submission's **Packages**; the Stor
 
 ### Known limits of the preview builds
 
-- **Unsigned.** macOS users must run `xattr -cr /Applications/Graite.app`; Windows shows the
-  SmartScreen "unknown publisher" prompt.
+- **Windows unsigned.** Windows shows the SmartScreen "unknown publisher" prompt (the macOS
+  build is signed and notarized).
 - **No updater.** Users download the next version by hand.
 - **Windows: NSIS only.** The MSI target is off because WiX has a 260-character limit on
   source paths and the PyInstaller onedir is deep; enable `msi` in the matrix only after a
