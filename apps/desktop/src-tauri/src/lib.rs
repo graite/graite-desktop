@@ -220,7 +220,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+            app.handle()
+                .plugin(tauri_plugin_updater::Builder::new().build())?;
             let startup = daemon::DaemonStartup::default();
             app.manage(startup.clone());
             let handle = app.handle().clone();

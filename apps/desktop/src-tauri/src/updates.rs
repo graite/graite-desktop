@@ -107,7 +107,10 @@ mod tests {
 
     #[test]
     fn only_the_mac_app_and_the_appimage_replace_themselves() {
-        assert_eq!(self_updating(true), cfg!(any(target_os = "macos", target_os = "linux")));
+        assert_eq!(
+            self_updating(true),
+            cfg!(any(target_os = "macos", target_os = "linux"))
+        );
         assert_eq!(self_updating(false), cfg!(target_os = "macos"));
     }
 }
