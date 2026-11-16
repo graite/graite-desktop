@@ -78,6 +78,30 @@ it("round-trips any selection reachable by clicking", () => {
   }
 });
 
+it("lets a chat use no pages at all, while an agent must keep at least one", () => {
+  const onApply = vi.fn();
+  const { unmount } = render(
+    <ScopeDialog open tree={tree} scope={ALL} onApply={onApply} onCancel={vi.fn()} allowNone />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Deselect all" }));
+  fireEvent.click(screen.getByRole("button", { name: "Use no pages" }));
+  expect(onApply).toHaveBeenCalledWith({ kind: "none", roots: [], excluded: [] });
+  unmount();
+  render(<ScopeDialog open tree={tree} scope={ALL} onApply={onApply} onCancel={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "Deselect all" }));
+  expect(
+    (screen.getByRole("button", { name: "Use these pages" }) as HTMLButtonElement).disabled,
+  ).toBe(true);
+});
+
+it("reads the none and single-page scopes back as their pages", () => {
+  expect(checkedFromScope(tree, { kind: "none", roots: [], excluded: [] }).size).toBe(0);
+  expect([...checkedFromScope(tree, { kind: "page", roots: ["Projects"], excluded: [] })]).toEqual([
+    "Projects",
+  ]);
+  expect(normalizeSelection(tree, new Set())).toEqual({ kind: "none", roots: [], excluded: [] });
+});
+
 it("selects all descendants when their collapsed parent is selected", () => {
   const deep = [
     node("Projects", "Projects", [
@@ -87,7 +111,7 @@ it("selects all descendants when their collapsed parent is selected", () => {
   ];
   const onApply = vi.fn();
   render(<ScopeDialog open tree={deep} scope={ALL} onApply={onApply} onCancel={vi.fn()} />);
-  fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+  fireEvent.click(screen.getByRole("button", { name: "Deselect all" }));
   fireEvent.click(screen.getByRole("checkbox", { name: "Projects" }));
   expect(screen.getByText("3 of 4 pages")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Expand Projects" }));
@@ -100,7 +124,7 @@ it("selects all descendants when their collapsed parent is selected", () => {
 it("expands compact search and keeps hidden descendants selected when choosing a parent", () => {
   render(<ScopeDialog open tree={tree} scope={ALL} onApply={vi.fn()} onCancel={vi.fn()} />);
   expect(screen.queryByRole("textbox", { name: "Search pages" })).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+  fireEvent.click(screen.getByRole("button", { name: "Deselect all" }));
   fireEvent.click(screen.getByRole("button", { name: "Search pages" }));
   const search = screen.getByRole("textbox", { name: "Search pages" });
   fireEvent.change(search, { target: { value: "Atlas" } });

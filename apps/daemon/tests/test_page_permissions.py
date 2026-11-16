@@ -13,7 +13,7 @@ from graite.retrieval.contextset import ContextSet
 from graite.retrieval.scope import Scope, resolve
 from graite.review.policy import decide, opted_in
 from graite.vault import policy
-from tests.test_ai import config, page
+from tests.test_ai import page
 
 
 def settings(client: TestClient, path: str, **values: Any) -> dict[str, Any]:
@@ -119,7 +119,9 @@ def test_instruction_files_cannot_follow_symlinks_outside_vault(
 def test_cloud_never_receives_local_only_page_or_old_context(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, previous_context: bool
 ) -> None:
-    config(client)
+    # A server that is not on this computer: one at a loopback address counts as local.
+    remote = {"provider": "compatible", "model": "test", "base_url": "https://models.example/v1"}
+    assert client.put("/api/v1/ai/config", json=remote).status_code == 200
     doc = page(client, "Private")
     settings(client, doc["path"], cloud="local-only", instructions="Private instruction")
     scope = {"kind": "vault"} if previous_context else {"kind": "page", "roots": [doc["path"]]}

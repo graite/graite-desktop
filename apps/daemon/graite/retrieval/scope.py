@@ -1,9 +1,10 @@
 """Which pages a conversation may use, after permissions.
 
-Three scopes share one resolver: `page` (one page), `folder` (a page and its subtree) and
-`vault` (every page, minus excluded subtrees). Pages whose effective policy is
-`cloud: local-only` are dropped when the answer would go to a cloud provider, and listed so
-the answer can say so.
+Four scopes share one resolver: `page` (one page), `folder` (a page and its subtree),
+`vault` (every page, minus excluded subtrees) and `none` (no pages: the model answers without
+the notes). Pages whose effective policy is `cloud: none` are always dropped; those under
+`cloud: local-only` are dropped when the answer would go to a cloud provider. Both are listed
+so the answer can say so.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from typing import Any
 from graite.vault.paths import validate_rel
 from graite.vault.policy import Effective, Resolver
 
-KINDS = ("page", "folder", "vault")
+KINDS = ("page", "folder", "vault", "none")
 
 
 @dataclass
@@ -34,7 +35,9 @@ class Scope:
             value = {}
         kind = str(value.get("kind") or ("folder" if default_root else "vault"))
         if kind not in KINDS:
-            raise ValueError("Scope kind must be page, folder or vault.")
+            raise ValueError("Scope kind must be page, folder, vault or none.")
+        if kind == "none":
+            return cls("none", [], [])
         roots = [validate_rel(str(r)) for r in value.get("roots") or []]
         if kind != "vault" and not roots:
             if default_root is None:
@@ -50,6 +53,8 @@ class Scope:
 
     def label(self, titles: dict[str, str] | None = None) -> str:
         titles = titles or {}
+        if self.kind == "none":
+            return "no pages"
         if self.kind == "vault":
             return "your vault" if not self.roots and not self.excluded else "the selected pages"
         name = titles.get(self.roots[0], self.roots[0]) if self.roots else "this page"
@@ -65,6 +70,8 @@ class ResolvedScope:
     policy: Effective
     resolver: Resolver | None = None
     excluded_local_only: list[str] = field(default_factory=list)
+    # Pages under `cloud: none`: closed to every model, local ones included.
+    excluded_no_ai: list[str] = field(default_factory=list)
     excluded_user: int = 0
     all_pages: bool = False
 
@@ -75,7 +82,7 @@ class ResolvedScope:
         return self.resolver.resolve(path)
 
     def contains(self, path: str) -> bool:
-        return path in self.titles and path not in set(self.excluded_local_only)
+        return path in self.titles
 
     @property
     def path_set(self) -> set[str]:
@@ -92,7 +99,9 @@ def resolve(
     rows = conn.execute("SELECT path, title, id FROM pages ORDER BY path").fetchall()
     titles = {r["path"]: r["title"] for r in rows}
     ids = {r["path"]: r["id"] for r in rows}
-    if scope.kind == "page":
+    if scope.kind == "none":
+        selected: list[str] = []
+    elif scope.kind == "page":
         root = scope.roots[0]
         if root not in titles:
             raise FileNotFoundError(root)
@@ -114,10 +123,17 @@ def resolve(
         scope.roots[0] if scope.kind != "vault" and scope.roots else None
     )
     excluded_local_only: list[str] = []
-    if cloud_provider:
-        excluded_local_only = [p for p in selected if not resolver.resolve(p).cloud_allowed]
-        denied = set(excluded_local_only)
-        selected = [p for p in selected if p not in denied]
+    excluded_no_ai: list[str] = []
+    kept = []
+    for path in selected:
+        effective = resolver.resolve(path)
+        if not effective.ai_allowed:
+            excluded_no_ai.append(path)
+        elif cloud_provider and not effective.cloud_allowed:
+            excluded_local_only.append(path)
+        else:
+            kept.append(path)
+    selected = kept
     return ResolvedScope(
         scope=scope,
         paths=selected,
@@ -126,6 +142,7 @@ def resolve(
         policy=root_policy,
         resolver=resolver,
         excluded_local_only=excluded_local_only,
+        excluded_no_ai=excluded_no_ai,
         excluded_user=excluded_user,
         all_pages=len(selected) == len(titles),
     )

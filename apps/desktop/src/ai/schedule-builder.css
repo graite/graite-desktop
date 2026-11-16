@@ -66,7 +66,7 @@
   border-color: #8e9c76;
 }
 .sched-day[aria-pressed="true"] {
-  background: #eff2e8;
+  background: color-mix(in srgb, #8e9c76 16%, var(--background));
   border-color: #bdc7a8;
   color: #465537;
   font-weight: 500;

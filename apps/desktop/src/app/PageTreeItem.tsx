@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { PageIcon } from "@/components/PageIcon";
-import { EmojiPickerPanel } from "@/components/EmojiPickerPanel";
+import { IconPicker } from "@/components/IconPicker";
 import {
   ChevronRight,
   MoreHorizontal,
@@ -11,6 +11,7 @@ import {
   FolderInput,
   FolderOpen,
   Orbit,
+  SquareArrowOutUpRight,
 } from "lucide-react";
 import { canRevealPage, revealPage } from "@/pages/revealPage";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ export interface PageTreeItemProps {
   expanded: Set<string>;
   renamingPath: string | null;
   onSelect: (path: string) => void;
+  onOpenInNewTab: (path: string) => void;
   onToggle: (path: string) => void;
   onCreateSubpage: (parentPath: string) => void;
   onStartRename: (path: string) => void;
@@ -149,6 +151,10 @@ export function PageTreeItem(props: PageTreeItemProps) {
         data-media-drop-page={node.path}
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
         onClick={() => onSelect(node.path)}
+        onAuxClick={(e) => {
+          // Middle-click: a tab of its own (the workspace reads the click's intent).
+          if (e.button === 1) onSelect(node.path);
+        }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
@@ -184,10 +190,10 @@ export function PageTreeItem(props: PageTreeItemProps) {
                 onClick={(e) => e.stopPropagation()}
                 onMouseEnter={() => setHovered(false)}
               >
-                <EmojiPickerPanel
-                  hasIcon={!!node.icon}
-                  onPick={(emoji) => {
-                    props.onIconChange(node.path, emoji);
+                <IconPicker
+                  icon={node.icon}
+                  onPick={(icon) => {
+                    props.onIconChange(node.path, icon);
                     setEmojiOpen(false);
                   }}
                   onRemove={() => {
@@ -235,6 +241,9 @@ export function PageTreeItem(props: PageTreeItemProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" side="right">
+              <DropdownMenuItem onClick={() => props.onOpenInNewTab(node.path)}>
+                <SquareArrowOutUpRight className="mr-2 size-4" /> Open in new tab
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => props.onCreateSubpage(node.path)}>
                 <Plus className="mr-2 size-4" /> New Subpage
               </DropdownMenuItem>

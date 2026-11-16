@@ -475,7 +475,7 @@ function TextView({
         </summary>
         <div className="derived-text-content">
           <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
+            remarkPlugins={[[remarkGfm, { singleTilde: false }]]}
             components={{
               a: ({ children }) => <span>{children}</span>,
               img: ({ alt }) => <span>{alt}</span>,

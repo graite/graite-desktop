@@ -1,27 +1,28 @@
 import { ModelSelect } from "./ModelSelect";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
-  ArrowLeft,
   ArrowRight,
   AudioLines,
   Check,
   Cloud,
   FileText,
-  FolderOpen,
+  KeyRound,
   Loader2,
-  MessageSquare,
   Monitor,
   Plug,
   Search,
+  Server,
+  Settings2,
   ShieldCheck,
-  Orbit,
 } from "lucide-react";
+import { toast } from "sonner";
 import { ai, type AIConfig, type AIStatus } from "@/lib/ai";
 import {
   connections as connectionsApi,
   hostOf,
+  OPENROUTER_URL,
   type Connection,
-  type ConnectionKind,
   type SavedModel,
 } from "@/lib/connections";
 import { Button } from "@/components/ui/button";
@@ -39,33 +40,58 @@ import { useTechMode } from "@/lib/techMode";
 import { ConnectorsCard } from "./ConnectorsCard";
 import { VaultCard } from "./VaultCard";
 import { VoicesCard } from "@/settings/VoicesCard";
+import { Explainer } from "@/settings/Explainer";
+import { SettingsSidebar } from "@/settings/SettingsSidebar";
+import {
+  chatSection,
+  isOwnNetwork,
+  isThisComputer,
+  resolveSection,
+  sectionLabel,
+  type SettingsSection,
+  type SettingsTab,
+} from "@/settings/sections";
+import { saveProfile, useProfile } from "@/lib/profile";
+import { setThemeChoice, useThemeChoice, type ThemeChoice } from "@/lib/theme";
 
-export type SettingsTab = "chat" | "connectors" | "voice" | "search" | "documents" | "vault";
-const TABS: { id: SettingsTab; label: string; icon: typeof Orbit }[] = [
-  { id: "chat", label: "Chat", icon: MessageSquare },
-  { id: "connectors", label: "AI connectors", icon: Plug },
-  { id: "voice", label: "Voice", icon: AudioLines },
-  { id: "search", label: "Search", icon: Search },
-  { id: "documents", label: "Documents", icon: FileText },
-  { id: "vault", label: "Vault", icon: FolderOpen },
+export type { SettingsTab };
+
+/** Sections that set the chat model: they end in "Save & check connection". */
+const MODEL_SECTIONS: SettingsSection[] = ["local", "server", "graite", "keys"];
+/** Sections that edit the shared draft of the model settings, and so show the Save bar. */
+const DRAFT_SECTIONS: SettingsSection[] = [...MODEL_SECTIONS, "voice", "search", "documents"];
+
+const SERVER_PRESETS = [
+  { label: "Ollama", url: "http://127.0.0.1:11434/v1" },
+  { label: "LM Studio", url: "http://127.0.0.1:1234/v1" },
+  { label: "llama.cpp", url: "http://127.0.0.1:8080/v1" },
+];
+const KEY_PRESETS = [
+  { label: "OpenAI", url: "https://api.openai.com/v1" },
+  { label: "Grok (xAI)", url: "https://api.x.ai/v1" },
+  { label: "OpenRouter", url: OPENROUTER_URL },
 ];
 
-type Kind = "local" | "graite" | ConnectionKind;
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+const ownServer = (connection: Connection) => isOwnNetwork(hostOf(connection.base_url));
 
-/** Settings: one page, a tab per concern. The tabs share one draft of the model settings and
- * one Save bar, and stay mounted so switching tabs never drops an unsaved change. */
+/** Settings: a sidebar of sections, each explaining what it is for before its controls. The
+ * sections share one draft of the model settings and one Save bar, and stay mounted so
+ * switching sections never drops an unsaved change. */
 export function ModelsPage({
   onClose,
   initialTab = "chat",
+  sidebarHost,
 }: {
   onClose: () => void;
   initialTab?: SettingsTab;
+  /** Where the settings sidebar goes: the app's sidebar column. Without one (the page on its
+   * own) the sidebar sits beside the content. */
+  sidebarHost?: HTMLElement | null;
 }) {
-  const [tab, setTab] = useState<SettingsTab>(initialTab);
+  // "chat" means the section of the model in use, which is only known once the status loads.
+  const [section, setSection] = useState<SettingsSection>(() => resolveSection(initialTab, null));
   const [status, setStatus] = useState<AIStatus | null>(null);
   const [config, setConfig] = useState<AIConfig | null>(null);
-  const [kind, setKind] = useState<Kind>("local");
   const [store, setStore] = useState<{ connections: Connection[]; models: SavedModel[] }>({
     connections: [],
     models: [],
@@ -86,10 +112,14 @@ export function ModelsPage({
     ai.status()
       .then((s) => {
         if (live) {
-          setStatus(s);
-          setConfig(s.config);
           // Older vault rows may still say "openrouter"; that is a model server now.
-          setKind(s.config.provider === "openrouter" ? "compatible" : s.config.provider);
+          const loaded =
+            s.config.provider === "openrouter"
+              ? { ...s.config, provider: "compatible" as const }
+              : s.config;
+          setStatus(s);
+          setConfig(loaded);
+          if (initialTab === "chat") setSection(chatSection(loaded));
         }
       })
       .catch((e: Error) => {
@@ -99,6 +129,7 @@ export function ModelsPage({
     return () => {
       live = false;
     };
+    // Loaded once per visit; `initialTab` only decides where that visit starts.
   }, []);
   const patch = (value: Partial<AIConfig>) => {
     setConfig((c) => c && { ...c, ...value });
@@ -123,11 +154,9 @@ export function ModelsPage({
   };
   const save = async () => {
     if (!config) return;
-    if (kind === "graite") {
-      if (config.provider !== "graite" || !config.model) {
-        throw new Error("Sign in and choose a Graite Cloud model first.");
-      }
-    } else if (kind !== "local" && !config.saved_model_id) {
+    if (config.provider === "graite") {
+      if (!config.model) throw new Error("Sign in and choose a Graite Cloud model first.");
+    } else if (config.provider !== "local" && !config.saved_model_id) {
       throw new Error("Choose a saved model on this connection first.");
     }
     const saved = await ai.save(config);
@@ -135,211 +164,335 @@ export function ModelsPage({
     setStatus(await ai.status());
     setSuccess("Settings saved. Your model is ready to check.");
   };
-  const activeModelId = kind !== "local" ? (config?.saved_model_id ?? null) : null;
+  const draftSection = config ? chatSection(config) : null;
+  const savedSection = status ? chatSection(status.config) : null;
+  const activeModelId =
+    config && config.provider !== "local" ? (config.saved_model_id ?? null) : null;
+  const pickSaved = (model: SavedModel) => {
+    const connection = store.connections.find((c) => c.id === model.connection_id);
+    if (!connection || !config) return;
+    patch({
+      provider: connection.kind,
+      saved_model_id: model.id,
+      connection_id: model.connection_id,
+      model: model.model,
+      base_url: connection.base_url ?? config.base_url,
+    });
+  };
+  /** A connection lands in the section its address belongs to; take the user there. */
+  const connectionAdded = (created?: Connection) => {
+    void refreshStore();
+    if (!created || created.kind !== "compatible") return;
+    const home: SettingsSection = ownServer(created) ? "server" : "keys";
+    if (home !== section) {
+      setSection(home);
+      toast(`${created.name} is listed under ${sectionLabel(home)}.`);
+    }
+  };
   const activeHost = hostOf(
     store.connections.find((c) => c.id === config?.connection_id)?.base_url ?? config?.base_url,
   );
+  const panel = (id: SettingsSection, children: ReactNode) => (
+    <div
+      className="settings-panel"
+      role="tabpanel"
+      aria-label={sectionLabel(id)}
+      hidden={section !== id}
+    >
+      {children}
+    </div>
+  );
+  /** Says whether chat uses this section's model, and offers the switch when it does not. */
+  const chatUse = (id: SettingsSection, switchTo?: () => void, how?: string) =>
+    draftSection === id ? (
+      <p className="settings-in-use" role="status">
+        <Check size={15} /> Chat uses this{savedSection === id ? "" : " once you save"}.
+      </p>
+    ) : (
+      <div className="settings-in-use" data-off>
+        <span>
+          Chat uses {draftSection ? sectionLabel(draftSection) : "another model"} now.
+          {how ? ` ${how}` : ""}
+        </span>
+        {switchTo && (
+          <Button variant="outline" size="sm" disabled={!!busy} onClick={switchTo}>
+            Use for chat
+          </Button>
+        )}
+      </div>
+    );
+
+  const sidebar = (
+    <SettingsSidebar
+      section={section}
+      inUse={savedSection}
+      onSection={setSection}
+      onBack={onClose}
+    />
+  );
   return (
-    <section className="ai-settings" aria-label="Settings">
-      <header className="ai-topbar">
-        <Button variant="ghost" onClick={onClose}>
-          <ArrowLeft size={16} /> Back to pages
-        </Button>
-        <span>Settings / {TABS.find((t) => t.id === tab)?.label}</span>
-      </header>
+    <section
+      className="ai-settings"
+      aria-label="Settings"
+      data-own-sidebar={!sidebarHost || undefined}
+    >
+      {sidebarHost ? createPortal(sidebar, sidebarHost) : <aside>{sidebar}</aside>}
       <div className="ai-settings-content">
-        <div className="ai-eyebrow">MAKE IT YOURS</div>
-        <h1>Settings</h1>
-        <p className="ai-lede">
-          Your chat model, the AI apps connected to your vault, your assistant’s voice, search,
-          documents and your vault.
-        </p>
-        <nav className="ai-settings-tabs" aria-label="Settings sections">
-          {TABS.map(({ id, label, icon: Icon }) => (
-            <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>
-              <Icon size={15} /> {label}
-            </button>
-          ))}
-        </nav>
         {error && (
           <div role="alert" className="ai-notice ai-error">
             {error}
           </div>
         )}
+        {panel("general", <GeneralSection />)}
         {!config ? (
-          <p>{error ? "Reopen Settings to try again." : "Checking your setup…"}</p>
+          section !== "general" && (
+            <p>{error ? "Reopen Settings to try again." : "Checking your setup…"}</p>
+          )
         ) : (
           <>
-            <div
-              className="settings-panel"
-              role="tabpanel"
-              aria-label="Chat"
-              hidden={tab !== "chat"}
-            >
-              <div className="ai-section-heading">
-                <h2>Chat</h2>
-                <span>Your thinking partner</span>
-              </div>
-              <div className="ai-choices" role="group" aria-label="Chat connection">
-                {(
-                  [
-                    [
-                      "local",
-                      Monitor,
-                      "On this computer",
-                      "Private by default. Download a model and run it on your own device.",
-                    ],
-                    [
-                      "graite",
-                      Cloud,
-                      "Graite Cloud",
-                      "Hosted by Graite, nothing to set up. Free daily credits to start.",
-                    ],
-                    [
-                      "compatible",
-                      Plug,
-                      "Your own server",
-                      "Ollama, LM Studio, vLLM, a llama.cpp server, OpenRouter or any OpenAI-compatible address.",
-                    ],
-                    ["anthropic", Orbit, "Claude", "Use Claude with your Anthropic API key."],
-                  ] as const
-                ).map(([id, Icon, title, description]) => (
-                  <button
-                    key={id}
-                    type="button"
+            {panel(
+              "local",
+              <>
+                <Explainer
+                  icon={Monitor}
+                  title="On this computer"
+                  lede="Run an AI model on your own machine."
+                  why="Private and free. Nothing you write leaves this computer, and it works offline."
+                  need="Enough memory for the model. Graite shows which ones fit."
+                  leaves="Nothing."
+                />
+                {chatUse("local", () =>
+                  patch({ provider: "local", saved_model_id: null, connection_id: null }),
+                )}
+                <fieldset className="ai-setup-card" disabled={!!busy}>
+                  <div className="ai-tech-mode">
+                    <span>
+                      <label htmlFor="ai-tech-mode-switch">
+                        <strong>I’m a proper geek</strong>
+                      </label>
+                      <small id="ai-tech-mode-hint">
+                        I know my GGUFs from my quants. Show me every knob for local models: any
+                        model from Hugging Face or disk, engine builds, context size, GPU layers, or
+                        my own llama-server.
+                      </small>
+                    </span>
+                    <Switch
+                      id="ai-tech-mode-switch"
+                      checked={techMode}
+                      aria-describedby="ai-tech-mode-hint"
+                      onCheckedChange={setTechMode}
+                    />
+                  </div>
+                  {techMode && (
+                    <EngineCard
+                      engineId="llama"
+                      disabled={!!busy}
+                      onChanged={() =>
+                        void ai
+                          .status()
+                          .then(setStatus)
+                          .catch(() => undefined)
+                      }
+                    />
+                  )}
+                  <StarterModels
+                    hardware={status?.hardware}
+                    selectedPath={config.model_path}
                     disabled={!!busy}
-                    className={`ai-choice ${kind === id ? "selected" : ""}`}
-                    aria-pressed={kind === id}
-                    onClick={() => {
-                      if (kind === id) return;
-                      setKind(id);
-                      if (id === "local")
-                        patch({ provider: "local", saved_model_id: null, connection_id: null });
-                      else if (config.provider !== id)
-                        patch({ saved_model_id: null, connection_id: null });
-                    }}
-                  >
-                    <div className="ai-choice-icon">
-                      <Icon size={20} />
-                      {kind === id && <Check size={15} />}
-                    </div>
-                    <strong>{title}</strong>
-                    <span>{description}</span>
-                  </button>
-                ))}
-              </div>
-              <p className="ai-choices-note">
-                Running a model on this computer is optional. Search, reading documents and voice
-                still use small on-device models.
-              </p>
-              <fieldset className="ai-setup-card" disabled={!!busy}>
-                {kind === "local" ? (
-                  <>
-                    <div className="ai-tech-mode">
-                      <span>
-                        <label htmlFor="ai-tech-mode-switch">
-                          <strong>I’m a proper geek</strong>
-                        </label>
-                        <small id="ai-tech-mode-hint">
-                          I know my GGUFs from my quants. Show me every knob for local models: any
-                          model from Hugging Face or disk, engine builds, context size, GPU layers,
-                          or my own llama-server.
-                        </small>
-                      </span>
-                      <Switch
-                        id="ai-tech-mode-switch"
-                        checked={techMode}
-                        aria-describedby="ai-tech-mode-hint"
-                        onCheckedChange={setTechMode}
-                      />
-                    </div>
-                    {techMode && (
-                      <EngineCard
-                        engineId="llama"
-                        disabled={!!busy}
-                        onChanged={() =>
-                          void ai
-                            .status()
-                            .then(setStatus)
-                            .catch(() => undefined)
-                        }
-                      />
-                    )}
-                    <StarterModels
-                      hardware={status?.hardware}
+                    onChoose={chooseModel}
+                    showInstalled={!techMode}
+                  />
+                  {techMode && (
+                    <ModelLibrary
                       selectedPath={config.model_path}
                       disabled={!!busy}
                       onChoose={chooseModel}
-                      showInstalled={!techMode}
                     />
-                    {techMode && (
-                      <ModelLibrary
-                        selectedPath={config.model_path}
-                        disabled={!!busy}
-                        onChoose={chooseModel}
-                      />
-                    )}
-                    <label className="ai-check">
-                      <input
-                        type="checkbox"
-                        checked={config.resident}
-                        onChange={(e) => patch({ resident: e.target.checked })}
-                      />
-                      <span>
-                        <strong>Keep ready for the next question</strong>
-                        <small>
-                          Turn off to release memory after 10 minutes without a question.
-                        </small>
-                      </span>
-                    </label>
-                    {techMode && (
-                      <div className="ai-advanced-fields">
-                        <div className="ai-field-row">
-                          <label className="ai-field">
-                            Context size
-                            <ModelSelect
-                              label="Context size"
-                              value={config.context_size}
-                              onValueChange={(value) => patch({ context_size: Number(value) })}
-                            >
-                              {[2048, 4096, 8192, 16384, 32768].map((n) => (
-                                <option key={n} value={n}>
-                                  {n.toLocaleString()} tokens
-                                </option>
-                              ))}
-                            </ModelSelect>
-                          </label>
-                          <label className="ai-field">
-                            GPU layers
-                            <input
-                              type="number"
-                              min={-1}
-                              max={999}
-                              value={config.gpu_layers}
-                              onChange={(e) => patch({ gpu_layers: Number(e.target.value) })}
-                            />
-                            <small>−1 chooses automatically · 0 uses CPU</small>
-                          </label>
-                        </div>
+                  )}
+                  <label className="ai-check">
+                    <input
+                      type="checkbox"
+                      checked={config.resident}
+                      onChange={(e) => patch({ resident: e.target.checked })}
+                    />
+                    <span>
+                      <strong>Keep ready for the next question</strong>
+                      <small>Turn off to release memory after 10 minutes without a question.</small>
+                    </span>
+                  </label>
+                  {techMode && (
+                    <div className="ai-advanced-fields">
+                      <div className="ai-field-row">
                         <label className="ai-field">
-                          Your own llama-server
+                          Context size
+                          <ModelSelect
+                            label="Context size"
+                            value={config.context_size}
+                            onValueChange={(value) => patch({ context_size: Number(value) })}
+                          >
+                            {[2048, 4096, 8192, 16384, 32768].map((n) => (
+                              <option key={n} value={n}>
+                                {n.toLocaleString()} tokens
+                              </option>
+                            ))}
+                          </ModelSelect>
+                        </label>
+                        <label className="ai-field">
+                          GPU layers
                           <input
-                            value={config.binary_path}
-                            placeholder="Leave empty to use Graite’s build"
-                            spellCheck={false}
-                            onChange={(e) => patch({ binary_path: e.target.value.trim() })}
+                            type="number"
+                            min={-1}
+                            max={999}
+                            value={config.gpu_layers}
+                            onChange={(e) => patch({ gpu_layers: Number(e.target.value) })}
                           />
-                          <small>
-                            Full path to a llama-server executable you built or installed. Graite
-                            runs it instead of its own build.
-                          </small>
+                          <small>−1 chooses automatically · 0 uses CPU</small>
                         </label>
                       </div>
-                    )}
-                  </>
-                ) : kind === "graite" ? (
+                      <label className="ai-field">
+                        Your own llama-server
+                        <input
+                          value={config.binary_path}
+                          placeholder="Leave empty to use Graite’s build"
+                          spellCheck={false}
+                          onChange={(e) => patch({ binary_path: e.target.value.trim() })}
+                        />
+                        <small>
+                          Full path to a llama-server executable you built or installed. Graite runs
+                          it instead of its own build.
+                        </small>
+                      </label>
+                    </div>
+                  )}
+                </fieldset>
+              </>,
+            )}
+            {panel(
+              "server",
+              <>
+                <Explainer
+                  icon={Server}
+                  title="Your own server"
+                  lede="Use models you already run with Ollama, LM Studio or llama.cpp."
+                  why="Keep the setup you have, or use a stronger machine in your own network."
+                  need="The server’s address, ending in /v1."
+                  leaves="Only what you ask, to that address. A server on this computer keeps everything here."
+                />
+                {chatUse("server", undefined, "Pick a saved model below to use it for chat.")}
+                <fieldset className="ai-setup-card" disabled={!!busy}>
+                  {status?.keychain_error && <p className="ai-error">{status.keychain_error}</p>}
+                  <ConnectionsCard
+                    kind="compatible"
+                    filter={ownServer}
+                    presets={SERVER_PRESETS}
+                    connections={store.connections}
+                    models={store.models}
+                    activeModelId={activeModelId}
+                    disabled={!!busy}
+                    onChanged={connectionAdded}
+                    onPick={pickSaved}
+                  />
+                </fieldset>
+              </>,
+            )}
+            {panel(
+              "voice",
+              <>
+                <Explainer
+                  icon={AudioLines}
+                  title="Speech"
+                  lede="Talk to your assistant and hear it answer."
+                  why="Think out loud or dictate notes instead of typing."
+                  need="A one-time download of the speech models below."
+                  leaves="Nothing. Your voice becomes text on this computer."
+                />
+                <EngineCard engineId="crispasr" disabled={!!busy} />
+                <ModelLibrary
+                  kind="utilities"
+                  roles={["speech", "vad", "turn", "tts"]}
+                  selectedPath=""
+                  onChoose={() => {}}
+                  disabled={!!busy}
+                />
+                <OwnBuild label="Speech to text" path={config.whisper_binary_path} />
+                <VoicesCard />
+              </>,
+            )}
+            {panel(
+              "search",
+              <>
+                <Explainer
+                  icon={Search}
+                  title="Search"
+                  lede="How AI finds the right passage without reading every page."
+                  why="Faster answers, fewer tokens, and every answer shows its sources."
+                  need="A small search model. Without it, keyword search still works."
+                  leaves="Nothing. The index lives in your vault."
+                />
+                <IndexCard config={config} onPatch={patch} disabled={!!busy} />
+                <ModelLibrary
+                  kind="utilities"
+                  roles={["embedding"]}
+                  selectedPath=""
+                  onChoose={() => {}}
+                  disabled={!!busy}
+                />
+              </>,
+            )}
+            {panel(
+              "documents",
+              <>
+                <Explainer
+                  icon={FileText}
+                  title="Documents"
+                  lede="Turn scanned PDFs and images into text."
+                  why="A scan is only a picture. Once read, you can search it and ask about it."
+                  need="The chat engine from “On this computer” and a document model."
+                  leaves="Nothing."
+                />
+                <OcrEngineNote
+                  override={config.ocr_binary_path || ""}
+                  onOpenLocal={() => setSection("local")}
+                />
+                <ModelLibrary
+                  kind="utilities"
+                  roles={["ocr"]}
+                  selectedPath=""
+                  onChoose={() => {}}
+                  disabled={!!busy}
+                />
+              </>,
+            )}
+            {panel(
+              "graite",
+              <>
+                <Explainer
+                  icon={Cloud}
+                  title="Graite Cloud"
+                  lede="Hosted models that just work, and the link to Claude and ChatGPT."
+                  why={
+                    <ul>
+                      <li>Nothing to download or set up.</li>
+                      <li>Free daily credits.</li>
+                      <li>Zero data retention: never stored, never used for training.</li>
+                      <li>Lets Claude, ChatGPT and Grok work with your pages.</li>
+                    </ul>
+                  }
+                  need="A free Graite account and an internet connection."
+                  leaves="Your question and the passages needed to answer it. Pages marked “Local models only” or “No AI” are never sent."
+                />
+                {chatUse("graite", () =>
+                  patch({
+                    provider: "graite",
+                    model: "",
+                    saved_model_id: null,
+                    connection_id: null,
+                  }),
+                )}
+                <fieldset className="ai-setup-card" disabled={!!busy}>
                   <GraiteCloudCard
                     activeModel={config.provider === "graite" ? config.model : null}
+                    autoPick={config.provider === "graite"}
                     disabled={!!busy}
                     onPick={(model) =>
                       patch({
@@ -350,128 +503,79 @@ export function ModelsPage({
                       })
                     }
                   />
-                ) : (
-                  <>
-                    <div className="ai-privacy">
-                      <ShieldCheck size={19} />
-                      <p>
-                        {kind === "anthropic"
-                          ? "Your questions, page context, and inherited instructions are sent to Anthropic."
-                          : activeHost && !LOCAL_HOSTS.has(activeHost)
-                            ? `Your questions, page context, and inherited instructions are sent to ${activeHost}${activeHost.endsWith("openrouter.ai") ? " and the model's provider" : ""}.`
-                            : "Your questions, page context, and inherited instructions are sent to the server you connect. A server on this computer keeps them here."}{" "}
-                        API keys are stored in your operating system’s keychain. Connections and
-                        saved models are shared by all your vaults.
-                      </p>
-                    </div>
-                    {status?.keychain_error && <p className="ai-error">{status.keychain_error}</p>}
-                    <ConnectionsCard
-                      kind={kind}
-                      connections={store.connections}
-                      models={store.models}
-                      activeModelId={activeModelId}
-                      disabled={!!busy}
-                      onChanged={() => void refreshStore()}
-                      onPick={(model) => {
-                        const connection = store.connections.find(
-                          (c) => c.id === model.connection_id,
-                        );
-                        patch({
-                          provider: kind,
-                          saved_model_id: model.id,
-                          connection_id: model.connection_id,
-                          model: model.model,
-                          base_url: connection?.base_url ?? config.base_url,
-                        });
-                      }}
-                    />
-                  </>
-                )}
-              </fieldset>
-            </div>
-            <div
-              className="settings-panel"
-              role="tabpanel"
-              aria-label="Voice"
-              hidden={tab !== "voice"}
-            >
-              <div className="ai-section-heading">
-                <h2>Voice</h2>
-                <span>Talk with your assistant</span>
-              </div>
-              <p className="ai-library-intro">
-                Set up speech recognition, conversation listening and your assistant’s speaking
-                voice below. Everything runs privately on this computer.
-              </p>
-              <EngineCard engineId="crispasr" disabled={!!busy} />
-              <ModelLibrary
-                kind="utilities"
-                roles={["speech", "vad", "turn", "tts"]}
-                selectedPath=""
-                onChoose={() => {}}
-                disabled={!!busy}
-              />
-              <OwnBuild label="Speech to text" path={config.whisper_binary_path} />
-              <VoicesCard />
-            </div>
-            <div
-              className="settings-panel"
-              role="tabpanel"
-              aria-label="Search"
-              hidden={tab !== "search"}
-            >
-              <IndexCard config={config} onPatch={patch} disabled={!!busy} />
-              <ModelLibrary
-                kind="utilities"
-                roles={["embedding"]}
-                selectedPath=""
-                onChoose={() => {}}
-                disabled={!!busy}
-              />
-            </div>
-            <div
-              className="settings-panel"
-              role="tabpanel"
-              aria-label="Documents"
-              hidden={tab !== "documents"}
-            >
-              <div className="ai-section-heading">
-                <h2>OCR</h2>
-                <span>PDFs and images into text</span>
-              </div>
-              <p className="ai-library-intro">
-                Reads scanned PDFs and images into Markdown on this computer. It loads for each job
-                and releases memory afterwards.
-              </p>
-              <OcrEngineNote
-                override={config.ocr_binary_path || ""}
-                onOpenChat={() => setTab("chat")}
-              />
-              <ModelLibrary
-                kind="utilities"
-                roles={["ocr"]}
-                selectedPath=""
-                onChoose={() => {}}
-                disabled={!!busy}
-              />
-            </div>
-            <div
-              className="settings-panel"
-              role="tabpanel"
-              aria-label="Vault"
-              hidden={tab !== "vault"}
-            >
-              <VaultCard />
-            </div>
-            <div
-              className="settings-panel"
-              role="tabpanel"
-              aria-label="AI connectors"
-              hidden={tab !== "connectors"}
-            >
-              <ConnectorsCard />
-            </div>
-            <div className="ai-actions" hidden={tab === "vault" || tab === "connectors"}>
+                </fieldset>
+              </>,
+            )}
+            {panel(
+              "connectors",
+              <>
+                <Explainer
+                  icon={Plug}
+                  title="AI connectors"
+                  lede="Let the AI app you already use work with your pages."
+                  why="Keep your favourite assistant, with your own notes as what it knows."
+                  need="Apps in the browser: a Graite account. Apps on this computer: nothing."
+                  leaves="Only the pages the app asks for. Its changes wait for your review."
+                />
+                <ConnectorsCard onOpenAccount={() => setSection("graite")} />
+              </>,
+            )}
+            {panel(
+              "keys",
+              <>
+                <Explainer
+                  icon={KeyRound}
+                  title="API keys"
+                  lede="Use a model from a provider you have your own account with."
+                  why="The strongest models, billed to your own account."
+                  need="An API key. A ChatGPT or Claude subscription does not include one."
+                  leaves={`Your questions and the passages they need go to ${
+                    activeHost && draftSection === "keys" && !isThisComputer(activeHost)
+                      ? activeHost
+                      : "the provider you choose"
+                  }. Pages marked “Local models only” or “No AI” are never sent.`}
+                />
+                {chatUse("keys", undefined, "Pick a saved model below to use it for chat.")}
+                <div className="ai-privacy">
+                  <ShieldCheck size={19} />
+                  <p>Keys are kept in your system’s keychain, never in your vault.</p>
+                </div>
+                {status?.keychain_error && <p className="ai-error">{status.keychain_error}</p>}
+                <fieldset className="ai-setup-card" disabled={!!busy}>
+                  <div className="ai-section-heading">
+                    <h2>Claude</h2>
+                    <span>Anthropic API key</span>
+                  </div>
+                  <ConnectionsCard
+                    kind="anthropic"
+                    connections={store.connections}
+                    models={store.models}
+                    activeModelId={activeModelId}
+                    disabled={!!busy}
+                    onChanged={connectionAdded}
+                    onPick={pickSaved}
+                  />
+                  <div className="ai-section-heading">
+                    <h2>OpenAI, Grok, OpenRouter and others</h2>
+                    <span>Any OpenAI-compatible service</span>
+                  </div>
+                  <ConnectionsCard
+                    kind="compatible"
+                    filter={(connection) => !ownServer(connection)}
+                    presets={KEY_PRESETS}
+                    urlPlaceholder="https://api.openai.com/v1"
+                    keyOptional={false}
+                    connections={store.connections}
+                    models={store.models}
+                    activeModelId={activeModelId}
+                    disabled={!!busy}
+                    onChanged={connectionAdded}
+                    onPick={pickSaved}
+                  />
+                </fieldset>
+              </>,
+            )}
+            <div className="ai-actions" hidden={!DRAFT_SECTIONS.includes(section)}>
               <Button
                 variant="outline"
                 disabled={!!busy}
@@ -479,7 +583,7 @@ export function ModelsPage({
               >
                 Save settings
               </Button>
-              {tab === "chat" && (
+              {MODEL_SECTIONS.includes(section) && (
                 <Button
                   disabled={!!busy}
                   onClick={() =>
@@ -507,7 +611,7 @@ export function ModelsPage({
                 {status.runtime_warning}
               </div>
             )}
-            {tab === "chat" && status?.loaded && (
+            {section === "local" && status?.loaded && (
               <div className="ai-runtime">
                 <span>
                   <span className="ai-dot" /> Local model loaded · {status.gpu_layers} GPU layers
@@ -529,7 +633,7 @@ export function ModelsPage({
                 </Button>
               </div>
             )}
-            {tab === "chat" && status?.benchmark && (
+            {MODEL_SECTIONS.includes(section) && status?.benchmark && (
               <div className="ai-benchmark">
                 <Check size={15} />
                 <span>
@@ -540,20 +644,93 @@ export function ModelsPage({
                 </span>
               </div>
             )}
-            <footer className="ai-footnote">
-              <ShieldCheck size={15} />
-              Graite can read and discuss your pages. Your words stay in your hands.
-            </footer>
           </>
         )}
+        <footer className="ai-footnote">
+          <ShieldCheck size={15} />
+          Graite can read and discuss your pages. Your words stay in your hands.
+        </footer>
       </div>
     </section>
   );
 }
 
-/** Documents tab: OCR runs on the chat engine, so this only reports whether that engine is
- * there and sends the user to Chat to set it up. */
-function OcrEngineNote({ override, onOpenChat }: { override: string; onOpenChat: () => void }) {
+const THEMES: [ThemeChoice, string][] = [
+  ["light", "Light"],
+  ["dark", "Dark"],
+  ["system", "Same as my computer"],
+];
+
+/** General: who you are, how Graite looks, and where this vault lives. */
+function GeneralSection() {
+  const me = useProfile();
+  const theme = useThemeChoice();
+  const [name, setName] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const shown = name ?? me?.first_name ?? "";
+  const dirty = me !== null && shown.trim() !== me.first_name;
+  return (
+    <>
+      <Explainer
+        icon={Settings2}
+        title="General"
+        lede="Your name, how Graite looks, and where your pages live."
+      />
+      <section className="settings-card" aria-label="Your name">
+        <h2>Your name</h2>
+        <p>So chat and your assistant can address you. It stays on this computer.</p>
+        <form
+          className="settings-row"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setSaving(true);
+            void saveProfile({ first_name: shown.trim() })
+              .then(() => {
+                setName(null);
+                toast.success("Name saved");
+              })
+              .catch((error: Error) => toast.error(error.message))
+              .finally(() => setSaving(false));
+          }}
+        >
+          <input
+            aria-label="First name"
+            value={shown}
+            maxLength={60}
+            autoComplete="given-name"
+            placeholder="Your first name"
+            disabled={me === null}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <Button type="submit" variant="outline" disabled={!dirty || saving}>
+            Save name
+          </Button>
+        </form>
+      </section>
+      <section className="settings-card" aria-label="Appearance">
+        <h2>Appearance</h2>
+        <div className="settings-segments" role="radiogroup" aria-label="Theme">
+          {THEMES.map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={theme === value}
+              onClick={() => setThemeChoice(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
+      <VaultCard />
+    </>
+  );
+}
+
+/** Documents: OCR runs on the chat engine, so this only reports whether that engine is there
+ * and sends the user to "On this computer" to set it up. */
+function OcrEngineNote({ override, onOpenLocal }: { override: string; onOpenLocal: () => void }) {
   const { state, error } = useEngine("llama");
   if (override.trim()) return <OwnBuild label="OCR" path={override} />;
   if (error)
@@ -577,8 +754,9 @@ function OcrEngineNote({ override, onOpenChat }: { override: string; onOpenChat:
           </small>
         )}
       </div>
-      <Button variant="ghost" size="sm" onClick={onOpenChat}>
-        {ready ? "Manage in Chat" : "Set up in Chat"} <ArrowRight size={14} />
+      <Button variant="ghost" size="sm" onClick={onOpenLocal}>
+        {ready ? "Manage under On this computer" : "Set up under On this computer"}{" "}
+        <ArrowRight size={14} />
       </Button>
     </div>
   );

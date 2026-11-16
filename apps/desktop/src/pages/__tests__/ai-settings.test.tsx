@@ -29,6 +29,8 @@ vi.mock("@/editor/TextInstructionsEditor", () => ({
     ),
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
+const examples = vi.hoisted(() => ({ instructions: vi.fn() }));
+vi.mock("@/lib/templates", () => ({ templates: examples }));
 import { AiSettingsDialog } from "../AiSettingsDialog";
 const inherited = {
   values: { autonomy: "propose", cloud: "allowed" },
@@ -87,10 +89,42 @@ it("does not let descendants lift inherited restrictions", async () => {
   api.get.mockResolvedValue({ ...settings, inherited: locked, effective: locked });
   render(<AiSettingsDialog path="Projects/Atlas" title="Atlas" open onOpenChange={vi.fn()} />);
   await screen.findByLabelText("Instructions");
-  expect((screen.getByLabelText("Allowed") as HTMLInputElement).disabled).toBe(true);
+  expect((screen.getByLabelText("Cloud and local AI") as HTMLInputElement).disabled).toBe(true);
   expect((screen.getByLabelText("Apply changes automatically") as HTMLInputElement).disabled).toBe(
     true,
   );
+});
+it("offers no AI at all, and explains instructions and inheritance", async () => {
+  render(<AiSettingsDialog path="Projects/Atlas" title="Atlas" open onOpenChange={vi.fn()} />);
+  await screen.findByLabelText("Instructions");
+  expect(screen.getByText(/Instructions add up from the top down/)).toBeTruthy();
+  expect(
+    [...screen.getByLabelText("Order in which instructions apply").querySelectorAll("strong")].map(
+      (step) => step.textContent,
+    ),
+  ).toEqual(["Workspace instructions", "Projects", "This page"]);
+  fireEvent.click(screen.getByLabelText("No AI"));
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() =>
+    expect(api.put).toHaveBeenCalledWith(
+      "Projects/Atlas",
+      expect.objectContaining({ cloud: "none" }),
+      "h1",
+    ),
+  );
+});
+it("lets a page be stricter than its parent, never more open", async () => {
+  const local = {
+    ...inherited,
+    values: { autonomy: "propose", cloud: "local-only" },
+    sources: { autonomy: "default", cloud: "Projects" },
+  };
+  api.get.mockResolvedValue({ ...settings, inherited: local, effective: local });
+  render(<AiSettingsDialog path="Projects/Atlas" title="Atlas" open onOpenChange={vi.fn()} />);
+  await screen.findByLabelText("Instructions");
+  expect((screen.getByLabelText("Cloud and local AI") as HTMLInputElement).disabled).toBe(true);
+  expect((screen.getByLabelText("Local models only") as HTMLInputElement).checked).toBe(true);
+  expect((screen.getByLabelText("No AI") as HTMLInputElement).disabled).toBe(false);
 });
 it("edits workspace instructions at the source while preserving the page draft", async () => {
   api.getInstructions.mockResolvedValue({
@@ -101,8 +135,7 @@ it("edits workspace instructions at the source while preserving the page draft",
   api.putInstructions.mockResolvedValue({});
   render(<AiSettingsDialog path="Projects/Atlas" title="Atlas" open onOpenChange={vi.fn()} />);
   fireEvent.change(await screen.findByLabelText("Instructions"), { target: { value: "Draft" } });
-  fireEvent.click(screen.getByText("Workspace instructions"));
-  fireEvent.click(screen.getByRole("button", { name: "Open shared instruction settings" }));
+  fireEvent.click(screen.getByRole("button", { name: "Edit workspace instructions" }));
   const shared = await screen.findByLabelText("Shared instructions");
   await waitFor(() => expect((shared as HTMLTextAreaElement).value).toBe("Use clear language."));
   fireEvent.change(shared, { target: { value: "Write clearly." } });
@@ -132,9 +165,8 @@ it("opens inherited page settings at the source and saves the current draft firs
   fireEvent.change(await screen.findByLabelText("Instructions"), {
     target: { value: "Keep this draft." },
   });
-  fireEvent.click(screen.getByText("Projects"));
   expect(screen.queryByRole("button", { name: "Edit instructions from Projects" })).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Open page settings" }));
+  fireEvent.click(screen.getByRole("button", { name: "Open AI settings of Projects" }));
   await waitFor(() => expect(navigate).toHaveBeenCalledWith("Projects"));
   expect(api.put).toHaveBeenCalledWith(
     "Projects/Atlas",
@@ -157,8 +189,32 @@ it("keeps the draft open when saving before source navigation fails", async () =
     />,
   );
   fireEvent.change(await screen.findByLabelText("Instructions"), { target: { value: "Unsaved" } });
-  fireEvent.click(screen.getByText("Projects"));
-  fireEvent.click(screen.getByRole("button", { name: "Open page settings" }));
+  fireEvent.click(screen.getByRole("button", { name: "Open AI settings of Projects" }));
   expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Save failed");
   expect(navigate).not.toHaveBeenCalled();
+});
+
+it("starts the instructions from an example, or adds one below what is there", async () => {
+  examples.instructions.mockResolvedValue([
+    {
+      slug: "meeting-notes",
+      name: "Meeting notes",
+      description: "One subpage per meeting.",
+      category: "Productivity",
+      icon: "🤝",
+      text: "Keep meeting notes.",
+    },
+  ]);
+  render(<AiSettingsDialog path="Projects/Atlas" title="Atlas" open onOpenChange={vi.fn()} />);
+  const box = (await screen.findByLabelText("Instructions")) as HTMLTextAreaElement;
+  fireEvent.click(screen.getByRole("button", { name: "Examples" }));
+  await screen.findByLabelText("Example instructions: Meeting notes");
+  fireEvent.click(screen.getByRole("button", { name: "Use these instructions" }));
+  expect(box.value).toBe("Keep meeting notes.");
+
+  fireEvent.change(box, { target: { value: "Write in Dutch." } });
+  fireEvent.click(screen.getByRole("button", { name: "Examples" }));
+  await screen.findByLabelText("Example instructions: Meeting notes");
+  fireEvent.click(screen.getByRole("button", { name: "Add below my instructions" }));
+  expect(box.value).toBe(["Write in Dutch.", "", "Keep meeting notes."].join("\n"));
 });

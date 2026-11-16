@@ -12,7 +12,7 @@ import json
 from typing import Any
 
 from graite.agent.loop import visible
-from graite.models.config import load_config
+from graite.models.config import is_cloud, load_config
 from graite.tables.cache import TablesCache
 from graite.tables.charts import KEYS, PALETTES, TYPES, chart_data, check_chart
 from graite.tables.scope import page_tables, table_alias
@@ -123,7 +123,9 @@ async def chart_from_words(
     TimeoutError when the model is too slow."""
     config = load_config(state.db)
     policy = resolve_policy(state.settings.vault, state.db, page)
-    if config.provider != "local" and not policy.cloud_allowed:
+    if not policy.ai_allowed:
+        raise ValueError("AI is turned off for this page in its AI settings.")
+    if is_cloud(config) and not policy.cloud_allowed:
         raise ValueError("This page allows local models only. Choose a local model in Settings.")
     cache: TablesCache = state.tables
     db = state.fileops.db

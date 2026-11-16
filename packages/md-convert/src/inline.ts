@@ -176,13 +176,49 @@ function build(atoms: Atom[]): PhrasingContent[] {
       delete rest[outer];
       return { ...t, styles: rest };
     });
-    const children = build(inner);
-    if (outer === "bold") out.push({ type: "strong", children });
-    else if (outer === "italic") out.push({ type: "emphasis", children });
-    else out.push({ type: "delete", children });
+    // Markdown cannot open or close a style next to a space: `~~ x ~~` reads back as literal
+    // tildes. Spaces at the edges of a styled run move outside it.
+    const [lead, core, trail] = peelSpace(inner);
+    if (lead) out.push({ type: "text", value: lead });
+    if (core.length) {
+      const children = build(core);
+      if (outer === "bold") out.push({ type: "strong", children });
+      else if (outer === "italic") out.push({ type: "emphasis", children });
+      else out.push({ type: "delete", children });
+    }
+    if (trail) out.push({ type: "text", value: trail });
     i = j;
   }
   return out;
+}
+
+/** Split a styled run into its leading spaces, the part that keeps the style, and its trailing
+ * spaces. Inline code keeps its own spaces, so peeling stops there. */
+function peelSpace(run: TextInline[]): [string, TextInline[], string] {
+  const core = run.map((t) => ({ ...t }));
+  let lead = "";
+  while (core.length && !core[0]!.styles.code) {
+    const first = core[0]!;
+    const rest = first.text.replace(/^[ \t]+/, "");
+    lead += first.text.slice(0, first.text.length - rest.length);
+    if (rest) {
+      first.text = rest;
+      break;
+    }
+    core.shift();
+  }
+  let trail = "";
+  while (core.length && !core[core.length - 1]!.styles.code) {
+    const last = core[core.length - 1]!;
+    const rest = last.text.replace(/[ \t]+$/, "");
+    trail = last.text.slice(rest.length) + trail;
+    if (rest) {
+      last.text = rest;
+      break;
+    }
+    core.pop();
+  }
+  return [lead, core, trail];
 }
 
 function linkNode(link: LinkInline): PhrasingContent {

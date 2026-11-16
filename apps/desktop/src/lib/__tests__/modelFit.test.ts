@@ -9,8 +9,14 @@ const all = [light, everyday, powerful, maximum];
 
 describe("modelFit", () => {
   it("allows for reported memory being a little under the label", () => {
-    expect(modelFit(everyday, { ram_gb: 15.5 })).toBe("good");
+    expect(modelFit(light, { ram_gb: 15.5 })).toBe("good");
+    expect(modelFit(everyday, { ram_gb: 23.4 })).toBe("good");
     expect(modelFit(everyday, { ram_gb: 8 })).toBe("too_big");
+  });
+
+  it("calls a model that only just fits tight", () => {
+    expect(modelFit(everyday, { ram_gb: 15.5 })).toBe("tight");
+    expect(modelFit(light, { ram_gb: 7.6 })).toBe("tight");
   });
 
   it("calls big models slow without a large enough graphics card", () => {
@@ -23,12 +29,14 @@ describe("modelFit", () => {
 describe("recommended", () => {
   it("picks the largest model that runs well", () => {
     expect(recommended(all, { ram_gb: 31.3 })?.id).toBe("everyday");
+    expect(recommended(all, { ram_gb: 15.5 })?.id).toBe("light");
     expect(recommended(all, { ram_gb: 64, vram_gb: 24 })?.id).toBe("maximum");
     expect(recommended(all, { ram_gb: 36, vram_gb: 36 })?.id).toBe("maximum");
   });
 
   it("falls back to the smallest model that runs at all, or nothing", () => {
     expect(recommended([powerful, maximum], { ram_gb: 32 })?.id).toBe("powerful");
+    expect(recommended(all, { ram_gb: 7.6 })?.id).toBe("light");
     expect(recommended(all, { ram_gb: 4 })).toBeNull();
   });
 });

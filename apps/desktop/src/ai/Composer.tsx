@@ -5,7 +5,6 @@ import {
   Square,
   ChevronDown,
   FileUp,
-  Files,
   MessageCircle,
   PenLine,
   MousePointer2,
@@ -50,8 +49,7 @@ export function Composer({
   actEnabled = true,
   fixedMode = false,
   contextId,
-  onPages,
-  pageLabel,
+  pages,
   onSettings,
   settingsVersion,
   onModelChanged,
@@ -74,8 +72,8 @@ export function Composer({
   /** The mode is decided elsewhere (the assistant's settings): hide the picker. */
   fixedMode?: boolean;
   contextId?: string;
-  onPages?: () => void;
-  pageLabel?: string;
+  /** The page selection for this chat (a `ScopeMenu`), shown beside the mode. */
+  pages?: React.ReactNode;
   onSettings?: () => void;
   settingsVersion?: number;
   onModelChanged?: () => void;
@@ -154,12 +152,6 @@ export function Composer({
                 <FileUp size={16} />
                 Files
               </DropdownMenuItem>
-              {onPages && (
-                <DropdownMenuItem onSelect={onPages}>
-                  <Files size={16} />
-                  Pages
-                </DropdownMenuItem>
-              )}
             </DropdownMenuContent>
           </DropdownMenu>
           {!fixedMode && (
@@ -200,6 +192,7 @@ export function Composer({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          {pages}
           {left}
         </div>
         <div className="ai-composer-right">
@@ -238,12 +231,6 @@ export function Composer({
           )}
         </div>
       </div>
-      {onPages && pageLabel && pageLabel !== "All pages" && (
-        <button type="button" className="ai-context-scope" onClick={onPages}>
-          <Files size={12} />
-          {pageLabel}
-        </button>
-      )}
       {footnote}
     </form>
   );

@@ -8,6 +8,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+from graite.profile import first_name
 from graite.voice.session import SendBytes, SendJson, VoiceSession
 from graite.voice.tts import EngineUnavailable, TTSEngine, Voice, get_engine
 from graite.voice.voices import VoiceLibrary
@@ -171,7 +172,7 @@ class VoiceRuntime:
         they are there before the engine has finished loading."""
         import hashlib
 
-        text = greeting_text(definition.user_name, voice.language)
+        text = greeting_text(definition.user_name or first_name(), voice.language)
         stamp = ""
         if voice.reference is not None:
             try:

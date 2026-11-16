@@ -333,7 +333,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 12px;
-  background: #eeeee5;
+  background: color-mix(in srgb, #8e9c76 16%, var(--background));
   color: #777954;
   flex-shrink: 0;
 }
@@ -418,7 +418,7 @@
   padding: 40px 20px;
   border: 1px dashed var(--border);
   border-radius: 16px;
-  background: #fafaf7;
+  background: color-mix(in srgb, var(--muted) 45%, var(--background));
 }
 .sched-empty h2 {
   font-size: 17px;

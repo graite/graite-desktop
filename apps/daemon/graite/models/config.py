@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from ipaddress import ip_address
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -57,6 +58,26 @@ class AIConfig(BaseModel):
 class SaveConfig(AIConfig):
     api_key: str | None = Field(default=None, max_length=4096, exclude=True)
     clear_key: bool = Field(default=False, exclude=True)
+
+
+def is_cloud(config: AIConfig) -> bool:
+    """Whether what this model is sent leaves the computer.
+
+    Graite's own engine is local, and so is a model server at a loopback address (Ollama,
+    LM Studio, a llama.cpp server on this machine). Everything else is cloud, including a
+    server elsewhere on the network: `cloud: local-only` pages stay on this computer.
+    """
+    if config.provider == "local":
+        return False
+    if config.provider != "compatible":
+        return True
+    host = (urlsplit(config.base_url).hostname or "").lower()
+    if host == "localhost":
+        return False
+    try:
+        return not ip_address(host).is_loopback
+    except ValueError:
+        return True
 
 
 def credential_id_for(kind: str, base_url: str, connection_id: str | None = None) -> str:

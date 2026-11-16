@@ -433,3 +433,54 @@ describe("fewer raw blocks", () => {
     expect(hasRawBlocks(toBlocks(md))).toBe(false);
   });
 });
+
+describe("styles next to spaces", () => {
+  const paragraph = (content: unknown[]): Block[] => {
+    const blocks = toBlocks("a\n");
+    (blocks[0] as unknown as { content: unknown[] }).content = content;
+    return blocks;
+  };
+  const content = (md: string) => (toBlocks(md)[0] as unknown as { content: unknown[] }).content;
+
+  for (const [style, mark] of [
+    ["strike", "~~"],
+    ["bold", "**"],
+    ["italic", "_"],
+  ] as const) {
+    it(`keeps ${style} when the styled text starts or ends with a space`, () => {
+      const md = fromBlocks(
+        paragraph([
+          { type: "text", text: "start", styles: {} },
+          { type: "text", text: " text I added ", styles: { [style]: true } },
+          { type: "text", text: "end", styles: {} },
+        ]),
+      );
+      expect(md).toBe(`start ${mark}text I added${mark} end\n`);
+      expect(content(md)).toEqual([
+        { type: "text", text: "start ", styles: {} },
+        { type: "text", text: "text I added", styles: { [style]: true } },
+        { type: "text", text: " end", styles: {} },
+      ]);
+    });
+  }
+
+  it("writes a styled run of only spaces as plain spaces", () => {
+    const md = fromBlocks(
+      paragraph([
+        { type: "text", text: "a", styles: {} },
+        { type: "text", text: "  ", styles: { strike: true } },
+        { type: "text", text: "b", styles: {} },
+      ]),
+    );
+    expect(md).toBe("a  b\n");
+  });
+
+  it("reads a single tilde pair as text, not strikethrough", () => {
+    expect(content("a ~b~ c\n")).toEqual([{ type: "text", text: "a ~b~ c", styles: {} }]);
+    expect(content("a ~~b~~ c\n")).toEqual([
+      { type: "text", text: "a ", styles: {} },
+      { type: "text", text: "b", styles: { strike: true } },
+      { type: "text", text: " c", styles: {} },
+    ]);
+  });
+});

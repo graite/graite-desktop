@@ -24,11 +24,24 @@ function under(path: string, roots: string[]): boolean {
   return roots.some((r) => path === r || path.startsWith(r + "/"));
 }
 
+/** Every page: the default for a new chat. */
+export const ALL_PAGES: Scope = { kind: "vault", roots: [], excluded: [] };
+/** No pages: the AI answers without the notes. */
+export const NO_PAGES: Scope = { kind: "none", roots: [], excluded: [] };
+
 /** The set of checked pages a scope stands for. */
 export function checkedFromScope(tree: TreeNode[], scope: Scope): Set<string> {
   const roots = scope.roots ?? [];
   const excluded = scope.excluded ?? [];
   const checked = new Set<string>();
+  if (scope.kind === "none") return checked;
+  if (scope.kind === "page") {
+    // One page, without its subpages.
+    walk(tree, (n) => {
+      if (n.path === roots[0]) checked.add(n.path);
+    });
+    return checked;
+  }
   walk(tree, (n) => {
     const inRoots =
       scope.kind === "vault" ? !roots.length || under(n.path, roots) : under(n.path, roots);
@@ -82,6 +95,7 @@ export function countSelected(
 
 /** Smallest vault scope (roots + excluded subtrees) that reproduces the checked set. */
 export function normalizeSelection(tree: TreeNode[], checked: Set<string>): Scope {
+  if (!allPaths(tree).some((path) => checked.has(path))) return NO_PAGES;
   const roots: string[] = [];
   const excluded: string[] = [];
   const visit = (nodes: TreeNode[], insideRoot: boolean) => {
@@ -118,7 +132,17 @@ export function normalizeSelection(tree: TreeNode[], checked: Set<string>): Scop
   return { kind: "vault", roots, excluded };
 }
 
-export function scopeLabel(scope: Scope, count: { selected: number; total: number }): string {
+/** What the selection is called; `page` is the chat's own page, when it has one. */
+export function scopeLabel(
+  scope: Scope,
+  count: { selected: number; total: number },
+  page?: string,
+): string {
+  if (scope.kind === "none") return "No pages";
   if (scope.kind === "vault" && !scope.roots?.length && !scope.excluded?.length) return "All pages";
+  if (page && scope.roots?.[0] === page && !scope.excluded?.length) {
+    if (scope.kind === "page") return "This page";
+    if (scope.kind === "folder") return "This page & subpages";
+  }
   return `${count.selected} of ${count.total} pages`;
 }

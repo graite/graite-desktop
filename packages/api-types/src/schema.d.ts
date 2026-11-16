@@ -1617,6 +1617,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/profile": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Profile */
+    get: operations["read_profile_api_v1_profile_get"];
+    /** Write Profile */
+    put: operations["write_profile_api_v1_profile_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/tables": {
     parameters: {
       query?: never;
@@ -1977,6 +1995,26 @@ export interface paths {
     };
     /** List Templates */
     get: operations["list_templates_api_v1_templates_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/templates/instructions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Instruction Examples
+     * @description Examples of AI instructions to start a page's AI settings from.
+     */
+    get: operations["list_instruction_examples_api_v1_templates_instructions_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -3503,6 +3541,21 @@ export interface components {
       /** Variant */
       variant?: string | null;
     };
+    /** InstructionExampleModel */
+    InstructionExampleModel: {
+      /** Category */
+      category: string;
+      /** Description */
+      description: string;
+      /** Icon */
+      icon: string;
+      /** Name */
+      name: string;
+      /** Slug */
+      slug: string;
+      /** Text */
+      text: string;
+    };
     /** InstructionFile */
     InstructionFile: {
       /** Hash */
@@ -3957,6 +4010,15 @@ export interface components {
       text: string;
       /** Voice Id */
       voice_id?: string | null;
+    };
+    /** Profile */
+    Profile: {
+      /**
+       * First Name
+       * @description What the user likes to be called.
+       * @default
+       */
+      first_name: string;
     };
     /** PropertiesRequest */
     PropertiesRequest: {
@@ -4586,7 +4648,7 @@ export interface components {
        * @default vault
        * @enum {string}
        */
-      kind: "page" | "folder" | "vault";
+      kind: "page" | "folder" | "vault" | "none";
       /** Roots */
       roots?: string[];
     };
@@ -8614,6 +8676,59 @@ export interface operations {
       };
     };
   };
+  read_profile_api_v1_profile_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Profile"];
+        };
+      };
+    };
+  };
+  write_profile_api_v1_profile_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Profile"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Profile"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   list_tables_api_v1_tables_get: {
     parameters: {
       query?: {
@@ -9348,6 +9463,26 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["TemplateModel"][];
+        };
+      };
+    };
+  };
+  list_instruction_examples_api_v1_templates_instructions_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InstructionExampleModel"][];
         };
       };
     };

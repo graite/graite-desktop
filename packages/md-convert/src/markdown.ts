@@ -104,7 +104,8 @@ export const SERIALIZER_OPTIONS: ToMarkdownOptions = {
 
 const parser = unified()
   .use(remarkParse)
-  .use(remarkGfm)
+  // Strikethrough is `~~x~~` only, as in Obsidian; a single `~x~` stays text.
+  .use(remarkGfm, { singleTilde: false })
   .use(remarkFrontmatter, ["yaml"])
   .use(remarkWikiLink, WIKI_LINK_OPTIONS);
 

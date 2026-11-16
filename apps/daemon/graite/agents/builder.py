@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from graite.agent.loop import visible
 from graite.agents.definitions import validate_cron, validate_triggers
 from graite.api.automation import AgentBody
-from graite.models.config import load_config
+from graite.models.config import is_cloud, load_config
 from graite.models.connections import get_store
 from graite.models.resolution import resolve
 from graite.retrieval.scope import Scope
@@ -46,9 +46,11 @@ async def build_agent(body: BuilderRequest, request: Request) -> BuilderReply:
     try:
         scope = Scope.parse(body.draft.scope.model_dump()) if body.draft.scope else Scope("vault")
         available = resolve_scope(
-            state.db, state.settings.vault, scope, cloud_provider=config.provider != "local"
+            state.db, state.settings.vault, scope, cloud_provider=is_cloud(config)
         )
-        if config.provider != "local" and not available.policy.cloud_allowed:
+        if not available.policy.ai_allowed:
+            raise ValueError("AI is turned off for this page in its AI settings.")
+        if is_cloud(config) and not available.policy.cloud_allowed:
             raise ValueError("This page allows local models only. Choose a local agent model.")
         tools = list(TOOLS)
         store = get_store()

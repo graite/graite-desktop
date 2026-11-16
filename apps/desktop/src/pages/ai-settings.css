@@ -235,6 +235,17 @@
 .ai-page-choices + .ai-setting-note {
   margin-top: -12px;
 }
+.ai-page-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ai-page-choice > small {
+  padding-left: 24px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
 .ai-inherited-sources {
   border-top: 1px solid var(--border);
   padding-top: 18px;
@@ -244,30 +255,6 @@
 }
 .ai-inherited-sources h3 {
   font-weight: 600;
-}
-.ai-inherited-sources article {
-  padding: 12px 14px;
-  background: var(--muted);
-  border-radius: 10px;
-}
-.ai-inherited-sources article > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-  font-size: 12px;
-}
-.ai-inherited-sources button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--muted-foreground);
-}
-.ai-inherited-sources article p {
-  margin-top: 8px;
-  white-space: pre-wrap;
-  line-height: 1.6;
-  font-size: 12px;
 }
 
 /* A spacious instruction sheet, with permissions kept in a quiet side panel. */
@@ -299,7 +286,7 @@
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  background: #f0f3e8;
+  background: color-mix(in srgb, #8e9c76 16%, var(--background));
   color: #68764e;
   border-radius: 12px;
 }
@@ -368,47 +355,6 @@
   align-items: center;
   gap: 8px;
 }
-.ai-inherited-sources h3 > span {
-  font-size: 11px;
-  color: var(--muted-foreground);
-  background: var(--muted);
-  padding: 1px 7px;
-  border-radius: 20px;
-}
-.ai-inherited-sources details {
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  overflow: hidden;
-}
-.ai-inherited-sources summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px;
-  cursor: pointer;
-  font-size: 12px;
-}
-.ai-inherited-sources summary::after {
-  content: "⌄";
-  margin-left: auto;
-  color: var(--muted-foreground);
-}
-.ai-inherited-sources details[open] summary::after {
-  transform: rotate(180deg);
-}
-.ai-inherited-sources summary:hover {
-  background: var(--muted);
-}
-.ai-inherited-sources summary > svg {
-  flex-shrink: 0;
-  color: var(--muted-foreground);
-}
-.ai-inherited-sources details > button {
-  margin: 4px 16px 14px;
-  font-size: 12px;
-  color: #68764e;
-  cursor: pointer;
-}
 .text-instructions-editor {
   min-height: 220px;
   padding: 12px 0;
@@ -458,4 +404,343 @@
     border-top: 1px solid var(--border);
     padding: 22px;
   }
+}
+
+/* ---- Instructions: heading with the Examples button ------------------------------------ */
+.ai-setting-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.ai-setting-head h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.ai-setting-head > button {
+  flex-shrink: 0;
+}
+.ai-settings-main > .ai-setting > h3 {
+  font-size: 16px;
+}
+.ai-inherited-sources h3 {
+  font-size: 14px;
+}
+
+/* ---- Inherited instructions: a chain from the workspace down to this page -------------- */
+.ai-chain {
+  display: flex;
+  flex-direction: column;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ai-chain > li {
+  position: relative;
+  padding: 0 0 12px 24px;
+}
+/* The dot of each step and the line to the next one. */
+.ai-chain > li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 14px;
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  background: var(--background);
+  z-index: 1;
+}
+.ai-chain > li::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 18px;
+  bottom: -14px;
+  width: 1px;
+  background: var(--border);
+}
+.ai-chain > li:last-child {
+  padding-bottom: 0;
+}
+.ai-chain > li:last-child::after {
+  display: none;
+}
+.ai-chain > li[data-current]::before {
+  border-color: #68764e;
+  background: #68764e;
+}
+.ai-chain-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--background);
+}
+.ai-chain > li[data-current] .ai-chain-row {
+  border-style: dashed;
+  background: transparent;
+}
+.ai-chain > li[data-open] .ai-chain-row {
+  border-radius: 9px 9px 0 0;
+  background: color-mix(in srgb, var(--muted) 45%, var(--background));
+}
+.ai-chain-name {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 1px;
+  text-align: left;
+}
+button.ai-chain-name:not(:disabled) {
+  cursor: pointer;
+}
+.ai-chain-name > strong {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.ai-chain-name > strong > svg {
+  color: var(--muted-foreground);
+  transition: transform 0.12s ease;
+}
+.ai-chain-name[aria-expanded="true"] > strong > svg {
+  transform: rotate(90deg);
+}
+.ai-chain-name > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.ai-chain-action {
+  flex-shrink: 0;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.ai-chain-action:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.ai-chain > li > .text-instructions-editor {
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 9px 9px;
+  padding: 6px 0 8px;
+}
+
+/* ---- Instruction examples -------------------------------------------------------------- */
+.instruction-examples {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: min(940px, calc(100vw - 48px));
+  max-width: min(940px, calc(100vw - 48px));
+  height: min(680px, calc(100dvh - 64px));
+  padding: 0;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.instruction-examples > [data-slot="dialog-header"] {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.instruction-examples-body {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+.instruction-examples-body > nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 14px 12px;
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--muted) 45%, var(--background));
+  overflow-y: auto;
+}
+.instruction-examples-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--muted-foreground);
+}
+.instruction-examples-search input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 13px;
+  outline: none;
+}
+.instruction-examples-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.instruction-examples-categories button {
+  padding: 2px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--background);
+  font-size: 11.5px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.instruction-examples-categories button[aria-selected="true"] {
+  border-color: var(--foreground);
+  background: var(--foreground);
+  color: var(--background);
+}
+.instruction-examples-body > nav ul {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.instruction-examples-body > nav li button {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 9px;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+.instruction-examples-body > nav li button:hover {
+  background: var(--accent);
+}
+.instruction-examples-body > nav li button[aria-current] {
+  background: var(--background);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.instruction-examples-body > nav li button > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.instruction-examples-body > nav strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.instruction-examples-body > nav small {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+.instruction-examples-body > nav > p {
+  padding: 8px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.instruction-examples-body > section {
+  min-height: 0;
+  padding: 18px 8px 18px 12px;
+  overflow-y: auto;
+}
+.instruction-examples-body > section h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 6px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.instruction-examples-body > section h3 small {
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+.instruction-examples > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+}
+@media (max-width: 760px) {
+  .instruction-examples-body {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+  .instruction-examples-body > nav {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    overflow: visible;
+  }
+}
+
+/* Instructions are notes for AI, not a document: headings stay close to the text size. */
+.text-instructions-editor .bn-block-content[data-content-type="heading"] {
+  --level: 1.15em;
+}
+.text-instructions-editor .bn-block-content[data-content-type="heading"][data-level="1"] {
+  --level: 1.3em;
+}
+.text-instructions-editor .bn-block-content[data-content-type="heading"][data-level="3"] {
+  --level: 1.05em;
+}
+.ai-settings-form > .ai-setting-actions [data-slot="button"],
+.ai-source-dialog .ai-setting-actions [data-slot="button"] {
+  height: 32px;
+  padding-inline: 14px;
+  font-size: 13px;
+}
+
+/* One instruction example on its own (Templates): the text, and Copy or Cancel. */
+.instruction-example {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: min(720px, calc(100vw - 48px));
+  max-width: min(720px, calc(100vw - 48px));
+  max-height: calc(100dvh - 64px);
+  padding: 0;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.instruction-example > [data-slot="dialog-header"] {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.instruction-example-text {
+  flex: 1;
+  min-height: 0;
+  padding: 14px 8px;
+  overflow-y: auto;
+}
+.instruction-example > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
 }

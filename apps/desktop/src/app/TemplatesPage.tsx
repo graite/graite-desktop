@@ -6,30 +6,43 @@ import {
   LayoutDashboard,
   LayoutTemplate,
   Loader2,
+  Sparkles,
   Table2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { templates, type Template } from "@/lib/templates";
+import { InstructionGallery } from "./InstructionGallery";
 import { TypeIcon } from "@/editor/tables/columns";
 
 const CATEGORIES = ["All", "Business", "Finance", "Work", "Personal"] as const;
+export type TemplatesView = "templates" | "instructions";
+const VIEWS: [TemplatesView, string][] = [
+  ["templates", "Page templates"],
+  ["instructions", "AI instructions"],
+];
 
-/** The built-in template gallery (D77): pick one, and its pages, tables, charts and
- *  dashboards are made at the top level or inside the page that was open. */
+/** Templates has two galleries. Page templates (D77): pick one, and its pages, tables, charts
+ *  and dashboards are made at the top level or inside the page that was open. AI instructions
+ *  (D90): examples to copy into a page's AI settings. */
 export function TemplatesPage({
   currentPage,
   onCreated,
+  initialView = "templates",
 }: {
   /** The page that was open, offered as the place to put it. */
   currentPage: { path: string; title: string } | null;
   onCreated: (path: string) => void;
+  /** The gallery to open on. */
+  initialView?: TemplatesView;
 }) {
+  const [view, setView] = useState<TemplatesView>(initialView);
   const [all, setAll] = useState<Template[] | null>(null);
   const [error, setError] = useState("");
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>("All");
   const [chosen, setChosen] = useState<Template | null>(null);
+  const instructions = view === "instructions";
 
   useEffect(() => {
     templates
@@ -46,69 +59,97 @@ export function TemplatesPage({
   return (
     <main className="h-full overflow-auto px-10 py-12">
       <div className="mx-auto max-w-4xl">
-        <h1 className="mb-2 flex items-center gap-3 text-2xl font-semibold">
-          <LayoutTemplate className="size-6 text-muted-foreground" />
-          Templates
-        </h1>
-        <p className="mb-6 text-sm text-muted-foreground">
-          Ready-made pages with linked tables, charts and dashboards. Pick one to add it to your
-          vault; everything it makes is ordinary pages and CSV files you can change.
-        </p>
-        <div className="mb-5 flex flex-wrap gap-1.5" role="tablist" aria-label="Category">
-          {CATEGORIES.map((c) => (
+        <div
+          className="mb-6 inline-flex gap-0.5 rounded-lg bg-muted p-1"
+          role="tablist"
+          aria-label="Gallery"
+        >
+          {VIEWS.map(([key, label]) => (
             <button
-              key={c}
+              key={key}
               role="tab"
-              aria-selected={c === category}
-              onClick={() => setCategory(c)}
-              className={`rounded-full border px-3 py-1 text-xs ${c === category ? "bg-foreground text-background" : "text-muted-foreground hover:bg-accent"}`}
+              aria-selected={key === view}
+              onClick={() => setView(key)}
+              className={`rounded-md px-3.5 py-1.5 text-sm font-medium ${key === view ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
             >
-              {c}
+              {label}
             </button>
           ))}
         </div>
-        {error && <p className="py-12 text-center text-sm text-destructive">{error}</p>}
-        {!all && !error && (
-          <p className="py-12 text-center text-sm text-muted-foreground">Loading…</p>
+        <h1 className="mb-2 flex items-center gap-3 text-2xl font-semibold">
+          {instructions ? (
+            <Sparkles className="size-6 text-muted-foreground" />
+          ) : (
+            <LayoutTemplate className="size-6 text-muted-foreground" />
+          )}
+          {instructions ? "AI instructions" : "Templates"}
+        </h1>
+        <p className="mb-6 max-w-2xl text-sm text-muted-foreground">
+          {instructions
+            ? "Instructions tell AI how to work on a page and the pages below it: how the section is organised, what a new page looks like, what to check. Open one, copy it, and paste it under Instructions in a page’s AI settings. Then make it yours."
+            : "Ready-made pages with linked tables, charts and dashboards. Pick one to add it to your vault; everything it makes is ordinary pages and CSV files you can change."}
+        </p>
+        {instructions ? (
+          <InstructionGallery />
+        ) : (
+          <>
+            <div className="mb-5 flex flex-wrap gap-1.5" role="tablist" aria-label="Category">
+              {CATEGORIES.map((c) => (
+                <button
+                  key={c}
+                  role="tab"
+                  aria-selected={c === category}
+                  onClick={() => setCategory(c)}
+                  className={`rounded-full border px-3 py-1 text-xs ${c === category ? "bg-foreground text-background" : "text-muted-foreground hover:bg-accent"}`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+            {error && <p className="py-12 text-center text-sm text-destructive">{error}</p>}
+            {!all && !error && (
+              <p className="py-12 text-center text-sm text-muted-foreground">Loading…</p>
+            )}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {shown.map((t) => (
+                <button
+                  key={t.slug}
+                  onClick={() => setChosen(t)}
+                  className="flex flex-col gap-2 rounded-xl border p-4 text-left transition-colors hover:bg-accent/60"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-2xl leading-none">{t.icon}</span>
+                    <span className="font-medium">{t.name}</span>
+                    <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                      {t.category}
+                    </span>
+                  </span>
+                  <span className="text-sm text-muted-foreground">{t.description}</span>
+                  <span className="mt-auto flex flex-wrap gap-3 pt-1 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Table2 className="size-3.5" /> {t.tables.length} tables
+                    </span>
+                    {t.charts > 0 && (
+                      <span className="flex items-center gap-1">
+                        <BarChart3 className="size-3.5" /> {t.charts} charts
+                      </span>
+                    )}
+                    {t.dashboards.length > 0 && (
+                      <span className="flex items-center gap-1">
+                        <LayoutDashboard className="size-3.5" /> {t.dashboards.length}{" "}
+                        {t.dashboards.length === 1 ? "dashboard" : "dashboards"}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <FileText className="size-3.5" /> {t.pages.length}{" "}
+                      {t.pages.length === 1 ? "page" : "pages"}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </>
         )}
-        <div className="grid gap-3 sm:grid-cols-2">
-          {shown.map((t) => (
-            <button
-              key={t.slug}
-              onClick={() => setChosen(t)}
-              className="flex flex-col gap-2 rounded-xl border p-4 text-left transition-colors hover:bg-accent/60"
-            >
-              <span className="flex items-center gap-2">
-                <span className="text-2xl leading-none">{t.icon}</span>
-                <span className="font-medium">{t.name}</span>
-                <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-                  {t.category}
-                </span>
-              </span>
-              <span className="text-sm text-muted-foreground">{t.description}</span>
-              <span className="mt-auto flex flex-wrap gap-3 pt-1 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Table2 className="size-3.5" /> {t.tables.length} tables
-                </span>
-                {t.charts > 0 && (
-                  <span className="flex items-center gap-1">
-                    <BarChart3 className="size-3.5" /> {t.charts} charts
-                  </span>
-                )}
-                {t.dashboards.length > 0 && (
-                  <span className="flex items-center gap-1">
-                    <LayoutDashboard className="size-3.5" /> {t.dashboards.length}{" "}
-                    {t.dashboards.length === 1 ? "dashboard" : "dashboards"}
-                  </span>
-                )}
-                <span className="flex items-center gap-1">
-                  <FileText className="size-3.5" /> {t.pages.length}{" "}
-                  {t.pages.length === 1 ? "page" : "pages"}
-                </span>
-              </span>
-            </button>
-          ))}
-        </div>
       </div>
       {chosen && (
         <UseTemplateDialog

@@ -29,6 +29,27 @@ it("links each next step to its place in the app", () => {
   expect(screen.queryByText("Send feedback")).toBeNull();
 });
 
+it("explains how Graite works, greets by name and marks the screenshots still to add", () => {
+  const props = { onCreatePage: vi.fn(), onSettings: vi.fn(), onStudio: vi.fn() };
+  render(<WelcomePage {...props} firstName="Sam" />);
+  expect(screen.getByRole("heading", { level: 1, name: "Welcome, Sam" })).toBeTruthy();
+  expect(
+    screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent),
+  ).toEqual([
+    "Tabs and page buttons",
+    "Instructions for AI",
+    "Reviews",
+    "Your own AI app",
+    "Start here",
+  ]);
+  // The pictures are not bundled yet: each slot says which file it wants and what to show.
+  for (const img of screen.getAllByRole("img")) fireEvent.error(img);
+  for (const name of ["overview", "ai-instructions", "review", "claude-add", "claude-connected"])
+    expect(screen.getByText(`Screenshot to add: ${name}-light.png`)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /Open AI connectors/ }));
+  expect(props.onSettings).toHaveBeenCalledWith("connectors");
+});
+
 it("sends feedback and closes", async () => {
   send.mockResolvedValue({ sent: true });
   const onOpenChange = vi.fn();

@@ -32,8 +32,10 @@ agents all call the same code with a different scope.
 ## How an answer is produced
 
 1. **Scope and permissions.** `retrieval/scope.py` turns the conversation's scope into a page
-   list, then applies the policy cascade. A page whose effective `cloud` is `local-only` is
-   dropped when the selected provider is a cloud one, and the answer says how many were.
+   list, then applies the policy cascade. A page whose effective `cloud` is `none` is always
+   dropped; one that is `local-only` is dropped when the selected provider is a cloud one
+   (`models/config.is_cloud`). The answer says how many were. A `none` scope selects no pages:
+   nothing is searched and the prompt tells the model to answer without the notes.
 2. **Follow-up or new topic.** `retrieval/followup.py` decides whether the question builds on
    what the conversation already gathered (`retrieval/contextset.py`): no earlier answer, a
    quoted phrase, identifier or date that occurs nowhere in the set, or too few of the
@@ -126,7 +128,7 @@ Reserved frontmatter keys, resolved by `vault/policy.py` from vault config → e
 | `instructions` | How this page and its subtree should be structured. Accumulates root to leaf. |
 | `autonomy` | `auto-apply`, `propose` (default) or `none`. `none` is a lock a nested page cannot lift. |
 | `auto_apply_kinds` | Which proposal kinds (`append`, `create`, `edit`, `properties`) apply without review once the folder is confirmed. |
-| `cloud` | `allowed` or `local-only`. `local-only` is a lock; such pages are left out of cloud answers. |
+| `cloud` | `allowed`, `local-only` or `none`: who may read the page. It only gets stricter going down. `local-only` pages are left out of cloud answers (a model server on this computer counts as local, D87); `none` pages are left out of every answer. |
 | `skills`, `model` | Skill allowlist and model override for the subtree. `model` is a catalog id or a saved model id (`m_…`, see AI & models). |
 
 They are written only by `FileOps.set_ai_settings` through `PUT /api/v1/pages/{path}/ai-settings`,

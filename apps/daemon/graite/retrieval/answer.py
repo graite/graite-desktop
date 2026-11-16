@@ -187,6 +187,8 @@ def messages(
     skills_index: str = "",
     reused: bool = False,
     feedback: list[str] | None = None,
+    user_name: str | None = None,
+    no_pages: bool = False,
 ) -> tuple[list[dict[str, Any]], int]:
     """Byte-budgeted prompt; returns (messages, number of sources that fit).
 
@@ -201,6 +203,8 @@ def messages(
         )
     head = (
         ANSWER_CORE
+        + _user_line(user_name)
+        + (NO_PAGES_NOTE if no_pages else "")
         + {"draft": DRAFT_CORE, "act": ACT_CORE}.get(mode, ASK_CREATE_CORE if propose else ASK_CORE)
         + (WEAK_NOTE if weak else "")
         + (REUSE_NOTE if reused else "")
@@ -221,6 +225,7 @@ def agent_messages(
     skills_index: str = "",
     feedback: list[str] | None = None,
     notes: list[str] | None = None,
+    user_name: str | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """The prompt of an unattended agent run: the task is part of the system prompt and the
     user turn is only the trigger ("Run now.", "Page X was updated."). No history."""
@@ -230,7 +235,12 @@ def agent_messages(
             "The agent's instructions are too long for the selected context size. "
             "Shorten them or increase context in Settings → Chat."
         )
-    head = AGENT_CORE + (AGENT_ACT if propose else AGENT_ASK) + _feedback(feedback)
+    head = (
+        AGENT_CORE
+        + _user_line(user_name)
+        + (AGENT_ACT if propose else AGENT_ASK)
+        + _feedback(feedback)
+    )
     head += "## Your task\n" + task.strip() + "\n"
     if notes:
         head += "## Notes\n" + "\n".join(f"- {clip(n, 300)}" for n in notes[:5]) + "\n"
@@ -311,8 +321,7 @@ def assistant_messages(
             "Shorten it or increase context in Settings → Chat."
         )
     head = ASSISTANT_CORE.format(name=name)
-    if user_name:
-        head += f"- The user's name is {user_name}.\n"
+    head += _user_line(user_name)
     head += ACT_CORE if mode == "act" else ASK_CORE
     if mode == "act" and memory_root:
         head += ASSISTANT_MEMORY.format(root=memory_root)
@@ -376,6 +385,18 @@ LANGUAGE_NAMES = {
     "no": "Norwegian", "pl": "Polish", "pt": "Portuguese", "ru": "Russian", "sv": "Swedish",
     "sw": "Swahili", "tr": "Turkish", "zh": "Chinese",
 }  # fmt: skip
+
+
+NO_PAGES_NOTE = (
+    "- The user has selected no pages for this conversation, so there are no sources and you "
+    "cannot read their notes. Answer from your own knowledge and the conversation, without "
+    "source numbers, and do not say that sources are missing.\n"
+)
+
+
+def _user_line(user_name: str | None) -> str:
+    """Part of the constant head, so a local server keeps its cached prefix."""
+    return f"- The user's name is {user_name}.\n" if user_name else ""
 
 
 def _feedback(feedback: list[str] | None) -> str:
@@ -558,7 +579,9 @@ def limits(
     lines: list[str] = []
     page_sources = [s for s in sources if s.kind == "page"]
     where = scope.scope.label(scope.titles)
-    if on_demand:
+    if scope.scope.kind == "none":
+        lines.append("No pages are selected, so this answer does not use your notes.")
+    elif on_demand:
         # Nothing was searched up front; the model opened what it wanted, or nothing at all.
         n = len(page_sources) if read_count is None else read_count
         lines.append(
@@ -584,6 +607,12 @@ def limits(
         lines.append(
             f"Searched {len(scope.paths)} page{'s' if len(scope.paths) != 1 else ''} in {where} "
             f"({done}{', then read further' if researched else ''})."
+        )
+    if scope.excluded_no_ai:
+        n = len(scope.excluded_no_ai)
+        lines.append(
+            f"{n} page{'s' if n != 1 else ''} with AI turned off {'were' if n != 1 else 'was'} "
+            "left out."
         )
     if scope.excluded_local_only:
         n = len(scope.excluded_local_only)

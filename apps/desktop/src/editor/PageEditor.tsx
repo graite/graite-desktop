@@ -1,17 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCreateBlockNote } from "@blocknote/react";
 import { fromBlocks, toBlocksSafe, toBlocksWithSpans } from "@graite/md-convert";
-import { FolderOpen, MoreHorizontal, Orbit, Paperclip, Trash2 } from "lucide-react";
+import {
+  FolderOpen,
+  MoreHorizontal,
+  Orbit,
+  Paperclip,
+  SlidersHorizontal,
+  Trash2,
+} from "lucide-react";
 import { canRevealPage, revealPage } from "@/pages/revealPage";
 import { toast } from "sonner";
 import { hasBodyContent, PageIcon } from "@/components/PageIcon";
-import { EmojiPickerPanel } from "@/components/EmojiPickerPanel";
+import { IconPicker } from "@/components/IconPicker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -69,6 +77,8 @@ export interface PageEditorProps {
   onMovePage?: (sourcePath: string, targetPath: string) => Promise<void>;
   /** Move this page to the trash. */
   onDelete?: () => void;
+  /** Open the chat beside this page; absent while it is already open. */
+  onAskAI?: () => void;
   onTreeChanged: () => void;
   onSaved: (hash: string) => void;
   /** Selected text in the editor, so the chat panel can attach it. */
@@ -220,6 +230,7 @@ export function PageEditor({
   onRenamed,
   onMovePage,
   onDelete,
+  onAskAI,
   onTreeChanged,
   onSaved,
   onSelectionChange,
@@ -686,10 +697,91 @@ export function PageEditor({
           onDecided={() => void reviews.refresh()}
           onJump={reviews.jump}
         />
+        <div className="page-actions">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            title="Instructions and permissions for AI on this page"
+            aria-label="AI settings for this page"
+            onClick={() =>
+              void (async () => {
+                try {
+                  await flushPendingRef.current?.();
+                  setAiSettingsOpen(true);
+                } catch (e) {
+                  toast.error((e as Error).message);
+                }
+              })()
+            }
+          >
+            <SlidersHorizontal size={15} /> AI settings
+          </Button>
+          {onAskAI && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              title="Chat with AI about this page"
+              onClick={onAskAI}
+            >
+              <Orbit size={15} /> Ask AI
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 text-muted-foreground"
+                title="More"
+                aria-label="More actions for this page"
+              >
+                <MoreHorizontal size={15} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() =>
+                  void (async () => {
+                    // Usage is read from disk, so save the open edits first.
+                    try {
+                      await flushPendingRef.current?.();
+                      setAttachmentsOpen(true);
+                    } catch (e) {
+                      toast.error((e as Error).message);
+                    }
+                  })()
+                }
+              >
+                <Paperclip className="mr-2 size-4" /> Attachments
+              </DropdownMenuItem>
+              {canRevealPage() && (
+                <DropdownMenuItem onClick={() => void revealPage(pathRef.current)}>
+                  <FolderOpen className="mr-2 size-4" /> Show in file manager
+                </DropdownMenuItem>
+              )}
+              {onDelete && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => {
+                      // Subpages go along with it: ask first. A lone page has Undo instead.
+                      if (findNode(tree, page.path)?.children.length) setConfirmDelete(true);
+                      else onDelete();
+                    }}
+                  >
+                    <Trash2 className="mr-2 size-4 text-destructive" /> Delete page
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </header>
-      {/* Below the top bar, so the floating Ask AI button never covers its buttons. */}
       {conflict && (
-        <div className="flex items-center gap-3 border-b bg-amber-50 px-6 py-2 text-sm text-amber-900">
+        <div className="flex items-center gap-3 border-b bg-amber-50 px-6 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
           <span className="flex-1">This page changed on disk while you were editing.</span>
           <Button
             size="sm"
@@ -723,30 +815,28 @@ export function PageEditor({
           >
             <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
               <PopoverTrigger asChild>
-                {page.icon ? (
-                  <button
-                    className="shrink-0 cursor-pointer rounded text-3xl leading-none hover:bg-accent"
-                    title="Change icon"
-                  >
-                    {page.icon}
-                  </button>
-                ) : (
-                  <button
-                    className="shrink-0 cursor-pointer rounded text-muted-foreground hover:bg-accent"
-                    title="Add icon"
-                  >
-                    <PageIcon icon={null} hasContent={hasContent} className="size-7" />
-                  </button>
-                )}
+                <button
+                  className={`shrink-0 cursor-pointer rounded leading-none hover:bg-accent ${
+                    page.icon ? "" : "text-muted-foreground"
+                  }`}
+                  title={page.icon ? "Change icon" : "Add icon"}
+                >
+                  <PageIcon
+                    icon={page.icon}
+                    hasContent={hasContent}
+                    className="size-7"
+                    emojiClassName="text-3xl leading-none"
+                  />
+                </button>
               </PopoverTrigger>
               <PopoverContent
                 className="w-auto border-none p-0 shadow-lg"
                 side="bottom"
                 align="start"
               >
-                <EmojiPickerPanel
-                  hasIcon={!!page.icon}
-                  onPick={(emoji) => void setIcon(emoji)}
+                <IconPicker
+                  icon={page.icon}
+                  onPick={(icon) => void setIcon(icon)}
                   onRemove={() => void setIcon(null)}
                 />
               </PopoverContent>
@@ -775,84 +865,6 @@ export function PageEditor({
               }}
               placeholder="Untitled"
             />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="shrink-0 text-muted-foreground"
-              title="Files stored with this page"
-              aria-label="Attachments for this page"
-              onClick={() =>
-                void (async () => {
-                  // Usage is read from disk, so save the open edits first.
-                  try {
-                    await flushPendingRef.current?.();
-                    setAttachmentsOpen(true);
-                  } catch (e) {
-                    toast.error((e as Error).message);
-                  }
-                })()
-              }
-            >
-              <Paperclip size={15} /> Attachments
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="shrink-0 text-muted-foreground"
-              title="AI settings for this page"
-              aria-label="AI settings for this page"
-              onClick={() =>
-                void (async () => {
-                  try {
-                    await flushPendingRef.current?.();
-                    setAiSettingsOpen(true);
-                  } catch (e) {
-                    toast.error((e as Error).message);
-                  }
-                })()
-              }
-            >
-              <Orbit size={15} /> AI settings
-            </Button>
-            {canRevealPage() && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-8 shrink-0 text-muted-foreground"
-                title="Show in file manager"
-                aria-label="Show this page in the file manager"
-                onClick={() => void revealPage(pathRef.current)}
-              >
-                <FolderOpen size={15} />
-              </Button>
-            )}
-            {onDelete && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 shrink-0 text-muted-foreground"
-                    title="More"
-                    aria-label="More actions for this page"
-                  >
-                    <MoreHorizontal size={15} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => {
-                      // Subpages go along with it: ask first. A lone page has Undo instead.
-                      if (findNode(tree, page.path)?.children.length) setConfirmDelete(true);
-                      else onDelete();
-                    }}
-                  >
-                    <Trash2 className="mr-2 size-4 text-destructive" /> Delete page
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
           </div>
           <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
             <AlertDialogContent>

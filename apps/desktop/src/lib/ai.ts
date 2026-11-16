@@ -29,7 +29,7 @@ export type Attachment = components["schemas"]["ChatAttachment"];
 
 /** A conversation's page selection. The daemon always sends every field. */
 export interface Scope {
-  kind: "page" | "folder" | "vault";
+  kind: "page" | "folder" | "vault" | "none";
   roots: string[];
   excluded: string[];
 }

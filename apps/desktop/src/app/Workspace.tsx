@@ -1,30 +1,39 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Orbit } from "lucide-react";
 import { toast } from "sonner";
 import { connectEvents, isOwnRequest, pages, trash, type PageDoc, type TreeNode } from "@/lib/api";
 import { workspace } from "@/lib/workspace";
 import { PageEditor } from "@/editor/PageEditor";
-import { mapTree, parentPath } from "@/editor/tree-utils";
+import { findNode, mapTree, parentPath } from "@/editor/tree-utils";
 import { TrashPage } from "./TrashPage";
 import { RowPage } from "./RowPage";
 import type { OpenRow } from "@/editor/tables/RowView";
 import { TemplatesPage } from "./TemplatesPage";
 import { WelcomePage } from "./WelcomePage";
+import { FirstRunName } from "./FirstRunName";
+import { useProfile } from "@/lib/profile";
 import { FeedbackDialog, useFeedbackEnabled } from "./FeedbackDialog";
 import { StartupLoader } from "./StartupLoader";
 import { Sidebar } from "./Sidebar";
 
 import { ModelsPage, type SettingsTab } from "@/models/ModelsPage";
+import { SECTIONS } from "@/settings/sections";
 import { ChatPanel, type ChatRequest } from "@/chat/ChatPanel";
 import { useAssistant } from "@/assistant/useAssistant";
 import { AIPage } from "@/ai/AIPage";
-import { Button } from "@/components/ui/button";
 import type { DaemonInfo } from "@/lib/platform";
 import type { Section } from "@/ai/ConversationList";
 import { scopedKey } from "@/lib/storage";
+import { takeNewTabIntent, watchNewTabIntent } from "@/lib/newTabIntent";
+import { TabBar } from "./TabBar";
+import { closeTab, cycleTab, dropTabs, parseTabs, renameTabs, showInTab } from "./tabs";
 
 const SELECTED_KEY = "graite.selectedPath";
 const WELCOME_KEY = "graite.welcomeSeen";
+const TABS_KEY = "graite.tabs";
+/** Section names `openSettings` accepts; "chat" is the section of the model in use. */
+const SETTINGS_TABS: SettingsTab[] = [...SECTIONS, "chat", "vault"];
+// App-wide, not per vault: the name is asked once.
+const NAME_ASKED_KEY = "graite.nameAsked";
 
 /** The welcome page opens by itself once per vault. Storage may be unavailable; then it just shows. */
 function firstVisit(): boolean {
@@ -49,8 +58,28 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
   const [rowPages, setRowPages] = useState<OpenRow[]>([]);
   const rowPage = rowPages[rowPages.length - 1] ?? null;
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  // Open the templates on the AI instruction examples (from the Welcome page).
+  const [templatesInstructions, setTemplatesInstructions] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(firstVisit);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  // The first-run question: asked once, until answered or skipped.
+  const me = useProfile();
+  const [nameAsked, setNameAsked] = useState(() => {
+    try {
+      return !!localStorage.getItem(NAME_ASKED_KEY);
+    } catch {
+      return true;
+    }
+  });
+  const askName = !nameAsked && me !== null && !me.first_name;
+  const finishName = () => {
+    try {
+      localStorage.setItem(NAME_ASKED_KEY, "1");
+    } catch {
+      /* storage unavailable: asked again next time */
+    }
+    setNameAsked(true);
+  };
   const feedbackEnabled = useFeedbackEnabled();
   const [studioSection, setStudioSection] = useState<{ section: Section; n: number } | null>(null);
   const [askHost, setAskHost] = useState<HTMLDivElement | null>(null);
@@ -61,17 +90,12 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
   /** Open Settings, on a tab when the caller knows where the user needs to be. Buttons pass
    * their click event here, so anything that is not a tab name means "the first tab". */
   const openSettings = (tab?: unknown) => {
-    setSettingsTab(
-      tab === "voice" ||
-        tab === "search" ||
-        tab === "documents" ||
-        tab === "vault" ||
-        tab === "connectors"
-        ? tab
-        : "chat",
-    );
+    const known = typeof tab === "string" && (SETTINGS_TABS as string[]).includes(tab);
+    setSettingsTab(known ? (tab as SettingsTab) : "chat");
     setModelsOpen(true);
   };
+  // The settings sidebar is drawn by the settings page into the app's sidebar column.
+  const [settingsHost, setSettingsHost] = useState<HTMLDivElement | null>(null);
   const [settingsVersion, setSettingsVersion] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
   // A request for the page's AI from a block, sent (or drafted) when the panel opens.
@@ -124,6 +148,50 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
   const lastSavedHashRef = useRef<string | null>(null);
   const selectedRef = useRef(selectedPath);
   selectedRef.current = selectedPath;
+  // Open page tabs; `selectedPath` is the active one.
+  const [tabs, setTabs] = useState<string[]>(() => {
+    const stored = parseTabs(localStorage.getItem(scopedKey(TABS_KEY)));
+    return selectedPath && !stored.includes(selectedPath) ? [...stored, selectedPath] : stored;
+  });
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+  const shownRef = useRef(selectedPath);
+  const newTabRef = useRef(false);
+  useEffect(() => watchNewTabIntent(), []);
+  // Ctrl/Cmd+W closes the open tab; Ctrl+Tab and Ctrl+Shift+Tab step through the tabs.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const active = selectedRef.current;
+      if (e.key.toLowerCase() === "w" && !e.shiftKey && active) {
+        e.preventDefault();
+        const next = closeTab(tabsRef.current, active, active);
+        setTabs(next.tabs);
+        setSelectedPath(next.active);
+      } else if (e.key === "Tab" && e.ctrlKey && tabsRef.current.length > 1) {
+        e.preventDefault();
+        setSelectedPath(cycleTab(tabsRef.current, active, e.shiftKey ? -1 : 1));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  // Every way of changing the open page ends here: it takes over the tab of the page it
+  // came from, or gets its own tab when that was asked for.
+  useEffect(() => {
+    const from = shownRef.current;
+    const newTab = newTabRef.current;
+    shownRef.current = selectedPath;
+    newTabRef.current = false;
+    if (selectedPath) setTabs((old) => showInTab(old, selectedPath, from, newTab));
+  }, [selectedPath]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(scopedKey(TABS_KEY), JSON.stringify(tabs));
+    } catch {
+      /* storage unavailable: tabs last for this session */
+    }
+  }, [tabs]);
 
   const memoryRoot = assistantState.info?.memory?.root;
   const knowledgeTree = (nodes: TreeNode[]): TreeNode[] =>
@@ -162,6 +230,8 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
   }, []);
 
   const navigatePage = (path: string) => {
+    // Ctrl/Cmd+click and middle-click open the page in a tab of its own.
+    if (takeNewTabIntent()) newTabRef.current = true;
     if (memoryRoot && (path === memoryRoot || path.startsWith(memoryRoot + "/"))) {
       void (async () => {
         try {
@@ -193,6 +263,17 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
     } else setSelectedPath(path);
   };
 
+  const openInNewTab = (path: string) => {
+    newTabRef.current = true;
+    navigatePage(path);
+  };
+
+  const closePageTab = (path: string) => {
+    const next = closeTab(tabsRef.current, path, selectedRef.current);
+    setTabs(next.tabs);
+    if (next.active !== selectedRef.current) setSelectedPath(next.active);
+  };
+
   const navigateSettings = async (path: string) => {
     await flushEditor.current?.();
     // Fetch before leaving so failed navigation keeps the current settings available.
@@ -212,6 +293,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
     try {
       const page = await pages.create({});
       void loadTree();
+      if (tabsRef.current.length) newTabRef.current = true;
       navigatePage(page.path);
     } catch (e) {
       toast.error(`Could not create page: ${(e as Error).message}`);
@@ -273,6 +355,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
   const handleRenamed = useCallback(
     (oldPath: string, newPath: string) => {
       const selected = selectedRef.current;
+      setTabs((old) => renameTabs(old, oldPath, newPath));
       if (selected === oldPath) setSelectedPath(newPath);
       else if (selected?.startsWith(oldPath + "/")) {
         setSelectedPath(newPath + selected.slice(oldPath.length));
@@ -287,6 +370,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
   const handleMoved = useCallback(
     (oldPath: string, newPath: string) => {
       const selected = selectedRef.current;
+      setTabs((old) => renameTabs(old, oldPath, newPath));
       if (!selected) return;
       const next =
         selected === oldPath || selected.startsWith(oldPath + "/")
@@ -326,6 +410,8 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
       try {
         await flushEditor.current?.();
         const { trash_id } = await pages.remove(path, { unlink: true });
+        // The parent takes over this tab; tabs of the deleted subpages close.
+        setTabs((old) => old.filter((p) => !p.startsWith(path + "/")));
         setSelectedPath(parentPath(path));
         void loadTree();
         toast(`Deleted ${title || "Untitled"}`, {
@@ -349,8 +435,10 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
   );
 
   const handleTrashed = useCallback((path: string) => {
+    const left = dropTabs(tabsRef.current, path);
+    setTabs(left);
     if (selectedRef.current === path || selectedRef.current?.startsWith(path + "/"))
-      setSelectedPath(null);
+      setSelectedPath(left[left.length - 1] ?? null);
   }, []);
 
   // Optimistic title/icon updates into both the active page and the tree.
@@ -377,6 +465,10 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
     [activePage?.id, handleSaved],
   );
 
+  const fullScreen = trashOpen || templatesOpen || aiOpen || welcomeOpen;
+  // A tab whose page is gone (deleted elsewhere) is not shown; the tree is the truth.
+  const shownTabs = tabs.filter((path) => path === selectedPath || findNode(tree, path));
+
   if (loading || (startupError && tree.length === 0))
     return (
       <StartupLoader
@@ -392,164 +484,182 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
   return (
     <div className="relative flex h-screen overflow-hidden">
       <div className="w-64 shrink-0">
-        <Sidebar
-          onModels={() => openSettings()}
-          onAI={() =>
-            openFullScreen(() => {
-              setTrashOpen(false);
-              setRowPages([]);
-              setTemplatesOpen(false);
-              setWelcomeOpen(false);
-              setAiOpen(true);
-            })
-          }
-          onPages={() => {
-            if (selectedPath) navigatePage(selectedPath);
-            else {
-              setAiOpen(false);
-              setTrashOpen(false);
-              setRowPages([]);
-              setTemplatesOpen(false);
+        <div ref={setSettingsHost} className={modelsOpen ? "h-full" : "hidden"} />
+        <div className={modelsOpen ? "hidden" : "h-full"}>
+          <Sidebar
+            onModels={() => openSettings()}
+            onAI={() =>
+              openFullScreen(() => {
+                setTrashOpen(false);
+                setRowPages([]);
+                setTemplatesOpen(false);
+                setWelcomeOpen(false);
+                setAiOpen(true);
+              })
             }
-          }}
-          askHost={setAskHost}
-          aiActive={aiOpen}
-          onTrash={() =>
-            openFullScreen(() => {
-              setAiOpen(false);
-              setWelcomeOpen(false);
-              setTrashOpen(true);
-            })
-          }
-          trashActive={trashOpen}
-          onWelcome={() =>
-            openFullScreen(() => {
-              setAiOpen(false);
-              setTrashOpen(false);
-              setRowPages([]);
-              setTemplatesOpen(false);
-              setWelcomeOpen(true);
-            })
-          }
-          welcomeActive={welcomeOpen && !aiOpen && !trashOpen && !templatesOpen}
-          onTemplates={() =>
-            openFullScreen(() => {
-              setAiOpen(false);
-              setWelcomeOpen(false);
-              setTrashOpen(false);
-              setRowPages([]);
-              setTemplatesOpen(true);
-            })
-          }
-          templatesActive={templatesOpen}
-          onFeedback={feedbackEnabled ? () => setFeedbackOpen(true) : undefined}
-          beforeMove={async () => {
-            await flushEditor.current?.();
-          }}
-          onMoved={handleMoved}
-          tree={knowledgeTree(tree)}
-          selectedPath={trashOpen || templatesOpen || aiOpen || welcomeOpen ? null : selectedPath}
-          onSelect={navigatePage}
-          onNavigateSettings={navigateSettings}
-          onTreeChanged={() => void loadTree()}
-          onRenamed={handleRenamed}
-          onTrashed={handleTrashed}
-          onIconChanged={handleIconChanged}
-        />
-      </div>
-      <div className="relative min-w-0 flex-1">
-        {activePage &&
-          !rowPage &&
-          !chatOpen &&
-          !trashOpen &&
-          !templatesOpen &&
-          !aiOpen &&
-          !welcomeOpen && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="absolute right-4 top-2 z-10 bg-background"
-              onClick={() => setChatOpen(true)}
-            >
-              <Orbit size={14} /> Ask AI
-            </Button>
-          )}
-        <div className={aiOpen ? "h-full" : "hidden"}>
-          <AIPage
-            assistantState={assistantState}
-            assistantPage={assistantPage}
-            openSection={studioSection}
-            sidebarHost={askHost}
-            active={aiOpen}
-            tree={tree}
-            onNavigate={navigatePage}
-            onSettings={openSettings}
+            onPages={() => {
+              if (selectedPath) navigatePage(selectedPath);
+              else {
+                setAiOpen(false);
+                setTrashOpen(false);
+                setRowPages([]);
+                setTemplatesOpen(false);
+              }
+            }}
+            askHost={setAskHost}
+            aiActive={aiOpen}
+            onTrash={() =>
+              openFullScreen(() => {
+                setAiOpen(false);
+                setWelcomeOpen(false);
+                setTrashOpen(true);
+              })
+            }
+            trashActive={trashOpen}
+            onWelcome={() =>
+              openFullScreen(() => {
+                setAiOpen(false);
+                setTrashOpen(false);
+                setRowPages([]);
+                setTemplatesOpen(false);
+                setWelcomeOpen(true);
+              })
+            }
+            welcomeActive={welcomeOpen && !aiOpen && !trashOpen && !templatesOpen}
+            onTemplates={() =>
+              openFullScreen(() => {
+                setAiOpen(false);
+                setWelcomeOpen(false);
+                setTrashOpen(false);
+                setRowPages([]);
+                setTemplatesInstructions(false);
+                setTemplatesOpen(true);
+              })
+            }
+            templatesActive={templatesOpen}
+            onFeedback={feedbackEnabled ? () => setFeedbackOpen(true) : undefined}
+            beforeMove={async () => {
+              await flushEditor.current?.();
+            }}
+            onMoved={handleMoved}
+            tree={knowledgeTree(tree)}
+            selectedPath={fullScreen ? null : selectedPath}
+            onSelect={navigatePage}
+            onOpenInNewTab={openInNewTab}
+            onNavigateSettings={navigateSettings}
             onTreeChanged={() => void loadTree()}
-            settingsVersion={settingsVersion}
+            onRenamed={handleRenamed}
+            onTrashed={handleTrashed}
+            onIconChanged={handleIconChanged}
           />
         </div>
-        {aiOpen ? null : rowPage ? (
-          <RowPage
-            row={rowPage}
-            onBack={() => setRowPages((s) => s.slice(0, -1))}
-            onOpen={(row) => setRowPages((s) => [...s, row])}
-            onNavigate={(path) => {
-              setRowPages([]);
-              navigatePage(path);
-            }}
-          />
-        ) : templatesOpen ? (
-          <TemplatesPage
-            currentPage={activePage ? { path: activePage.path, title: activePage.title } : null}
-            onCreated={(path) => {
-              void loadTree();
-              navigatePage(path);
-            }}
-          />
-        ) : trashOpen ? (
-          <TrashPage
-            version={tree}
-            onRestored={(path) => {
-              void loadTree();
-              navigatePage(path);
-            }}
-            onNavigate={navigatePage}
-          />
-        ) : activePage && !welcomeOpen ? (
-          <PageEditor
-            registerFlush={registerFlush}
-            settingsRequested={settingsPath === activePage.path}
-            onSettingsOpened={() => setSettingsPath(null)}
-            onNavigateSettings={navigateSettings}
-            key={activePage.id}
-            page={activePage}
+      </div>
+      <div className="relative flex min-w-0 flex-1 flex-col">
+        {!aiOpen && !askName && shownTabs.length > 0 && (
+          <TabBar
+            tabs={shownTabs}
+            active={fullScreen ? null : selectedPath}
             tree={tree}
-            refreshNonce={refreshNonce}
-            onNavigate={navigatePage}
-            onOpenRow={(table, id) => openFullScreen(() => setRowPages([{ table, id }]))}
-            onTitleChange={handleTitleChange}
-            onIconChange={(icon) => activePage && handleIconChanged(activePage.path, icon)}
-            onRenamed={handleRenamed}
-            onMovePage={movePageInto}
-            onDelete={() => void deletePage(activePage.path, activePage.title)}
-            onTreeChanged={() => void loadTree()}
-            onSaved={saveActivePage}
-            onSelectionChange={setSelection}
-          />
-        ) : (
-          <WelcomePage
-            onCreatePage={() => void createPage()}
-            onSettings={() => openSettings()}
-            onStudio={(section) => {
-              setStudioSection((old) => ({ section, n: (old?.n ?? 0) + 1 }));
-              setTrashOpen(false);
-              setRowPages([]);
-              setTemplatesOpen(false);
-              setAiOpen(true);
-            }}
-            onFeedback={feedbackEnabled ? () => setFeedbackOpen(true) : undefined}
+            onSelect={navigatePage}
+            onClose={closePageTab}
+            onNew={() => void createPage()}
+            onOpen={openInNewTab}
           />
         )}
+        <div className="relative min-h-0 flex-1">
+          <div className={aiOpen ? "h-full" : "hidden"}>
+            <AIPage
+              assistantState={assistantState}
+              assistantPage={assistantPage}
+              openSection={studioSection}
+              sidebarHost={askHost}
+              active={aiOpen}
+              tree={tree}
+              onNavigate={navigatePage}
+              onSettings={openSettings}
+              onTreeChanged={() => void loadTree()}
+              settingsVersion={settingsVersion}
+            />
+          </div>
+          {aiOpen ? null : askName ? (
+            <FirstRunName onDone={finishName} />
+          ) : rowPage ? (
+            <RowPage
+              row={rowPage}
+              onBack={() => setRowPages((s) => s.slice(0, -1))}
+              onOpen={(row) => setRowPages((s) => [...s, row])}
+              onNavigate={(path) => {
+                setRowPages([]);
+                navigatePage(path);
+              }}
+            />
+          ) : templatesOpen ? (
+            <TemplatesPage
+              key={templatesInstructions ? "instructions" : "all"}
+              initialView={templatesInstructions ? "instructions" : "templates"}
+              currentPage={activePage ? { path: activePage.path, title: activePage.title } : null}
+              onCreated={(path) => {
+                void loadTree();
+                navigatePage(path);
+              }}
+            />
+          ) : trashOpen ? (
+            <TrashPage
+              version={tree}
+              onRestored={(path) => {
+                void loadTree();
+                navigatePage(path);
+              }}
+              onNavigate={navigatePage}
+            />
+          ) : activePage && !welcomeOpen ? (
+            <PageEditor
+              registerFlush={registerFlush}
+              settingsRequested={settingsPath === activePage.path}
+              onSettingsOpened={() => setSettingsPath(null)}
+              onNavigateSettings={navigateSettings}
+              key={activePage.id}
+              page={activePage}
+              tree={tree}
+              refreshNonce={refreshNonce}
+              onNavigate={navigatePage}
+              onOpenRow={(table, id) => openFullScreen(() => setRowPages([{ table, id }]))}
+              onTitleChange={handleTitleChange}
+              onIconChange={(icon) => activePage && handleIconChanged(activePage.path, icon)}
+              onRenamed={handleRenamed}
+              onMovePage={movePageInto}
+              onDelete={() => void deletePage(activePage.path, activePage.title)}
+              onAskAI={chatOpen ? undefined : () => setChatOpen(true)}
+              onTreeChanged={() => void loadTree()}
+              onSaved={saveActivePage}
+              onSelectionChange={setSelection}
+            />
+          ) : (
+            <WelcomePage
+              onCreatePage={() => void createPage()}
+              onSettings={(section) => openSettings(section)}
+              onStudio={(section) => {
+                setStudioSection((old) => ({ section, n: (old?.n ?? 0) + 1 }));
+                setTrashOpen(false);
+                setRowPages([]);
+                setTemplatesOpen(false);
+                setAiOpen(true);
+              }}
+              onTemplates={() =>
+                openFullScreen(() => {
+                  setAiOpen(false);
+                  setWelcomeOpen(false);
+                  setTrashOpen(false);
+                  setRowPages([]);
+                  setTemplatesInstructions(true);
+                  setTemplatesOpen(true);
+                })
+              }
+              onFeedback={feedbackEnabled ? () => setFeedbackOpen(true) : undefined}
+              firstName={me?.first_name || undefined}
+            />
+          )}
+        </div>
       </div>
       {chatOpen &&
         activePage &&
@@ -561,7 +671,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
           <ChatPanel
             key={activePage.path}
             path={activePage.path}
-            title={activePage.title}
+            tree={tree}
             onClose={() => setChatOpen(false)}
             onSettings={openSettings}
             onNavigate={navigatePage}
@@ -574,6 +684,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
       {modelsOpen && (
         <ModelsPage
           initialTab={settingsTab}
+          sidebarHost={settingsHost}
           onClose={() => {
             setModelsOpen(false);
             setSettingsVersion((v) => v + 1);

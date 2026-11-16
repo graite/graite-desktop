@@ -35,6 +35,7 @@ from graite.api import (
 from graite.api import assistant as assistant_api
 from graite.api import engines as engines_api
 from graite.api import mcp as mcp_api
+from graite.api import profile as profile_api
 from graite.api import templates as templates_api
 from graite.api import voice as voice_api
 from graite.api.auth import BearerAuthMiddleware
@@ -56,6 +57,7 @@ from graite.models.connections import Store, set_store
 from graite.models.downloader import Downloader
 from graite.models.engines import EngineInstaller, set_installer
 from graite.models.manager import Manager
+from graite.profile import ProfileStore, set_profile_store
 from graite.review.proposals import Proposals
 from graite.tables.cache import TablesCache
 from graite.vault import indexer
@@ -101,6 +103,7 @@ def create_app(settings: Settings) -> FastAPI:
             app.state.media_jobs[job.id] = job
         app.state.media_tasks = {}
         set_store(Store(settings.app_dir / "connections.json"))
+        set_profile_store(ProfileStore(settings.app_dir / "profile.json"))
         set_cloud(CloudSession(settings.cloud_url, settings.app_dir))
         app.state.downloads = Downloader(conn, app.state.events, settings.models_dir)
         app.state.models = Manager(conn)
@@ -202,6 +205,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(ai.router, prefix=API_PREFIX)
     app.include_router(connections.router, prefix=API_PREFIX)
     app.include_router(cloud.router, prefix=API_PREFIX)
+    app.include_router(profile_api.router, prefix=API_PREFIX)
     cloud.hide_callback_query()
     app.include_router(review.router, prefix=API_PREFIX)
     app.include_router(automation.router, prefix=API_PREFIX)

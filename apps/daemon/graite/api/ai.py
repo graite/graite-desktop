@@ -21,7 +21,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from graite.cloud.session import get_cloud
 from graite.jobs.queue import PRIORITY_INTERACTIVE
-from graite.models.config import AIConfig, SaveConfig, get_key, load_config, save_config
+from graite.models.config import (
+    AIConfig,
+    SaveConfig,
+    get_key,
+    is_cloud,
+    load_config,
+    save_config,
+)
 from graite.models.downloader import CatalogModel
 from graite.models.hardware import Hardware, detect
 from graite.models.providers import Provider
@@ -270,7 +277,7 @@ class Message(BaseModel):
 
 
 class ScopeModel(BaseModel):
-    kind: Literal["page", "folder", "vault"] = "vault"
+    kind: Literal["page", "folder", "vault", "none"] = "vault"
     roots: list[str] = Field(default_factory=list)
     excluded: list[str] = Field(default_factory=list)
 
@@ -314,6 +321,9 @@ def _load_scope(request: Request, row: Any) -> Scope:
         except (FileNotFoundError, ValueError) as exc:
             raise HTTPException(404, "The page of this conversation no longer exists.") from exc
         raw = json.loads(row["scope_json"] or "{}")
+        if raw.get("kind") in ("vault", "none"):
+            # A page's chat that looks at all pages, a chosen set, or none: taken as stored.
+            return Scope.parse(raw)
         kind = raw.get("kind") if raw.get("kind") in ("page", "folder") else "folder"
         # The root follows the page across renames; any exclusions the client set are kept.
         excluded = [str(e) for e in raw.get("excluded") or []]
@@ -399,18 +409,18 @@ async def get_conversation(conversation_id: str, request: Request) -> Conversati
 async def new_conversation(body: NewConversation, request: Request) -> Conversation:
     db = request.app.state.db
     page_id: str | None = None
-    if body.scope is not None and body.scope.kind != "vault":
-        scope = Scope.parse(body.scope.model_dump())
-        page = await _page_for(request, scope.roots[0])
-        page_id = page.id
-    elif body.scope is not None:
-        scope = Scope.parse(body.scope.model_dump())
-    elif body.page_path:
+    given = Scope.parse(body.scope.model_dump()) if body.scope is not None else None
+    if body.page_path:
+        # A page's own chat. Its scope may still be every page, a chosen set or none.
         page = await _page_for(request, body.page_path)
         page_id = page.id
-        scope = Scope("folder", [page.path], [])
+        scope = given or Scope("folder", [page.path], [])
+    elif given is not None and given.kind in ("page", "folder"):
+        page = await _page_for(request, given.roots[0])
+        page_id = page.id
+        scope = given
     else:
-        scope = Scope("vault", [], [])
+        scope = given or Scope("vault", [], [])
     now = datetime.now(UTC).isoformat()
     conversation_id = uuid.uuid4().hex
     db.execute(
@@ -434,7 +444,7 @@ async def new_conversation(body: NewConversation, request: Request) -> Conversat
 async def patch_conversation(
     conversation_id: str, body: PatchConversation, request: Request
 ) -> Conversation:
-    row = _row(request, conversation_id)
+    _row(request, conversation_id)  # 404 when the conversation does not exist
     db = request.app.state.db
     if body.title is not None and body.title.strip():
         db.execute(
@@ -444,10 +454,8 @@ async def patch_conversation(
     if body.mode is not None:
         db.execute("UPDATE conversations SET mode=? WHERE id=?", (body.mode, conversation_id))
     if body.scope is not None:
-        if row["page_id"] is not None and body.scope.kind == "vault":
-            raise HTTPException(400, "A page conversation cannot become a vault conversation.")
         scope = Scope.parse(body.scope.model_dump())
-        if scope.kind != "vault":
+        if scope.kind in ("page", "folder"):
             await _page_for(request, scope.roots[0])
         db.execute(
             "UPDATE conversations SET scope_json=? WHERE id=?",
@@ -669,7 +677,7 @@ def _resolved_scope(request: Request, conversation_id: str, scope: Scope, config
     cache: dict[str, tuple[tuple[str, bool, int], Any]] = state.__dict__.setdefault(
         "scope_cache", {}
     )
-    cloud = config.provider != "local"
+    cloud = is_cloud(config)
     key = (json.dumps(scope.to_dict(), sort_keys=True), cloud, state.fileops.epoch)
     hit = cache.get(conversation_id)
     if hit is not None and hit[0] == key:
@@ -751,6 +759,15 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
     history.append(user_message)
     title = body.message.strip()[:70] if first_turn else row["title"]
     skills = resolved.policy.values.get("skills")
+    # The page the user is on: the conversation's own page, whatever pages it may read.
+    current_page: str | None = None
+    if row["page_id"]:
+        try:
+            current_page = state.fileops.page_by_id(row["page_id"])
+        except (FileNotFoundError, ValueError):
+            current_page = None
+    elif scope.kind in ("page", "folder") and scope.roots:
+        current_page = scope.roots[0]
     ctx = TurnContext(
         state=state,
         conversation_id=conversation_id,
@@ -761,7 +778,7 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
         mode=mode,
         extra_sources=extra_sources,
         skills_allowlist=skills if isinstance(skills, list) else None,
-        page_path=scope.roots[0] if scope.roots else None,
+        page_path=current_page,
         images=images if (config.provider == "anthropic" or config.vision) else [],
         resolved=resolved,
         context=context,

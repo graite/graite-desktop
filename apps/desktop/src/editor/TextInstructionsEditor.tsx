@@ -14,6 +14,7 @@ import { fromBlocks, toBlocks } from "@graite/md-convert";
 import { schema, type GraiteEditor, type GraitePartialBlock } from "./schema";
 import { filterSlashItems } from "./slash-menu";
 import { markdownPasteHandler } from "./paste";
+import { useTheme } from "@/lib/theme";
 import "@blocknote/shadcn/style.css";
 import "./editor.css";
 
@@ -72,6 +73,7 @@ export function TextInstructionsEditor({
   label?: string;
   readOnly?: boolean;
 }) {
+  const theme = useTheme();
   const editor = useCreateBlockNote({
     schema,
     initialContent: blocks(value),
@@ -91,7 +93,7 @@ export function TextInstructionsEditor({
     <div className="text-instructions-editor" data-readonly={readOnly || undefined}>
       <BlockNoteView
         editor={editor}
-        theme="light"
+        theme={theme}
         editable={!readOnly}
         slashMenu={false}
         sideMenu={false}

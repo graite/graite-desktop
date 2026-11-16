@@ -212,6 +212,8 @@ class Registry:
         return titled[0] if len(titled) == 1 else None
 
     def _not_found(self, raw: str) -> str:
+        if raw.strip().strip("/") in self.scope.excluded_no_ai:
+            return f"The page '{raw}' is closed to AI; its owner turned AI access off."
         if raw.strip().strip("/") in self.scope.excluded_local_only:
             return f"The page '{raw}' is local-only; a cloud model cannot use it."
         last = raw.strip().strip("/").rpartition("/")[2].lower()

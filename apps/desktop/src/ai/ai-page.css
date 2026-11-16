@@ -1070,3 +1070,41 @@
     animation: none;
   }
 }
+
+/* Which pages the AI may use: in the message box, and under the heading of a new chat. */
+.ai-scope-menu {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+/* Inside the message box a button is a fixed square unless it says otherwise. */
+.ai-composer .ai-scope-menu {
+  width: auto;
+  min-width: 0;
+}
+.ai-scope-menu > svg {
+  flex-shrink: 0;
+}
+.ai-scope-menu > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ai-scope-menu:hover:not(:disabled),
+.ai-scope-menu[data-state="open"] {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.ai-scope-menu:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.ai-scope-menu[data-none] {
+  color: var(--tag-orange);
+}

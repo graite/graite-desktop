@@ -212,7 +212,7 @@ class Searcher:
     # ------------------------------------------------------------- scope filter
 
     def _scope_clause(self, scope: ResolvedScope) -> str:
-        if scope.all_pages and not scope.excluded_local_only:
+        if scope.all_pages and not scope.excluded_local_only and not scope.excluded_no_ai:
             return ""
         if not self._filled:
             with transaction(self.conn):

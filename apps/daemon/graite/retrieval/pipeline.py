@@ -23,7 +23,8 @@ from typing import Any, Literal
 from graite.agent.loop import run as agent_loop
 from graite.agent.loop import thoughts, visible
 from graite.index.db import transaction
-from graite.models.config import AIConfig
+from graite.models.config import AIConfig, is_cloud
+from graite.profile import first_name
 from graite.retrieval import answer as answering
 from graite.retrieval import followup, research
 from graite.retrieval.context import Source, build
@@ -114,7 +115,7 @@ class RunRecorder:
         self.kind = ctx.run_kind
         self.agent = ctx.agent
         self.job_id = ctx.job_id
-        cloud = ctx.config.provider != "local"
+        cloud = is_cloud(ctx.config)
         input_data: dict[str, Any] = {"question": ctx.question[:2000]}
         if ctx.task is not None:
             input_data["task"] = ctx.task[:4000]
@@ -291,7 +292,7 @@ def resolve_for(ctx: TurnContext) -> ResolvedScope:
         ctx.state.db,
         ctx.state.settings.vault,
         ctx.scope,
-        cloud_provider=ctx.config.provider != "local",
+        cloud_provider=is_cloud(ctx.config),
     )
 
 
@@ -372,9 +373,14 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             "scope": scope.scope.to_dict(),
             "pages": len(scope.paths),
             "excluded_local_only": scope.excluded_local_only,
+            "excluded_no_ai": scope.excluded_no_ai,
             "instructions": [i["source"] for i in scope.policy.instructions],
         }
-        if ctx.config.provider != "local":
+        if not scope.policy.ai_allowed:
+            raise ValueError(
+                "AI is turned off for this page. Change it under AI settings to ask about it."
+            )
+        if is_cloud(ctx.config):
             if not scope.policy.cloud_allowed:
                 raise ValueError("This page allows local models only. Choose a local model.")
             if any(
@@ -470,7 +476,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
         registry.turn = {
             "run_id": recorder.id,
             "conversation_id": ctx.conversation_id,
-            "cloud_model": ctx.config.provider != "local",
+            "cloud_model": is_cloud(ctx.config),
             "memory_root": ctx.memory_root,
         }
         try:
@@ -582,6 +588,8 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                     seen_instructions.add(instruction["source"])
         propose_names = {t.name for t in TOOLS.values() if t.group == "propose"}
         can_propose = "propose" in groups and bool(registry.allowed & propose_names)
+        # The assistant may know the user under its own name for them; otherwise the profile's.
+        user_name = ctx.user_name or first_name()
         if ctx.is_agent:
             prompt, included = answering.agent_messages(
                 prompt_policy,
@@ -594,6 +602,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                 skills_index=registry.skill_index(),
                 feedback=ctx.feedback,
                 notes=ctx.notes,
+                user_name=user_name,
             )
         elif ctx.persona is not None:
             prompt, included = answering.assistant_messages(
@@ -611,7 +620,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                 mode=ctx.mode if can_propose else "ask",
                 voice=ctx.voice,
                 reply_language=answering.LANGUAGE_NAMES.get(ctx.reply_language or ""),
-                user_name=ctx.user_name,
+                user_name=user_name,
                 skills_index=registry.skill_index(),
                 feedback=ctx.feedback,
                 page_reference=ctx.page_reference,
@@ -630,6 +639,8 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                 skills_index=registry.skill_index(),
                 reused=not retrieved and bool(len(context)),
                 feedback=ctx.feedback,
+                user_name=user_name,
+                no_pages=scope.scope.kind == "none",
             )
         # Only claim the passages the model was actually given: anything gathered this turn
         # that did not fit was never shown and is dropped; older ones stay citable.
@@ -811,6 +822,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             "type": "limits",
             "items": lines,
             "excluded_local_only": scope.excluded_local_only,
+            "excluded_no_ai": scope.excluded_no_ai,
             "pending_chunks": int(index_status.get("pending_chunks") or 0),
         }
         yield {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, FileText, Loader2, Paperclip, Plus, X } from "lucide-react";
+import { Check, Loader2, Paperclip, Plus, X } from "lucide-react";
+import { PageIcon } from "@/components/PageIcon";
 import { toast } from "sonner";
 import {
   GridCellKind,
@@ -434,7 +435,7 @@ export function PageLinkPicker({
             onClick={() => pick(p)}
           >
             <span className="table-page-icon">
-              {p.icon && !p.icon.startsWith("lucide:") ? p.icon : <FileText size={13} />}
+              <PageIcon icon={p.icon} hasContent className="size-[13px]" />
             </span>
             <span className="table-relation-label">{p.title || "Untitled"}</span>
             {p.breadcrumb && <span className="table-relation-secondary">{p.breadcrumb}</span>}
