@@ -1089,6 +1089,57 @@
         "title": "BatchBody",
         "type": "object"
       },
+      "BatchExtractRequest": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/BatchFile"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Files",
+            "type": "array"
+          },
+          "output": {
+            "default": "toggle",
+            "enum": [
+              "toggle",
+              "page"
+            ],
+            "title": "Output",
+            "type": "string"
+          },
+          "page_id": {
+            "title": "Page Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page_id",
+          "files"
+        ],
+        "title": "BatchExtractRequest",
+        "type": "object"
+      },
+      "BatchFile": {
+        "properties": {
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "name"
+        ],
+        "title": "BatchFile",
+        "type": "object"
+      },
       "BatchResult": {
         "properties": {
           "applied": {
@@ -11811,6 +11862,7 @@
     },
     "/api/v1/media/extract": {
       "post": {
+        "description": "Transcribe or OCR one attachment. It waits its turn for the local model, so asking\nwhile another extraction or a chat answer is running is fine.",
         "operationId": "extract_api_v1_media_extract_post",
         "requestBody": {
           "content": {
@@ -11845,6 +11897,52 @@
           }
         },
         "summary": "Extract",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/v1/media/extract/batch": {
+      "post": {
+        "description": "Queue one extraction per file, in the order given. All files are checked first, so a\nbad one refuses the whole batch instead of leaving half of it queued.",
+        "operationId": "extract_batch_api_v1_media_extract_batch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchExtractRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Extraction"
+                  },
+                  "title": "Response Extract Batch Api V1 Media Extract Batch Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Extract Batch",
         "tags": [
           "media"
         ]

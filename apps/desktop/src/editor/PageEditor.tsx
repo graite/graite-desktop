@@ -665,6 +665,55 @@ export function PageEditor({
     [editor, moveText],
   );
 
+  /**
+   * Read the text of several attachments in one go (Attachments → Extract text). Each file
+   * gets a job in the daemon's queue and a media block that follows it: the block the file
+   * already has on this page, or a new one at the end. The blocks show the progress and put
+   * the text under the file when their job is done, as for a single "Extract text".
+   */
+  const extractAttachments = useCallback(
+    async (items: { file: string; name: string; kind: string }[]) => {
+      const jobs = await media.extractBatch(
+        page.id,
+        items.map(({ file, name }) => ({ file, name })),
+      );
+      const existing = new Map<string, string>();
+      const collect = (blocks: GraiteBlock[]) => {
+        for (const block of blocks) {
+          if (block.type === "localMedia" && block.props.file)
+            existing.set(block.props.file, block.id);
+          if (block.children?.length) collect(block.children as GraiteBlock[]);
+        }
+      };
+      collect(editor.document as GraiteBlock[]);
+      items.forEach((item, index) => {
+        const job = jobs[index]?.id;
+        if (!job) return;
+        const shown = existing.get(item.file);
+        if (shown) editor.updateBlock(shown, { type: "localMedia", props: { job } });
+        else {
+          const last = editor.document[editor.document.length - 1]!;
+          editor.insertBlocks(
+            [
+              {
+                type: "localMedia",
+                props: { file: item.file, name: item.name, kind: item.kind, job },
+              } as GraitePartialBlock,
+            ],
+            last,
+            "after",
+          );
+        }
+      });
+      toast.success(
+        items.length === 1
+          ? "Reading 1 file. Its text appears under it when it is done."
+          : `Reading ${items.length} files, one after another. Each text appears under its file.`,
+      );
+    },
+    [editor, page.id],
+  );
+
   const scheduleSave = useCallback(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => void save(), SAVE_DEBOUNCE_MS);
@@ -1026,6 +1075,7 @@ export function PageEditor({
             title={page.title}
             open={attachmentsOpen}
             onOpenChange={setAttachmentsOpen}
+            onExtract={extractAttachments}
           />
 
           {page.path.includes("/") && (

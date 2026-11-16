@@ -8,7 +8,7 @@ import shutil
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 from urllib.parse import quote
 
 import httpx
@@ -16,6 +16,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
+from graite.jobs.queue import PRIORITY_INTERACTIVE
 from graite.media.decode import AUDIO, IMAGES, MAX_BYTES, MIMES, audio_wav, page_count, render_page
 from graite.media.ocr import recognize
 from graite.models.config import load_config
@@ -125,13 +126,16 @@ async def info(request: Request, page_id: str, file: str) -> dict[str, int]:
         raise HTTPException(400, str(exc)) from exc
 
 
-async def run_extraction(request: Request, payload: ExtractRequest, job: Extraction) -> None:
-    state = request.app.state
+async def run_extraction(state: Any, payload: ExtractRequest, job: Extraction) -> None:
+    """One extraction, start to finish. Run by the `media_extract` job (jobs/handlers.py), so
+    several files queue up and take the local model one after another."""
     ops: FileOps = state.fileops
     try:
         async with state.models.lock:
             # Resolve by stable page id after queueing (the user may rename the page).
-            path = attachment(request, payload.page_id, payload.file)
+            path = ops.attachment_path(payload.page_id, payload.file)
+            if not path.is_file():
+                raise ValueError("The local attachment is missing.")
             speech = path.suffix.lower() in AUDIO
             item = state.downloads.items["whisper-large-v3-turbo-q8" if speech else "glm-ocr-q8"]
             if item.status != "installed":
@@ -199,20 +203,8 @@ async def run_extraction(request: Request, payload: ExtractRequest, job: Extract
         )
 
 
-@router.post("/extract", response_model=Extraction)
-async def extract(request: Request, payload: ExtractRequest) -> Extraction:
-    path = attachment(request, payload.page_id, payload.file)
-    if (
-        path.suffix.lower() not in AUDIO
-        and path.suffix.lower() not in IMAGES
-        and path.suffix.lower() != ".pdf"
-    ):
-        raise HTTPException(400, "Choose an audio file, image or PDF.")
-    state = request.app.state
-    from graite.api.ai import model_busy
-
-    if model_busy(state):
-        raise HTTPException(409, "Wait for the current model task to finish.")
+def _queue_extraction(state: Any, payload: ExtractRequest) -> Extraction:
+    """Record an extraction and put it in the job queue: one job per file, run in turn."""
     job = Extraction(id=uuid.uuid4().hex)
     # Keep only a bounded history; running jobs are never removed.
     for key in list(state.media_jobs):
@@ -223,10 +215,60 @@ async def extract(request: Request, payload: ExtractRequest) -> Extraction:
             state.db.execute("DELETE FROM media_jobs WHERE id=?", (key,))
     state.media_jobs[job.id] = job
     state.db.execute("INSERT INTO media_jobs VALUES (?,?)", (job.id, job.model_dump_json()))
-    task = asyncio.create_task(run_extraction(request, payload, job))
-    state.media_tasks[job.id] = task
-    task.add_done_callback(lambda _: state.media_tasks.pop(job.id, None))
+    state.media_queue[job.id] = state.queue.enqueue(
+        "media_extract",
+        {"extraction_id": job.id, "request": payload.model_dump()},
+        key=f"media_extract:{job.id}",
+        priority=PRIORITY_INTERACTIVE,
+        max_attempts=1,
+    )
     return job
+
+
+def _extractable(request: Request, page_id: str, file: str) -> None:
+    path = attachment(request, page_id, file)
+    if (
+        path.suffix.lower() not in AUDIO
+        and path.suffix.lower() not in IMAGES
+        and path.suffix.lower() != ".pdf"
+    ):
+        raise HTTPException(400, "Choose an audio file, image or PDF.")
+
+
+@router.post("/extract", response_model=Extraction)
+async def extract(request: Request, payload: ExtractRequest) -> Extraction:
+    """Transcribe or OCR one attachment. It waits its turn for the local model, so asking
+    while another extraction or a chat answer is running is fine."""
+    _extractable(request, payload.page_id, payload.file)
+    return _queue_extraction(request.app.state, payload)
+
+
+class BatchFile(BaseModel):
+    file: str
+    name: str = Field(max_length=200)
+
+
+class BatchExtractRequest(BaseModel):
+    page_id: str
+    files: list[BatchFile] = Field(min_length=1, max_length=200)
+    output: Literal["toggle", "page"] = "toggle"
+
+
+@router.post("/extract/batch", response_model=list[Extraction])
+async def extract_batch(request: Request, payload: BatchExtractRequest) -> list[Extraction]:
+    """Queue one extraction per file, in the order given. All files are checked first, so a
+    bad one refuses the whole batch instead of leaving half of it queued."""
+    for item in payload.files:
+        _extractable(request, payload.page_id, item.file)
+    return [
+        _queue_extraction(
+            request.app.state,
+            ExtractRequest(
+                page_id=payload.page_id, file=item.file, name=item.name, output=payload.output
+            ),
+        )
+        for item in payload.files
+    ]
 
 
 @router.get("/jobs/{job_id}", response_model=Extraction)
@@ -240,10 +282,21 @@ async def get_job(request: Request, job_id: str) -> Extraction:
 @router.delete("/jobs/{job_id}", response_model=Extraction)
 async def cancel_job(request: Request, job_id: str) -> Extraction:
     job = await get_job(request, job_id)
-    task = request.app.state.media_tasks.get(job_id)
-    if task:
-        task.cancel()
-        await asyncio.gather(task, return_exceptions=True)
+    state = request.app.state
+    queued = state.media_queue.get(job_id)
+    if queued and job.status == "running":
+        entry = state.worker.running.get(queued)
+        await state.worker.cancel(queued)
+        if entry:
+            # Running: wait until the engine has been stopped and the job says "cancelled".
+            await asyncio.gather(entry[0], return_exceptions=True)
+        else:
+            # Still waiting its turn: it will never start.
+            job.status, job.progress = "cancelled", "Cancelled"
+            state.db.execute(
+                "INSERT OR REPLACE INTO media_jobs VALUES (?, ?)", (job.id, job.model_dump_json())
+            )
+        state.media_queue.pop(job_id, None)
     return job
 
 

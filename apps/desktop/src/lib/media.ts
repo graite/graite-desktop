@@ -83,6 +83,16 @@ export const media = {
       body: file,
       headers: { "Content-Type": "application/octet-stream" },
     }),
+  /** Queue one extraction per file; they run one after another. Returns a job per file, in order. */
+  extractBatch: (
+    pageId: string,
+    files: { file: string; name: string }[],
+    output: "toggle" | "page" = "toggle",
+  ) =>
+    request<Extraction[]>("/api/v1/media/extract/batch", {
+      method: "POST",
+      body: JSON.stringify({ page_id: pageId, files, output }),
+    }),
   extract: (pageId: string, file: string, name: string, output: "toggle" | "page") =>
     request<Extraction>("/api/v1/media/extract", {
       method: "POST",

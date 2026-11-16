@@ -173,3 +173,42 @@ it("says a page has no attachments when extraction text is all there is", async 
   expect(await screen.findByText("This page has no attachments.")).toBeTruthy();
   expect(screen.getByText(/1 leftover text file from earlier extractions/)).toBeTruthy();
 });
+
+it("extracts the text of several ticked files in one go", async () => {
+  media.attachments.mockResolvedValue([
+    item("1-a.png", "a.png", true),
+    item("2-b.png", "b.png", false),
+    { ...item("3-notes.zip", "notes.zip", false), kind: "other" },
+    { ...item("4-scan.pdf", "scan.pdf", false), kind: "pdf" },
+  ]);
+  const onExtract = vi.fn<(items: { name: string }[]) => Promise<void>>(async () => {});
+  const onOpenChange = vi.fn();
+  render(
+    <AttachmentsDialog
+      pageId="p1"
+      title="Scans"
+      open
+      onOpenChange={onOpenChange}
+      onExtract={onExtract}
+    />,
+  );
+  const run = await screen.findByRole("button", { name: "Extract text" });
+  expect((run as HTMLButtonElement).disabled).toBe(true);
+  // A file no model can read cannot be ticked.
+  expect((screen.getByLabelText("Select notes.zip") as HTMLInputElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Select images" }));
+  fireEvent.click(screen.getByLabelText("Select scan.pdf"));
+  fireEvent.click(screen.getByLabelText("Select b.png"));
+  fireEvent.click(screen.getByRole("button", { name: "Extract text from 2 files" }));
+  await waitFor(() => expect(onExtract).toHaveBeenCalledTimes(1));
+  expect(onExtract.mock.calls[0]![0].map((i) => i.name)).toEqual(["a.png", "scan.pdf"]);
+  await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+});
+
+it("shows no checkboxes where extraction is not offered", async () => {
+  media.attachments.mockResolvedValue([item("1-a.png", "a.png", true)]);
+  render(<AttachmentsDialog pageId="p1" title="Scans" open onOpenChange={() => {}} />);
+  await screen.findByText("a.png");
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(screen.queryByRole("button", { name: /Extract text/ })).toBeNull();
+});

@@ -1438,8 +1438,33 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Extract */
+        /**
+         * Extract
+         * @description Transcribe or OCR one attachment. It waits its turn for the local model, so asking
+         *     while another extraction or a chat answer is running is fine.
+         */
         post: operations["extract_api_v1_media_extract_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/media/extract/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extract Batch
+         * @description Queue one extraction per file, in the order given. All files are checked first, so a
+         *     bad one refuses the whole batch instead of leaving half of it queued.
+         */
+        post: operations["extract_batch_api_v1_media_extract_batch_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2754,6 +2779,26 @@ export interface components {
         BatchBody: {
             /** Ids */
             ids: string[];
+        };
+        /** BatchExtractRequest */
+        BatchExtractRequest: {
+            /** Files */
+            files: components["schemas"]["BatchFile"][];
+            /**
+             * Output
+             * @default toggle
+             * @enum {string}
+             */
+            output: "toggle" | "page";
+            /** Page Id */
+            page_id: string;
+        };
+        /** BatchFile */
+        BatchFile: {
+            /** File */
+            file: string;
+            /** Name */
+            name: string;
         };
         /** BatchResult */
         BatchResult: {
@@ -8087,6 +8132,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Extraction"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    extract_batch_api_v1_media_extract_batch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchExtractRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Extraction"][];
                 };
             };
             /** @description Validation Error */

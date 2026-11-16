@@ -101,7 +101,8 @@ def create_app(settings: Settings) -> FastAPI:
                     "Graite closed before this task finished. Run it again.",
                 )
             app.state.media_jobs[job.id] = job
-        app.state.media_tasks = {}
+        # Extraction id -> the id of its `media_extract` job in the queue, while it is queued.
+        app.state.media_queue = {}
         set_store(Store(settings.app_dir / "connections.json"))
         set_profile_store(ProfileStore(settings.app_dir / "profile.json"))
         set_cloud(CloudSession(settings.cloud_url, settings.app_dir))
@@ -163,10 +164,6 @@ def create_app(settings: Settings) -> FastAPI:
                 yield
         finally:
             await app.state.relay.stop()
-            tasks = list(app.state.media_tasks.values())
-            for task in tasks:
-                task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
             await app.state.voice.stop()
             await app.state.engines.stop()
             set_installer(None)
