@@ -158,7 +158,10 @@ function headingBlock(node: Heading): Block | null {
 
 function paragraphBlock(node: Paragraph): Block | null {
   const only = node.children.length === 1 ? node.children[0] : undefined;
-  if (only?.type === "wikiLink") {
+  const alias = only?.type === "wikiLink" ? only.data?.alias : undefined;
+  // `[[Target|shown text]]` alone on a line stays an inline link: a page-link block has no
+  // place for the alias and would drop it on save.
+  if (only?.type === "wikiLink" && (!alias || alias === only.value)) {
     const target = only.value;
     return { type: "pageLink", props: { path: "", title: target, icon: "", target }, children: [] };
   }
@@ -755,7 +758,21 @@ export function fromBlocks(blocks: Block[]): string {
   // rawMarkdown sources are spliced in verbatim (as `html` nodes, which serialize as-is) and
   // the whole document is canonicalized once, so constructs that need document context
   // (footnote references, link reference definitions) resolve against the full text.
-  return canonical(serialize(rootOf(mergeLists(blocksToNodes(blocks)))));
+  //
+  // BlockNote keeps an empty paragraph at the end of every document. It is the editor's
+  // caret target, not content, so it is not written as a `graite:empty` marker.
+  let end = blocks.length;
+  while (end > 0 && isEmptyParagraph(blocks[end - 1]!)) end--;
+  const kept = end === blocks.length ? blocks : blocks.slice(0, end);
+  return canonical(serialize(rootOf(mergeLists(blocksToNodes(kept)))));
+}
+
+function isEmptyParagraph(block: Block): boolean {
+  return (
+    block.type === "paragraph" &&
+    (!Array.isArray(block.content) || block.content.length === 0) &&
+    block.children.length === 0
+  );
 }
 
 function blocksToNodes(blocks: Block[]): RootContent[] {

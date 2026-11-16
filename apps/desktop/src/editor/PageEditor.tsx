@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCreateBlockNote } from "@blocknote/react";
-import { fromBlocks, toBlocksSafe, toBlocksWithSpans } from "@graite/md-convert";
+import { fromBlocks, minimalSave, toBlocksSafe, toBlocksWithSpans } from "@graite/md-convert";
 import {
   FolderOpen,
   MoreHorizontal,
@@ -130,6 +130,15 @@ export function isolateUnloadable(
       } as GraitePartialBlock;
     }
   });
+}
+
+/** The document as canonical Markdown, or null when a block cannot be serialized. */
+export function serializeDocument(editor: GraiteEditor): string | null {
+  try {
+    return fromBlocks(editor.document as unknown as Parameters<typeof fromBlocks>[0]);
+  } catch {
+    return null;
+  }
 }
 
 export function loadBlocks(editor: GraiteEditor, blocks: GraitePartialBlock[]): void {
@@ -281,6 +290,9 @@ export function PageEditor({
     diskBodyRef.current = markdown;
     setBodyVersion((v) => v + 1);
   }, []);
+  // `fromBlocks` of the document as it was when it last matched the disk: a save rewrites only
+  // the lines that differ from it (minimalSave), so untouched Markdown keeps its formatting.
+  const baselineRef = useRef<string | null>(null);
   const syncingRef = useRef(false);
   const dirtyRef = useRef(false);
   // Bumped on every edit, so a save only clears `dirty` when nothing was typed meanwhile.
@@ -367,6 +379,7 @@ export function PageEditor({
       setHasView(hasPageView(editor.document as GraiteBlock[]));
       baseHashRef.current = hash;
       dirtyRef.current = false;
+      baselineRef.current = serializeDocument(editor);
       markDisk(body);
       setConflict(null);
     },
@@ -409,6 +422,17 @@ export function PageEditor({
     }
   }, [tree, editor]);
 
+  /**
+   * What a save writes: the canonical document (`next`) and the text for the file, which keeps
+   * the lines on disk that the user did not edit.
+   */
+  const outgoing = useCallback(() => {
+    const next = fromBlocks(editor.document as unknown as Parameters<typeof fromBlocks>[0]);
+    const baseline = baselineRef.current;
+    const markdown = baseline === null ? next : minimalSave(diskBodyRef.current, baseline, next);
+    return { markdown, next };
+  }, [editor]);
+
   /** Write the editor's content now (queued after any write in flight), if it has changes. */
   const writeBody = useCallback(async () => {
     // A rename moves the folder: wait for it outside the queue (the rename is queued too).
@@ -416,14 +440,15 @@ export function PageEditor({
     return queued(async () => {
       if (!dirtyRef.current) return;
       const edits = editsRef.current;
-      const markdown = fromBlocks(editor.document as unknown as Parameters<typeof fromBlocks>[0]);
+      const { markdown, next } = outgoing();
       const { hash } = await pages.put(pathRef.current, markdown, baseHashRef.current);
       baseHashRef.current = hash;
       if (editsRef.current === edits) dirtyRef.current = false;
+      baselineRef.current = next;
       markDisk(markdown);
       onSaved(hash);
     });
-  }, [editor, onSaved, markDisk, queued]);
+  }, [outgoing, onSaved, markDisk, queued]);
 
   const save = useCallback(async () => {
     try {
@@ -476,10 +501,11 @@ export function PageEditor({
     async (fields: PageProperty[]) => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       return queued(async () => {
-        const markdown = fromBlocks(editor.document as unknown as Parameters<typeof fromBlocks>[0]);
+        const { markdown, next } = outgoing();
         const saved = await pages.put(pathRef.current, markdown, baseHashRef.current);
         baseHashRef.current = saved.hash;
         dirtyRef.current = false;
+        baselineRef.current = next;
         markDisk(markdown);
         const result = await workspace.properties(page.id, fields, saved.hash);
         baseHashRef.current = result.hash;
@@ -487,7 +513,7 @@ export function PageEditor({
         return result;
       });
     },
-    [editor, page.id, onSaved, markDisk, queued],
+    [outgoing, page.id, onSaved, markDisk, queued],
   );
 
   const moveMedia = useCallback(
@@ -503,9 +529,7 @@ export function PageEditor({
       editor.isEditable = false;
       try {
         const result = await queued(async () => {
-          const markdown = fromBlocks(
-            editor.document as unknown as Parameters<typeof fromBlocks>[0],
-          );
+          const { markdown } = outgoing();
           const saved = await pages.put(pathRef.current, markdown, baseHashRef.current);
           baseHashRef.current = saved.hash;
           dirtyRef.current = false;
@@ -522,7 +546,10 @@ export function PageEditor({
         syncingRef.current = false;
         baseHashRef.current = result.source_hash;
         dirtyRef.current = false;
-        markDisk(fromBlocks(editor.document as unknown as Parameters<typeof fromBlocks>[0]));
+        baselineRef.current = fromBlocks(
+          editor.document as unknown as Parameters<typeof fromBlocks>[0],
+        );
+        markDisk(baselineRef.current);
         onSaved(result.source_hash);
         onTreeChanged();
         onNavigate(result.path);

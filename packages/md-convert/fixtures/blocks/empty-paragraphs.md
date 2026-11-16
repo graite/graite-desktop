@@ -7,5 +7,3 @@ First paragraph.
 <!-- graite:empty -->
 
 Last paragraph.
-
-<!-- graite:empty -->
