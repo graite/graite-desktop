@@ -73,9 +73,14 @@ JOIN owners o ON o.id = l.row_id
 GROUP BY o.city
 ```
 
-**Style**: use the theme variables so the dashboard fits light and dark mode:
-`--graite-fg`, `--graite-muted`, `--graite-border`, `--graite-bg`, `--graite-accent`,
-`--graite-color-1` … `--graite-color-9`. Default to grayscale and add color only when it
+**Style**: every color comes from the theme variables, so the dashboard fits light and dark
+mode: `--graite-fg`, `--graite-muted`, `--graite-border`, `--graite-bg`, `--graite-accent`,
+`--graite-warn`, `--graite-color-1` … `--graite-color-9`. Never write `white`, `#fff`, `black`
+or any other fixed background or text color: a white card stays white in dark mode, and a
+dashboard that sets one is refused. Do not set a background on `html` or `body` (it is
+transparent and shows the page behind it); use `var(--graite-accent)` or a
+`var(--graite-border)` hairline for surfaces. For dark-only tweaks use
+`[data-theme="dark"]`. Default to grayscale and add color only when it
 encodes meaning. Build a composed report: clear hierarchy, hairline rules, compact KPI headers,
 aligned legend/detail rows, restrained labels and responsive sections. Avoid a grid of generic
 rounded cards. Pie and donut sectors must be crisp (`borderRadius: 0`, `padAngle: 0`); time-series

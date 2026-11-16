@@ -30,6 +30,8 @@ export const dashboards = {
       }),
     });
     const daemon = (await platform.getDaemonInfo()).url;
-    return `${daemon}${url}`;
+    // The frame starts in the app's color scheme; later changes are posted to it.
+    const mode = document.documentElement.classList.contains("dark") ? "dark" : "light";
+    return `${daemon}${url}&theme=${mode}`;
   },
 };

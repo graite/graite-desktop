@@ -21,10 +21,30 @@ CSP = (
     "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
     "img-src data: blob:; font-src data:; base-uri 'none'; form-action 'none'"
 )
-BASE_STYLE = (
-    "<style>html,body{margin:0;background:transparent;color:var(--graite-fg);"
-    "font-family:var(--graite-font);font-size:14px;line-height:1.45}</style>"
-)
+# The colors a frame starts with, before the app posts its theme (bridge.js `applyTheme`).
+_START = {
+    "light": ("#ffffff", "#1a1a1a"),
+    "dark": ("#171717", "#fafafa"),
+}
+
+
+def base_style(mode: str) -> str:
+    """Base styles for a frame in the app's `mode`.
+
+    `color-scheme` must match the app's: a frame whose scheme differs from the page around it
+    is given an opaque canvas by the browser, which is how a dashboard stayed white in dark
+    mode although its own background is transparent.
+    """
+    bg, fg = _START[mode]
+    return (
+        f'<meta name="color-scheme" content="{mode}">'
+        f"<style>:root{{color-scheme:{mode};--graite-bg:{bg};--graite-fg:{fg}}}"
+        "html,body{margin:0;background:transparent;color:var(--graite-fg);"
+        "font-family:var(--graite-font);font-size:14px;line-height:1.45}</style>"
+        f'<script>window.__graiteMode="{mode}"</script>'
+    )
+
+
 _HEAD = re.compile(r"<head[^>]*>", re.IGNORECASE)
 _HTML = re.compile(r"<html[^>]*>", re.IGNORECASE)
 
@@ -34,10 +54,11 @@ def _script(name: str) -> str:
     return (STATIC / name).read_text(encoding="utf-8")
 
 
-def render(html: str) -> str:
+def render(html: str, mode: str = "light") -> str:
     """`html` with ECharts, the bridge and base styles placed before anything it runs."""
+    mode = mode if mode in _START else "light"
     inject = (
-        f'<meta charset="utf-8">{BASE_STYLE}'
+        f'<meta charset="utf-8">{base_style(mode)}'
         f"<script>{_script('echarts.min.js')}</script><script>{_script('bridge.js')}</script>"
     )
     match = _HEAD.search(html) or _HTML.search(html)

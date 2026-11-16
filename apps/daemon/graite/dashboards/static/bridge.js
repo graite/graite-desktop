@@ -21,25 +21,46 @@
   const listeners = new Set();
   const charts = new Map();
   let seq = 0;
+  // What the frame was served with (the app's mode at load); the app posts the full theme
+  // as soon as the frame says it is ready.
+  const START_DARK = window.__graiteMode === "dark";
   let theme = {
-    mode: "light",
-    colors: {
-      background: "#ffffff",
-      foreground: "#1a1a1a",
-      muted: "#71717a",
-      border: "#e4e4e7",
-      accent: "#f4f4f5",
-      palette: [
-        "#0a0a0a",
-        "#262626",
-        "#3d3d3d",
-        "#545454",
-        "#6b6b6b",
-        "#7d7d7d",
-        "#949494",
-        "#ababab",
-      ],
-    },
+    mode: START_DARK ? "dark" : "light",
+    colors: START_DARK
+      ? {
+          background: "#171717",
+          foreground: "#fafafa",
+          muted: "#a1a1aa",
+          border: "#2e2e2e",
+          accent: "#262626",
+          palette: [
+            "#ffffff",
+            "#dedede",
+            "#bebebe",
+            "#a0a0a0",
+            "#868686",
+            "#6f6f6f",
+            "#5a5a5a",
+            "#484848",
+          ],
+        }
+      : {
+          background: "#ffffff",
+          foreground: "#1a1a1a",
+          muted: "#71717a",
+          border: "#e4e4e7",
+          accent: "#f4f4f5",
+          palette: [
+            "#0a0a0a",
+            "#262626",
+            "#3d3d3d",
+            "#545454",
+            "#6b6b6b",
+            "#7d7d7d",
+            "#949494",
+            "#ababab",
+          ],
+        },
     font: "system-ui, sans-serif",
   };
 
@@ -61,7 +82,11 @@
     root.setProperty("--graite-accent", c.accent);
     root.setProperty("--graite-font", theme.font);
     c.palette.forEach((color, i) => root.setProperty(`--graite-color-${i + 1}`, color));
+    // A warning red that reads on both backgrounds.
+    root.setProperty("--graite-warn", theme.mode === "dark" ? "#f08a72" : "#c0563f");
     document.documentElement.dataset.theme = theme.mode;
+    // Must follow the app, or the browser paints an opaque canvas behind the frame.
+    root.colorScheme = theme.mode === "dark" ? "dark" : "light";
   }
 
   function el(target) {
@@ -100,9 +125,20 @@
   };
   const MONO = "ui-monospace, SFMono-Regular, Menlo, monospace";
 
-  function fade(hex, alpha) {
-    const n = parseInt(String(hex).slice(1), 16);
-    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+  /* `color` at `alpha`: hex (#rgb, #rrggbb) or rgb()/rgba(), which is what the app sends. */
+  function fade(color, alpha) {
+    const text = String(color).trim();
+    let rgb = null;
+    if (/^#[0-9a-f]{3}$/i.test(text)) rgb = [...text.slice(1)].map((ch) => parseInt(ch + ch, 16));
+    else if (/^#[0-9a-f]{6}/i.test(text)) {
+      const n = parseInt(text.slice(1, 7), 16);
+      rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    } else {
+      const parts = /^rgba?\(([^)]+)\)/i.exec(text);
+      if (parts) rgb = parts[1].split(/[\s,/]+/).slice(0, 3).map(Number);
+    }
+    if (!rgb || rgb.some((n) => !Number.isFinite(n))) return text;
+    return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
   }
 
   /* `number`, `percent` or `currency:EUR`, like the app's charts. */

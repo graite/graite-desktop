@@ -68,7 +68,37 @@ def test_dashboard_files_and_frame(client: TestClient, settings: Settings) -> No
     body = r.text
     assert body.index("echarts") < body.index("window.graite") < body.index("<title>t</title>")
     assert anonymous.get("/api/v1/dashboards/frame?ticket=nope").status_code == 403
+    # The frame takes the app's color scheme: with a different one the browser would paint
+    # an opaque (white) canvas behind it, whatever the dashboard's own background.
+    assert 'content="light"' in body and "color-scheme:light" in body
+    dark = anonymous.get(ticket + "&theme=dark").text
+    assert 'content="dark"' in dark and "color-scheme:dark" in dark
+    assert 'window.__graiteMode="dark"' in dark
+    assert dark.index("__graiteMode") < dark.index("window.graite")
+    assert "color-scheme:light" in anonymous.get(ticket + "&theme=<script>").text
+
     assert anonymous.get("/api/v1/dashboards/list?page_path=Atlas").status_code == 401
+
+
+def test_builtin_dashboards_and_proposals_use_theme_colors() -> None:
+    from pathlib import Path
+
+    import graite.templates as templates
+    from graite.dashboards.validation import check_theme
+
+    files = sorted(Path(templates.__file__).parent.glob("builtin/*/root/_dashboards/*.html"))
+    assert files
+    for file in files:
+        check_theme(file.read_text(encoding="utf-8"))  # raises on a white background
+    check_theme("<style>.card{background:var(--graite-accent)}</style>")
+    for bad in (
+        "body{background:#fff}",
+        ".card { background-color: #FFFFFF; }",
+        "div{background: white}",
+        "div{background:rgb(255, 255, 255)}",
+    ):
+        with pytest.raises(ValueError, match="dark mode"):
+            check_theme(f"<style>{bad}</style>")
 
 
 # ------------------------------------------------------------------ the AI
