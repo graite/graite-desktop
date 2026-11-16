@@ -18,6 +18,7 @@ import { getSlashMenuItems, filterSlashItems, type SlashMenuDeps } from "./slash
 import { MediaContext } from "./media/context";
 import { BlockTypeMenuItem } from "./BlockTypeMenuItem";
 import { useBlockDrag } from "./blockDrag";
+import { useTheme } from "@/lib/theme";
 
 const SIDEBAR_PAGE = "application/graite-sidebar-page";
 
@@ -36,6 +37,7 @@ export function EditorSurface({
   instructionsOnly = false,
 }: EditorSurfaceProps) {
   const { moveMedia, movePage } = useContext(MediaContext);
+  const theme = useTheme();
   useEffect(() => {
     // A page dragged from the sidebar onto a page link in the text moves it under that page.
     if (!movePage) return;
@@ -133,7 +135,7 @@ export function EditorSurface({
     <BlockNoteView
       editor={editor}
       onChange={onChange}
-      theme="light"
+      theme={theme}
       slashMenu={false}
       sideMenu={false}
     >

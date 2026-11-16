@@ -2,8 +2,9 @@
 
 Keys (docs/vault-format.md §2): `instructions`, `autonomy`, `auto_apply_kinds`, `cloud`,
 `skills`, `model`. Instructions accumulate root to leaf. Two values are locks that a
-descendant cannot lift: `autonomy: none` and `cloud: local-only`. Everything else takes
-the nearest value. Every effective value remembers which file set it.
+descendant cannot lift: `autonomy: none`, and `cloud`, which only ever gets stricter going
+down (`allowed`, then `local-only`, then `none`: no AI reads the page at all). Everything
+else takes the nearest value. Every effective value remembers which file set it.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ from graite.vault.paths import GRAITE_DIR, validate_rel
 
 KEYS = ("instructions", "autonomy", "auto_apply_kinds", "cloud", "skills", "model", "ai_scope")
 AUTONOMY = ("auto-apply", "propose", "none")  # most to least permissive
-CLOUD = ("allowed", "local-only")
+CLOUD = ("allowed", "local-only", "none")  # who may read the page: most to least open
 AUTO_APPLY_KINDS = ("append", "create", "edit", "properties", "rows", "delete")
 DEFAULTS: dict[str, Any] = {"autonomy": "propose", "cloud": "allowed"}
 MAX_INSTRUCTIONS = 8000
@@ -53,7 +54,7 @@ def validate(values: dict[str, Any]) -> dict[str, Any]:
             clean[key] = value
         elif key == "cloud":
             if value not in CLOUD:
-                raise ValueError("Cloud must be allowed or local-only.")
+                raise ValueError("Cloud must be allowed, local-only or none.")
             clean[key] = value
         elif key == "auto_apply_kinds":
             if not isinstance(value, list) or any(v not in AUTO_APPLY_KINDS for v in value):
@@ -87,7 +88,16 @@ class Effective:
 
     @property
     def cloud_allowed(self) -> bool:
-        return str(self.values.get("cloud", "allowed")) != "local-only"
+        """A model that is not on this computer may read the page."""
+        return str(self.values.get("cloud", "allowed")) == "allowed"
+
+    @property
+    def ai_allowed(self) -> bool:
+        """Some model may read the page; False for `cloud: none`."""
+        return str(self.values.get("cloud", "allowed")) != "none"
+
+    def readable(self, *, cloud: bool) -> bool:
+        return self.cloud_allowed if cloud else self.ai_allowed
 
     @property
     def autonomy(self) -> str:
@@ -122,8 +132,9 @@ def _apply(effective: Effective, meta: dict[str, Any], source: str) -> None:
         if key == "cloud":
             if value not in CLOUD:
                 continue
-            if effective.values.get("cloud") == "local-only":
-                continue
+            current = effective.values.get("cloud", "allowed")
+            if current in CLOUD and CLOUD.index(value) <= CLOUD.index(current):
+                continue  # a stricter choice above cannot be loosened below
         effective.values[key] = value
         effective.sources[key] = source
     if layer:

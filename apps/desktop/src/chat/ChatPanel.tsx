@@ -1,16 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Check,
-  Highlighter,
-  History,
-  MessageSquare,
-  Plus,
-  Settings2,
-  Orbit,
-  X,
-} from "lucide-react";
+import { Check, Highlighter, History, Plus, Settings2, Orbit, X } from "lucide-react";
 import { toast } from "sonner";
-import { ai, toScope, type ChatMode, type Conversation } from "@/lib/ai";
+import { ai, toScope, type ChatMode, type Conversation, type Scope } from "@/lib/ai";
+import type { TreeNode } from "@/lib/api";
+import { ALL_PAGES } from "@/lib/scope";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -21,6 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { relative } from "@/lib/automation";
 import { Composer } from "@/ai/Composer";
+import { ScopeDialog } from "@/ai/ScopeDialog";
+import { ScopeMenu } from "@/ai/ScopeMenu";
 import { ContextBlock } from "@/ai/ContextBlock";
 import { MessageList } from "@/ai/MessageList";
 import { LimitsCallout } from "@/ai/Sources";
@@ -43,10 +38,11 @@ export interface ChatRequest {
   send?: boolean;
 }
 
-/** "Ask AI": a chat panel beside the open page, scoped to that page or its subtree. */
+/** "Ask AI": a chat panel beside the open page. It may use every page (the default), this
+ * page, a chosen set or none; either way it knows which page it sits beside. */
 export function ChatPanel({
   path,
-  title,
+  tree,
   onClose,
   onSettings,
   onNavigate,
@@ -55,7 +51,7 @@ export function ChatPanel({
   request,
 }: {
   path: string;
-  title: string;
+  tree: TreeNode[];
   onClose: () => void;
   onSettings: () => void;
   onNavigate: (path: string) => void;
@@ -68,7 +64,8 @@ export function ChatPanel({
   const [modelVersion, setModelVersion] = useState(0);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selected, setSelected] = useState<Conversation | null>(null);
-  const [includeSubpages, setIncludeSubpages] = useState(true);
+  const [scope, setScope] = useState<Scope>(ALL_PAGES);
+  const [scopeOpen, setScopeOpen] = useState(false);
   const [mode, setMode] = useState<ChatMode>("ask");
   const [draft, setDraft] = useState("");
   const [useSelection, setUseSelection] = useState(false);
@@ -79,14 +76,11 @@ export function ChatPanel({
   const changedPages = useChangedPages();
 
   const ensureConversation = useCallback(async () => {
-    const created = await ai.createConversation({
-      scope: { kind: includeSubpages ? "folder" : "page", roots: [path], excluded: [] },
-      mode,
-    });
+    const created = await ai.createConversation({ page_path: path, scope, mode });
     setSelected(created);
     setConversations((old) => [created, ...old]);
     return created;
-  }, [includeSubpages, path, mode]);
+  }, [scope, path, mode]);
 
   const chat = useChatStream({
     conversation: selected,
@@ -122,7 +116,7 @@ export function ChatPanel({
         setConversations(items);
         if (items[0]) {
           setSelected(items[0]);
-          setIncludeSubpages(toScope(items[0].scope).kind !== "page");
+          setScope(toScope(items[0].scope));
         }
       })
       .catch((e: Error) => live && chat.setError(e.message))
@@ -147,18 +141,28 @@ export function ChatPanel({
     end.current?.scrollIntoView?.({ block: "end" });
   }, [chat.stream, chat.messages, chat.status]);
 
-  const changeScope = async (subpages: boolean) => {
-    setIncludeSubpages(subpages);
+  const changeScope = async (next: Scope) => {
+    setScope(next);
+    setScopeOpen(false);
     if (!selected) return;
     try {
-      const updated = await ai.updateConversation(selected.id, {
-        scope: { kind: subpages ? "folder" : "page", roots: [path], excluded: [] },
-      });
+      const updated = await ai.updateConversation(selected.id, { scope: next });
       setSelected(updated);
     } catch (e) {
       toast.error((e as Error).message);
     }
   };
+
+  const pagesMenu = () => (
+    <ScopeMenu
+      scope={scope}
+      tree={tree}
+      page={path}
+      onChange={(next) => void changeScope(next)}
+      onChoose={() => setScopeOpen(true)}
+      disabled={chat.busy}
+    />
+  );
 
   const send = async (text = draft) => {
     if (!configured) {
@@ -215,7 +219,7 @@ export function ChatPanel({
                     key={c.id}
                     onSelect={() => {
                       setSelected(c);
-                      setIncludeSubpages(toScope(c.scope).kind !== "page");
+                      setScope(toScope(c.scope));
                     }}
                   >
                     <span className="ai-history-item">
@@ -237,6 +241,7 @@ export function ChatPanel({
               setSelected(null);
               chat.setMessages([]);
               setAttachments([]);
+              setScope(ALL_PAGES);
             }}
           >
             <Plus size={16} />
@@ -261,28 +266,6 @@ export function ChatPanel({
           </Button>
         </div>
       </header>
-      <div className="ai-chat-scope">
-        <MessageSquare size={13} />
-        <span>{title}</span>
-        <div className="ai-modes ai-scope-toggle" role="group" aria-label="Chat scope">
-          <button
-            type="button"
-            data-active={!includeSubpages || undefined}
-            aria-pressed={!includeSubpages}
-            onClick={() => void changeScope(false)}
-          >
-            This page
-          </button>
-          <button
-            type="button"
-            data-active={includeSubpages || undefined}
-            aria-pressed={includeSubpages}
-            onClick={() => void changeScope(true)}
-          >
-            & subpages
-          </button>
-        </div>
-      </div>
       <div className="ai-chat-body">
         {loading && <p className="text-sm text-muted-foreground">Loading conversations…</p>}
         {!chat.messages.length && !loading && (
@@ -291,12 +274,10 @@ export function ChatPanel({
               <Orbit size={27} />
             </div>
             <h2>A fresh look at your ideas.</h2>
-            <p>Ask about this page. Graite can explore its subpages to help you find an answer.</p>
-            {!configured ? (
-              <Button className="mb-4 w-full" onClick={onSettings}>
-                <Settings2 size={15} /> Choose your model
-              </Button>
-            ) : null}
+            <p>
+              Ask about this page or anything else in your workspace. Graite searches your pages and
+              opens only the ones it needs.
+            </p>
           </div>
         )}
         <ContextBlock context={chat.context} onNavigate={onNavigate} changed={changedPages} />
@@ -370,6 +351,7 @@ export function ChatPanel({
           onAttach={(list) => void files.attach(list)}
           onRemoveAttachment={(id) => void files.remove(id)}
           placeholder="Ask about this page…"
+          pages={pagesMenu()}
           left={
             selection.trim() ? (
               <button
@@ -387,6 +369,14 @@ export function ChatPanel({
         />
         <p className="ai-chat-footnote">{connection} · Uses saved pages</p>
       </footer>
+      <ScopeDialog
+        open={scopeOpen}
+        tree={tree}
+        scope={scope}
+        onApply={(next) => void changeScope(next)}
+        onCancel={() => setScopeOpen(false)}
+        allowNone
+      />
     </aside>
   );
 }

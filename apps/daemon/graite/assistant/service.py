@@ -9,6 +9,7 @@ from typing import Any
 from graite.agents.definitions import AgentDef, clean_instructions
 from graite.agents.triggers import in_scope
 from graite.assistant import memory
+from graite.models.config import is_cloud
 from graite.retrieval.scope import Scope
 
 RUN_KIND = "assistant_turn"
@@ -63,7 +64,7 @@ async def build_turn(
             notes.append(note.replace("The page's", "The assistant's"))
     # Voice brevity belongs in the prompt. Tool arguments share the completion budget:
     # capping this whole turn for speech also cuts off page edits and board cards.
-    cloud = config.provider != "local"
+    cloud = is_cloud(config)
     root = memory.root_path(state, definition.memory)
     scope = effective_scope(definition, root)
     resolved = _resolved_scope(state, scope, cloud=cloud)

@@ -21,17 +21,20 @@ const time = (iso: string) =>
 const day = (iso: string) =>
   new Date(iso).toLocaleDateString([], { month: "short", day: "numeric" });
 
-/** Graite Cloud in Settings → Chat: what it is, signing in through the browser, and today's
- * credits. There is nothing to choose: the vault uses the model Graite Cloud offers (the first
+/** Graite Cloud in Settings: signing in through the browser, and today's credits. There is
+ * nothing to choose: a vault that chats with Graite Cloud uses the model it offers (the first
  * available one), picked here as soon as the account is signed in. */
 export function GraiteCloudCard({
   activeModel,
   disabled,
   onPick,
+  autoPick = true,
 }: {
   activeModel: string | null;
   disabled: boolean;
   onPick: (model: CloudModel) => void;
+  /** False while chat uses another model: signing in must not switch the chat model. */
+  autoPick?: boolean;
 }) {
   const [status, setStatus] = useState<CloudStatus | null>(null);
   const [models, setModels] = useState<CloudModel[]>([]);
@@ -72,8 +75,8 @@ export function GraiteCloudCard({
   // One model for everyone: select it, so saving just works.
   const offered = models.find((m) => m.available) ?? null;
   useEffect(() => {
-    if (offered && offered.id !== activeModel) onPick(offered);
-  }, [offered, activeModel, onPick]);
+    if (autoPick && offered && offered.id !== activeModel) onPick(offered);
+  }, [autoPick, offered, activeModel, onPick]);
 
   const signIn = async (signup: boolean) => {
     setError("");

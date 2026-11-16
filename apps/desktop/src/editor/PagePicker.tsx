@@ -12,10 +12,19 @@ interface PagePickerProps {
   excludePath: string | null;
   onPick: (page: FlatPage) => void;
   onCancel: () => void;
+  /** What the dialog is for, read out by screen readers. */
+  title?: string;
 }
 
-/** Search-and-pick dialog for "Link to page". Keyboard: type to filter, ↑/↓, Enter, Esc. */
-export function PagePicker({ open, tree, excludePath, onPick, onCancel }: PagePickerProps) {
+/** Search-and-pick dialog for a page ("Link to page", "Open a page"). Keyboard: type to filter, ↑/↓, Enter, Esc. */
+export function PagePicker({
+  open,
+  tree,
+  excludePath,
+  onPick,
+  onCancel,
+  title = "Link to page",
+}: PagePickerProps) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,7 +53,7 @@ export function PagePicker({ open, tree, excludePath, onPick, onCancel }: PagePi
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onCancel()}>
       <DialogContent className="gap-0 p-0 sm:max-w-lg" showCloseButton={false}>
-        <DialogTitle className="sr-only">Link to page</DialogTitle>
+        <DialogTitle className="sr-only">{title}</DialogTitle>
         <div className="flex items-center gap-2 border-b px-3 py-2">
           <Search className="size-4 text-muted-foreground" />
           <input

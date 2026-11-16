@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { TextInstructionsEditor } from "@/editor/TextInstructionsEditor";
 import { AgentSettings } from "@/ai/AgentSettings";
 import type { TreeNode } from "@/lib/api";
+import { useProfile } from "@/lib/profile";
 import type { AgentBody } from "@/lib/automation";
 import {
   assistant,
@@ -26,6 +27,7 @@ export function AssistantProfile({
   tab: "profile" | "settings";
   onSaved: (info: AssistantInfo) => void;
 }) {
+  const me = useProfile();
   const saved = useMemo(() => bodyOf(info), [info]);
   const [draft, setDraft] = useState<AssistantBody>(saved);
   const [busy, setBusy] = useState(false);
@@ -102,13 +104,16 @@ export function AssistantProfile({
             </div>
             <section className="assistant-section">
               <h2>What should I call you?</h2>
-              <p>It greets you by this name when you start talking. Leave empty for “Hi there.”</p>
+              <p>
+                It greets you by this name when you start talking. Leave empty to use your name from
+                Settings.
+              </p>
               <input
                 className="assistant-name-input"
                 aria-label="Your name"
                 value={draft.user_name ?? ""}
                 maxLength={60}
-                placeholder="Your first name"
+                placeholder={me?.first_name || "Your first name"}
                 onChange={(e) => patch({ user_name: e.target.value })}
               />
             </section>

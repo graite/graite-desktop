@@ -137,36 +137,36 @@
   margin-left: 24px;
 }
 
-/* Markdown tables (GFM): a compact document table, deliberately separate from CSV-backed
-   databases and page table views. It fills the text column, but can still grow and scroll
-   when the content needs more room. The "+" controls are TableExtendButton.tsx. */
+/* Markdown tables (GFM): a plain document table, deliberately separate from CSV-backed
+   databases and page table views. It fills the text column, and can grow and scroll when
+   the content needs more room. The "+" controls are TableExtendButton.tsx. */
 .bn-editor [data-content-type="table"] {
-  margin-block: 6px;
+  margin-block: 4px;
+}
+.bn-editor [data-content-type="table"] .tableWrapper {
+  --bn-table-widget-size: 20px;
 }
 .bn-editor [data-content-type="table"] table {
   width: max-content !important;
-  min-width: 100%;
+  min-width: 100% !important;
   border-collapse: separate;
   border-spacing: 0;
-  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
-  border-radius: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
   overflow: hidden;
-  font-size: 13px;
-  line-height: 1.45;
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 3%),
-    0 8px 22px -22px rgb(0 0 0 / 28%);
+  font-size: 14px;
+  line-height: 1.5;
 }
 .bn-editor [data-content-type="table"] th,
 .bn-editor [data-content-type="table"] td {
   position: relative;
   border: 0;
-  border-right: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  padding: 9px 13px;
-  min-width: 132px;
-  vertical-align: middle;
-  transition: background-color 0.12s ease;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 7px 12px;
+  min-width: 120px;
+  vertical-align: top;
+  background: var(--background);
 }
 .bn-editor [data-content-type="table"] tr > :last-child {
   border-right: 0;
@@ -177,18 +177,9 @@
 /* The header row (Markdown tables always have one). */
 .bn-editor [data-content-type="table"] th,
 .bn-editor [data-content-type="table"] tr:first-child td {
-  background: color-mix(in srgb, var(--muted) 48%, var(--background));
-  color: color-mix(in srgb, var(--foreground) 78%, var(--muted-foreground));
-  font-size: 12.5px;
+  background: color-mix(in srgb, var(--muted) 60%, var(--background));
   font-weight: 600;
-  letter-spacing: 0.005em;
   text-align: left;
-}
-.bn-editor [data-content-type="table"] tbody tr:nth-child(even):not(:first-child) td {
-  background: color-mix(in srgb, var(--muted) 16%, var(--background));
-}
-.bn-editor [data-content-type="table"] tbody tr:not(:first-child):hover td {
-  background: color-mix(in srgb, var(--muted) 42%, var(--background));
 }
 /* Selected cells and the column resize line in the selection blue, not black. */
 .bn-editor [data-content-type="table"] .selectedCell::after {
@@ -198,18 +189,41 @@
   background-color: #3189d1;
   width: 2px;
 }
+/* The row and column grips: a small chip on the table's edge instead of a heavy black icon. */
+.bn-table-handle {
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  padding: 1px 3px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 5px !important;
+  background: var(--background) !important;
+  color: var(--muted-foreground) !important;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
+  cursor: grab;
+}
+.bn-table-handle:hover,
+.bn-table-handle[data-state="open"] {
+  background: var(--muted) !important;
+  color: var(--foreground) !important;
+}
+.bn-table-handle svg {
+  width: 12px !important;
+  height: 12px !important;
+}
 .bn-extend-button {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
   border-radius: 6px;
-  background: transparent;
+  background: transparent !important;
   color: var(--muted-foreground) !important;
   font-size: 12px;
-  opacity: 0.7;
+  opacity: 0.55;
 }
 .bn-extend-button:hover,
-.bn-extend-button.bn-extend-button-editing {
+.bn-extend-button.bn-extend-button-editing:hover {
   opacity: 1;
   background: var(--muted) !important;
   color: var(--foreground) !important;
@@ -349,11 +363,45 @@
   outline: none;
 }
 
-/* Bigger list bullets; the line box stays 1.5× the text size so the glyph sits on the first line. */
+/* List bullets are drawn, not typed: the "•" glyph is oval in some fonts. BlockNote's glyph is
+ * removed and a dot is painted in a box the height of the first line (1.5× the text size). */
+.bn-editor {
+  --bullet-size: 7px;
+  --bullet-image: radial-gradient(
+    circle closest-side,
+    currentColor calc(100% - 0.5px),
+    transparent
+  );
+}
+/* One level in: a ring. Two or more: a square. */
+.bn-editor [data-content-type="bulletListItem"] ~ .bn-block-group {
+  --bullet-image: radial-gradient(
+    circle closest-side,
+    transparent calc(100% - 2px),
+    currentColor calc(100% - 1.5px),
+    currentColor calc(100% - 0.5px),
+    transparent
+  );
+}
+.bn-editor
+  [data-content-type="bulletListItem"]
+  ~ .bn-block-group
+  [data-content-type="bulletListItem"]
+  ~ .bn-block-group {
+  --bullet-size: 6px;
+  --bullet-image: linear-gradient(currentColor, currentColor);
+}
 .bn-block-content[data-content-type="bulletListItem"]::before,
 .bn-block-outer[data-prev-type="bulletListItem"] > .bn-block > .bn-block-content::before {
-  font-size: 1.4em;
-  line-height: calc(1.5em / 1.4);
+  /* BlockNote sets the glyph per nesting level with longer selectors. */
+  content: "" !important;
+  align-self: flex-start;
+  flex-shrink: 0;
+  height: 1.5em;
+  background-image: var(--bullet-image);
+  background-repeat: no-repeat;
+  background-size: var(--bullet-size) var(--bullet-size);
+  background-position: calc(50% - 2px) 50%;
 }
 
 [data-page-scroll] {
@@ -376,7 +424,19 @@
   align-items: center;
   min-height: 52px;
   flex-shrink: 0;
-  padding: 8px 140px 8px 18px;
+  padding: 8px 14px 8px 18px;
+  gap: 8px;
+}
+/* AI settings, Ask AI and the page menu, top right. */
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.review-bar + .page-actions {
+  margin-left: 4px;
 }
 
 /* Review: blocks an open proposal would change, and the slot its card is rendered into. */
@@ -445,4 +505,15 @@
 }
 .bn-side-menu [draggable="true"] {
   touch-action: none;
+}
+
+/* The editor sits on the page, in both themes: BlockNote's own dark surface is a shade lighter
+ * than the app's and showed as a box around the text. */
+.bn-container[data-color-scheme] {
+  --bn-colors-editor-background: var(--background);
+  --bn-colors-editor-text: var(--foreground);
+  --bn-colors-menu-background: var(--popover);
+  --bn-colors-menu-text: var(--popover-foreground);
+  --bn-colors-hovered-background: var(--accent);
+  --bn-colors-border: var(--border);
 }

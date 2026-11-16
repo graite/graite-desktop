@@ -169,7 +169,8 @@ function renderPage(overrides: Partial<Parameters<typeof AIPage>[0]> = {}) {
 it("answers from the whole vault and shows its sources and limits", async () => {
   const props = renderPage();
   await screen.findByText("How can I help you today?");
-  expect(screen.getByRole("button", { name: /All pages/ })).toBeTruthy();
+  // The selection shows under the heading and in the message box, on All pages by default.
+  expect(screen.getAllByRole("button", { name: /All pages/ })).toHaveLength(1);
   fireEvent.change(screen.getByLabelText("Ask about your pages…"), { target: { value: "Price?" } });
   fireEvent.click(screen.getByRole("button", { name: "Send message" }));
   await screen.findByText("1 new source");
@@ -284,12 +285,27 @@ it("narrows the pages the AI may use", async () => {
   });
   renderPage();
   await screen.findByText("How can I help you today?");
-  fireEvent.click(screen.getByRole("button", { name: /All pages/ }));
+  fireEvent.keyDown(screen.getAllByRole("button", { name: /All pages/ })[0], { key: "ArrowDown" });
+  fireEvent.click(await screen.findByRole("menuitem", { name: /Choose pages/ }));
   fireEvent.click(await screen.findByRole("checkbox", { name: "Pricing" }));
-  fireEvent.click(screen.getByRole("button", { name: "Clear" }));
-  expect(
-    (screen.getByRole("button", { name: "Use these pages" }) as HTMLButtonElement).disabled,
-  ).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Deselect all" }));
+  fireEvent.click(screen.getByRole("button", { name: "Use no pages" }));
+  await waitFor(() => expect(screen.getAllByRole("button", { name: /No pages/ })).toHaveLength(1));
+});
+
+it("deselects all pages from the menu and starts the chat without them", async () => {
+  renderPage();
+  await screen.findByText("How can I help you today?");
+  fireEvent.keyDown(screen.getAllByRole("button", { name: /All pages/ })[0], { key: "ArrowDown" });
+  fireEvent.click(await screen.findByRole("menuitem", { name: /Deselect all/ }));
+  fireEvent.change(screen.getByLabelText("Ask about your pages…"), { target: { value: "Hi" } });
+  fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+  await waitFor(() => expect(aiMock.createConversation).toHaveBeenCalled());
+  expect(aiMock.createConversation.mock.calls[0][0].scope).toEqual({
+    kind: "none",
+    roots: [],
+    excluded: [],
+  });
 });
 
 it("starts centered even with history, moves the composer after sending, and returns on New chat", async () => {

@@ -265,10 +265,10 @@ async def assistant_loop(ctx: JobContext) -> dict[str, Any]:
             quiet = False
         if quiet:
             return {"outcome": "skipped", "reason": "Nothing changed since the last pass."}
-    from graite.models.config import load_config
+    from graite.models.config import is_cloud, load_config
 
     config = load_config(state.db)
-    remembered = await memory.digest(state, root, cloud=config.provider != "local")
+    remembered = await memory.digest(state, root, cloud=is_cloud(config))
     turn = _agent_context(
         state,
         ctx,

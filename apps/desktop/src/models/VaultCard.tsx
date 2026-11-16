@@ -33,13 +33,11 @@ export function VaultCard() {
     }
   };
   return (
-    <section className="ai-utilities" aria-label="Vault">
-      <div className="ai-section-heading">
-        <h2>Vault</h2>
-        <span>Your notes on disk</span>
-      </div>
+    <section className="settings-card" aria-label="Vault">
+      <h2>Vault</h2>
+      <p>The folder on this computer that holds your pages, as plain Markdown files.</p>
       <div className="ai-vault-card">
-        <HardDrive size={20} />
+        <HardDrive size={18} />
         <div>
           <strong>{vaultName(path)}</strong>
           <small title={path}>{path}</small>

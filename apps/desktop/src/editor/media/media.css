@@ -221,10 +221,10 @@
   flex-wrap: wrap;
   margin: 0 20px 4px;
   padding: 12px;
-  border: 1px solid #dedede;
+  border: 1px solid var(--border);
   border-radius: 10px;
-  background: #fff;
-  color: #111;
+  background: var(--background);
+  color: var(--foreground);
   user-select: none;
 }
 .local-media-block .graite-audio audio {
@@ -243,7 +243,7 @@
 .graite-audio input[type="range"] {
   flex: 1;
   min-width: 70px;
-  accent-color: #111;
+  accent-color: var(--foreground);
   height: 18px;
   cursor: pointer;
 }

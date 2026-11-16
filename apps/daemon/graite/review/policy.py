@@ -52,6 +52,8 @@ def decide(
 ) -> Decision:
     if effective.autonomy == "none":
         return Decision("refuse", "This page's AI settings don't allow changes by AI.", "refused")
+    if not effective.ai_allowed:
+        return Decision("refuse", "AI is turned off for this page in its AI settings.", "refused")
     if cloud_model and not effective.cloud_allowed:
         return Decision(
             "refuse",

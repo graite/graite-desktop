@@ -33,7 +33,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 15px;
-  background: #eeeee5;
+  background: color-mix(in srgb, #8e9c76 16%, var(--background));
   color: #777954;
   flex-shrink: 0;
 }
@@ -45,7 +45,7 @@
   padding: 45px 20px;
   border: 1px dashed var(--border);
   border-radius: 16px;
-  background: #fafaf7;
+  background: color-mix(in srgb, var(--muted) 45%, var(--background));
 }
 .agents-empty h2 {
   font-size: 21px;
@@ -321,7 +321,7 @@
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border);
-  background: #fcfcfa;
+  background: color-mix(in srgb, var(--muted) 45%, var(--background));
 }
 .agent-chat-heading {
   display: flex;
@@ -513,7 +513,7 @@
   align-items: center;
   gap: 10px;
   padding: 16px 28px;
-  background: #f0f3e8;
+  background: color-mix(in srgb, #8e9c76 16%, var(--background));
   color: #68764e;
   font-size: 12px;
   line-height: 1.6;
@@ -794,7 +794,7 @@
     border-color 0.15s;
 }
 .agent-tool-list .agent-tool-pill[aria-pressed="true"] {
-  background: #eff2e8;
+  background: color-mix(in srgb, #8e9c76 16%, var(--background));
   border-color: #bdc7a8;
   color: #465537;
 }

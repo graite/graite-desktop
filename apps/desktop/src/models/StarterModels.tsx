@@ -12,6 +12,7 @@ type Hardware = components["schemas"]["Hardware"];
 
 const FIT: Record<Fit, string> = {
   good: "Runs well on this computer",
+  tight: "Runs, but leaves little memory for other apps",
   slow: "Runs, but slowly on this computer",
   too_big: "Too big for this computer",
 };

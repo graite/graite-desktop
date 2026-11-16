@@ -21,6 +21,8 @@ function suggestName(url: string): string {
   const host = hostOf(url.trim());
   if (!host) return "";
   if (host.endsWith("openrouter.ai")) return "OpenRouter";
+  if (host.endsWith("openai.com")) return "OpenAI";
+  if (host.endsWith("x.ai")) return "Grok (xAI)";
   if (/^(localhost|127\.0\.0\.1|\[?::1\]?)$/.test(host)) {
     const port = (() => {
       try {
@@ -34,12 +36,25 @@ function suggestName(url: string): string {
   return host.replace(/^api\./, "").replace(/^www\./, "");
 }
 
+/** An address to fill in with one click: a well-known server or provider. */
+export interface ConnectionPreset {
+  label: string;
+  url: string;
+}
+
 function AddConnection({
   kind,
+  presets,
+  urlPlaceholder = URL_PLACEHOLDER,
+  keyOptional = true,
   onAdded,
   onError,
 }: {
   kind: ConnectionKind;
+  presets?: ConnectionPreset[];
+  urlPlaceholder?: string;
+  /** A server you run may need no key; an outside provider always does. */
+  keyOptional?: boolean;
   onAdded: (connection: Connection) => void;
   onError: (message: string) => void;
 }) {
@@ -83,7 +98,7 @@ function AddConnection({
             Server address <span className="ai-optional">include /v1</span>
             <input
               value={url}
-              placeholder={URL_PLACEHOLDER}
+              placeholder={urlPlaceholder}
               onChange={(e) => setUrl(e.target.value)}
               required
             />
@@ -98,7 +113,10 @@ function AddConnection({
           />
         </label>
         <label className="ai-field">
-          API key {isServer && <span className="ai-optional">optional for local servers</span>}
+          API key{" "}
+          {isServer && keyOptional && (
+            <span className="ai-optional">optional for local servers</span>
+          )}
           <input
             type="password"
             autoComplete="off"
@@ -112,15 +130,31 @@ function AddConnection({
         <Button type="submit" variant="outline" disabled={busy}>
           Add connection
         </Button>
-        {isServer && (
-          <small>
-            For OpenRouter use{" "}
-            <button type="button" className="ai-source" onClick={() => setUrl(OPENROUTER_URL)}>
-              {OPENROUTER_URL}
-            </button>
-            . For Ollama use http://127.0.0.1:11434/v1.
-          </small>
-        )}
+        {isServer &&
+          (presets ? (
+            <small className="ai-connection-presets">
+              Fill in the address for
+              {presets.map((preset) => (
+                <button
+                  key={preset.url}
+                  type="button"
+                  className="ai-source"
+                  title={preset.url}
+                  onClick={() => setUrl(preset.url)}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </small>
+          ) : (
+            <small>
+              For OpenRouter use{" "}
+              <button type="button" className="ai-source" onClick={() => setUrl(OPENROUTER_URL)}>
+                {OPENROUTER_URL}
+              </button>
+              . For Ollama use http://127.0.0.1:11434/v1.
+            </small>
+          ))}
       </div>
     </form>
   );
@@ -249,18 +283,28 @@ export function ConnectionsCard({
   onPick,
   onChanged,
   disabled,
+  filter,
+  presets,
+  urlPlaceholder,
+  keyOptional,
 }: {
   kind: ConnectionKind;
   connections: Connection[];
   models: SavedModel[];
   activeModelId: string | null;
   onPick: (model: SavedModel) => void;
-  onChanged: () => void;
+  /** Something changed; `created` is the connection that was just added, if one was. */
+  onChanged: (created?: Connection) => void;
   disabled?: boolean;
+  /** Show only some of this kind's connections (servers you run, or outside providers). */
+  filter?: (connection: Connection) => boolean;
+  presets?: ConnectionPreset[];
+  urlPlaceholder?: string;
+  keyOptional?: boolean;
 }) {
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
-  const mine = connections.filter((c) => c.kind === kind);
+  const mine = connections.filter((c) => c.kind === kind && (!filter || filter(c)));
   return (
     <div className="ai-connections" aria-label={`${KIND_LABELS[kind]} connections`}>
       {error && (
@@ -308,7 +352,7 @@ export function ConnectionsCard({
                 onClick={() =>
                   void api
                     .remove(connection.id)
-                    .then(onChanged)
+                    .then(() => onChanged())
                     .catch((e: Error) => setError(e.message))
                 }
               >
@@ -358,7 +402,7 @@ export function ConnectionsCard({
                           onClick={() =>
                             void api
                               .removeModel(model.id)
-                              .then(onChanged)
+                              .then(() => onChanged())
                               .catch((e: Error) => setError(e.message))
                           }
                         >
@@ -383,7 +427,14 @@ export function ConnectionsCard({
           </section>
         );
       })}
-      <AddConnection kind={kind} onAdded={onChanged} onError={setError} />
+      <AddConnection
+        kind={kind}
+        presets={presets}
+        urlPlaceholder={urlPlaceholder}
+        keyOptional={keyOptional}
+        onAdded={onChanged}
+        onError={setError}
+      />
     </div>
   );
 }

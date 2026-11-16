@@ -76,7 +76,13 @@ function Step({
 }
 
 /** Claude or ChatGPT in the browser: through Graite Cloud, in three steps. */
-function BrowserConnector({ initial }: { initial: RemoteInfo }) {
+function BrowserConnector({
+  initial,
+  onOpenAccount,
+}: {
+  initial: RemoteInfo;
+  onOpenAccount?: () => void;
+}) {
   const [account, setAccount] = useState<CloudStatus | null>(null);
   const [remote, setRemote] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -123,7 +129,8 @@ function BrowserConnector({ initial }: { initial: RemoteInfo }) {
   const signIn = async () => {
     try {
       const started = await cloud.login(false);
-      if (!started.opened) toast.error("Your browser didn’t open. Try again from Settings → Chat.");
+      if (!started.opened)
+        toast.error("Your browser didn’t open. Try again from Settings → Graite Cloud.");
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -149,7 +156,7 @@ function BrowserConnector({ initial }: { initial: RemoteInfo }) {
       <header className="connector-head">
         <Globe size={18} />
         <div>
-          <h3>Connect Claude or ChatGPT</h3>
+          <h3>Connect Claude, ChatGPT or Grok</h3>
           <p>Let an AI app in your browser work in this vault, through your Graite account.</p>
         </div>
       </header>
@@ -159,10 +166,20 @@ function BrowserConnector({ initial }: { initial: RemoteInfo }) {
             <small>Signed in{account?.email ? ` as ${account.email}` : ""}.</small>
           ) : (
             <>
-              <small>Your Graite account is what the AI app signs in with.</small>
-              <Button size="sm" variant="outline" onClick={() => void signIn()}>
-                Sign in
-              </Button>
+              <small>
+                Your Graite account is what the AI app signs in with, so only you can open this
+                vault from it.
+              </small>
+              <div className="connector-actions">
+                <Button size="sm" variant="outline" onClick={() => void signIn()}>
+                  Sign in
+                </Button>
+                {onOpenAccount && (
+                  <Button size="sm" variant="ghost" onClick={onOpenAccount}>
+                    What is Graite Cloud?
+                  </Button>
+                )}
+              </div>
             </>
           )}
         </Step>
@@ -183,11 +200,38 @@ function BrowserConnector({ initial }: { initial: RemoteInfo }) {
         </Step>
         <Step n={3} title="Add Graite as a connector in your AI app" done={false}>
           <small>
-            <b>Claude:</b> Settings → Connectors → Add custom connector. <b>ChatGPT:</b> Settings →
-            Connectors (developer mode) → Create. Paste this URL, then sign in with your Graite
-            account and click Allow.
+            Copy this address, then follow the steps for your app. Each app asks you to sign in with
+            your Graite account and click Allow: that is what gives it access.
           </small>
           <Snippet label="Connector URL" hint="Paste it into your AI app" text={remote.url} />
+          <ul className="connector-howto" aria-label="How to add the connector">
+            <li>
+              <strong>Claude</strong>
+              <span>
+                Open Settings → Connectors and choose Add custom connector. Give it a name, paste
+                the address and add it, then choose Connect.
+              </span>
+            </li>
+            <li>
+              <strong>ChatGPT</strong>
+              <span>
+                In ChatGPT on the web, open Settings → Apps &amp; Connectors → Advanced settings and
+                turn on Developer mode. Then create a connector, paste the address as its server URL
+                and confirm that you trust it.
+              </span>
+            </li>
+            <li>
+              <strong>Grok</strong>
+              <span>
+                Open grok.com/connectors, choose New connector → Custom, give it a name and paste
+                the address.
+              </span>
+            </li>
+          </ul>
+          <small>
+            These apps rename their menus now and then, and some offer custom connectors only on
+            certain plans. Look for “Connectors” in the app’s settings if a step has moved.
+          </small>
         </Step>
       </ol>
       <div className="connector-can">
@@ -200,8 +244,8 @@ function BrowserConnector({ initial }: { initial: RemoteInfo }) {
         </ul>
         <p className="mcp-note">
           Every change waits in Review until you accept it, unless the page applies AI changes
-          automatically. Pages marked local-only stay hidden. Graite has to be open on this
-          computer.
+          automatically. Pages marked local-only stay hidden, and so do pages with AI turned off.
+          Graite has to be open on this computer.
         </p>
       </div>
     </section>
@@ -346,7 +390,7 @@ function LocalApps({ info }: { info: McpInfo }) {
 }
 
 /** Settings → AI connectors: AI apps in the browser first, apps on this computer second. */
-export function ConnectorsCard() {
+export function ConnectorsCard({ onOpenAccount }: { onOpenAccount?: () => void } = {}) {
   const [info, setInfo] = useState<McpInfo | null>(null);
   useEffect(() => {
     let live = true;
@@ -361,7 +405,7 @@ export function ConnectorsCard() {
   if (!info) return null;
   return (
     <div className="connectors">
-      <BrowserConnector initial={info.remote} />
+      <BrowserConnector initial={info.remote} onOpenAccount={onOpenAccount} />
       <LocalApps info={info} />
     </div>
   );

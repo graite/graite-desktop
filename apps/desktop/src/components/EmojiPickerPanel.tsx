@@ -1,38 +1,23 @@
-import EmojiPicker, { EmojiStyle, type EmojiClickData } from "emoji-picker-react";
+import EmojiPicker, { EmojiStyle, Theme, type EmojiClickData } from "emoji-picker-react";
+import { useTheme } from "@/lib/theme";
 
 /**
- * The page-icon picker body shared by the page header and the sidebar tree.
+ * The emoji half of the page-icon picker.
  * Emojis render as native text: the picker's default image sets load from a CDN,
  * which the app's CSP blocks, leaving the grid blank.
  */
-export function EmojiPickerPanel({
-  hasIcon,
-  onPick,
-  onRemove,
-}: {
-  hasIcon: boolean;
-  onPick: (emoji: string) => void;
-  onRemove: () => void;
-}) {
+export function EmojiPickerPanel({ onPick }: { onPick: (emoji: string) => void }) {
+  const theme = useTheme();
   return (
-    <div>
-      {hasIcon && (
-        <button
-          className="w-full px-3 py-1.5 text-left text-xs text-muted-foreground hover:bg-accent"
-          onClick={onRemove}
-        >
-          Remove emoji
-        </button>
-      )}
-      <EmojiPicker
-        onEmojiClick={(d: EmojiClickData) => onPick(d.emoji)}
-        emojiStyle={EmojiStyle.NATIVE}
-        width={320}
-        height={400}
-        skinTonesDisabled
-        searchPlaceHolder="Search emoji..."
-        previewConfig={{ showPreview: false }}
-      />
-    </div>
+    <EmojiPicker
+      onEmojiClick={(d: EmojiClickData) => onPick(d.emoji)}
+      emojiStyle={EmojiStyle.NATIVE}
+      theme={theme === "dark" ? Theme.DARK : Theme.LIGHT}
+      width={320}
+      height={400}
+      skinTonesDisabled
+      searchPlaceHolder="Search emoji..."
+      previewConfig={{ showPreview: false }}
+    />
   );
 }

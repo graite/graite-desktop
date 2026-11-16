@@ -11,6 +11,8 @@ import {
   Files,
   Sparkles,
   MessageSquareHeart,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -42,6 +44,7 @@ import type { VaultList } from "@/lib/platform";
 import { PageTreeItem } from "./PageTreeItem";
 import { DaemonStatus } from "./DaemonStatus";
 import { useVault } from "./vault-context";
+import { setThemeChoice, useTheme } from "@/lib/theme";
 import "./vault.css";
 
 const EXPANDED_KEY = "graite.sidebar.expanded";
@@ -83,6 +86,7 @@ interface SidebarProps {
   tree: TreeNode[];
   selectedPath: string | null;
   onSelect: (path: string) => void;
+  onOpenInNewTab: (path: string) => void;
   onNavigateSettings?: (path: string) => Promise<void>;
   onTreeChanged: () => void;
   onRenamed: (oldPath: string, newPath: string) => void;
@@ -108,6 +112,7 @@ export function Sidebar({
   tree,
   selectedPath,
   onSelect,
+  onOpenInNewTab,
   onNavigateSettings,
   onTreeChanged,
   onRenamed,
@@ -244,6 +249,7 @@ export function Sidebar({
       <div className="flex items-center gap-2 px-3 py-2.5">
         <img src="/logo-graite.svg" alt="Graite" className="size-5 shrink-0 dark:invert" />
         <VaultMenu />
+        <ThemeToggle />
       </div>
       <nav className="flex gap-1 px-3 py-3" aria-label="Workspace sections">
         <button
@@ -290,6 +296,7 @@ export function Sidebar({
                 expanded={expanded}
                 renamingPath={renamingPath}
                 onSelect={onSelect}
+                onOpenInNewTab={onOpenInNewTab}
                 onToggle={toggle}
                 onCreateSubpage={(p) => void create(p)}
                 onStartRename={setRenamingPath}
@@ -445,7 +452,25 @@ export function Sidebar({
 }
 
 /** The vault's name in the sidebar header; on desktop a menu to switch or reveal it. */
-function VaultMenu() {
+/** Sun in dark mode, moon in light mode: the icon shows what a click switches to. */
+export function ThemeToggle() {
+  const theme = useTheme();
+  const next = theme === "dark" ? "light" : "dark";
+  const Icon = theme === "dark" ? Sun : Moon;
+  return (
+    <button
+      type="button"
+      className="ml-auto shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+      title={`Switch to ${next} mode`}
+      aria-label={`Switch to ${next} mode`}
+      onClick={() => setThemeChoice(next)}
+    >
+      <Icon size={15} />
+    </button>
+  );
+}
+
+export function VaultMenu() {
   const vault = useVault();
   const [recent, setRecent] = useState<VaultList | null>(null);
   const [switching, setSwitching] = useState(false);

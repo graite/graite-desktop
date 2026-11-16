@@ -228,3 +228,90 @@
   gap: 6px;
   flex-shrink: 0;
 }
+
+/* Open page tabs */
+.page-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 6px 8px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--border);
+  background: var(--sidebar);
+}
+.page-tabs::-webkit-scrollbar {
+  display: none;
+}
+.page-tab {
+  display: flex;
+  align-items: center;
+  flex: 0 1 190px;
+  min-width: 96px;
+  height: 30px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+.page-tab:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.page-tab[data-active] {
+  border-color: var(--border);
+  background: var(--background);
+  color: var(--foreground);
+  /* Sit on the bar's bottom border so the tab joins the page. */
+  margin-bottom: -1px;
+  height: 31px;
+}
+.page-tab-open {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px 0 10px;
+  cursor: pointer;
+}
+.page-tab-open > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.page-tab-close,
+.page-tab-new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 5px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.page-tab-close {
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+  opacity: 0;
+}
+.page-tab:hover .page-tab-close,
+.page-tab[data-active] .page-tab-close,
+.page-tab-close:focus-visible {
+  opacity: 1;
+}
+.page-tab-new {
+  width: 26px;
+  height: 26px;
+  margin: 0 0 3px 2px;
+}
+.page-tab-close:hover,
+.page-tab-new:hover {
+  background: color-mix(in oklab, var(--foreground) 10%, transparent);
+  color: var(--foreground);
+}

@@ -1,4 +1,5 @@
-"""Templates API (D77): the built-in gallery, and making a template's page tree."""
+"""Templates API (D77): the built-in gallery, making a template's page tree, and the
+examples of AI instructions (D90)."""
 
 from __future__ import annotations
 
@@ -9,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from graite.api.pages import PageDocModel
-from graite.templates import catalog
+from graite.templates import catalog, instructions
 from graite.vault.fileops import FileOps
 
 router = APIRouter(prefix="/templates", tags=["templates"])
@@ -53,6 +54,24 @@ class UseTemplate(BaseModel):
     title: str | None = Field(default=None, max_length=200)
     # Example rows and pages to show how it works; without them, tables start empty.
     sample_data: bool = True
+
+
+class InstructionExampleModel(BaseModel):
+    slug: str
+    name: str
+    description: str
+    # One of `instructions.CATEGORIES`, e.g. Productivity, Startups, Sales.
+    category: str
+    icon: str
+    # The instructions, as Markdown, ready to put in a page's AI settings.
+    text: str
+
+
+@router.get("/instructions", response_model=list[InstructionExampleModel])
+async def list_instruction_examples() -> list[dict[str, Any]]:
+    """Examples of AI instructions to start a page's AI settings from."""
+    found = await asyncio.to_thread(instructions.examples)
+    return [e.to_json() for e in found]
 
 
 @router.get("", response_model=list[TemplateModel])

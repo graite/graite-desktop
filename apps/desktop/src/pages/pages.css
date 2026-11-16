@@ -260,31 +260,31 @@
   color: color-mix(in srgb, var(--tag-color) 70%, var(--foreground));
 }
 .property-tag[data-color="gray"] {
-  --tag-color: #808080;
+  --tag-color: var(--tag-gray);
 }
 .property-tag[data-color="brown"] {
-  --tag-color: #986f50;
+  --tag-color: var(--tag-brown);
 }
 .property-tag[data-color="orange"] {
-  --tag-color: #c37932;
+  --tag-color: var(--tag-orange);
 }
 .property-tag[data-color="yellow"] {
-  --tag-color: #a78b24;
+  --tag-color: var(--tag-yellow);
 }
 .property-tag[data-color="green"] {
-  --tag-color: #3e9470;
+  --tag-color: var(--tag-green);
 }
 .property-tag[data-color="blue"] {
-  --tag-color: #4285b6;
+  --tag-color: var(--tag-blue);
 }
 .property-tag[data-color="purple"] {
-  --tag-color: #8a61ad;
+  --tag-color: var(--tag-purple);
 }
 .property-tag[data-color="pink"] {
-  --tag-color: #b56394;
+  --tag-color: var(--tag-pink);
 }
 .property-tag[data-color="red"] {
-  --tag-color: #bf625a;
+  --tag-color: var(--tag-red);
 }
 .property-status-dot {
   width: 6px;

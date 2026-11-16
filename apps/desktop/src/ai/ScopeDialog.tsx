@@ -115,12 +115,15 @@ export function ScopeDialog({
   scope,
   onApply,
   onCancel,
+  allowNone = false,
 }: {
   open: boolean;
   tree: TreeNode[];
   scope: Scope;
   onApply: (scope: Scope) => void;
   onCancel: () => void;
+  /** A chat may use no pages at all; an agent needs at least one. */
+  allowNone?: boolean;
 }) {
   const [checked, setChecked] = useState<Set<string>>(() => checkedFromScope(tree, scope));
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -154,7 +157,7 @@ export function ScopeDialog({
         <div className="ai-scope-heading">
           <DialogTitle>Pages</DialogTitle>
           <DialogDescription>
-            Select the pages Studio can use. Nested pages are included automatically.
+            Select the pages the AI can use. Nested pages are included automatically.
           </DialogDescription>
         </div>
         <div className="ai-scope-toolbar">
@@ -224,15 +227,15 @@ export function ScopeDialog({
               Select all
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setChecked(new Set())}>
-              Clear
+              Deselect all
             </Button>
           </div>
           <Button
             size="sm"
-            disabled={!count.selected}
+            disabled={!count.selected && !allowNone}
             onClick={() => onApply(normalizeSelection(tree, checked))}
           >
-            Use these pages
+            {count.selected || !allowNone ? "Use these pages" : "Use no pages"}
           </Button>
         </div>
       </DialogContent>

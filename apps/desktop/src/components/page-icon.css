@@ -1,0 +1,142 @@
+/* A chosen page icon takes one of the tag colours (index.css); "default" follows the text. */
+.page-icon {
+  color: var(--foreground);
+}
+.page-icon[data-color="gray"] {
+  color: var(--tag-gray);
+}
+.page-icon[data-color="brown"] {
+  color: var(--tag-brown);
+}
+.page-icon[data-color="orange"] {
+  color: var(--tag-orange);
+}
+.page-icon[data-color="yellow"] {
+  color: var(--tag-yellow);
+}
+.page-icon[data-color="green"] {
+  color: var(--tag-green);
+}
+.page-icon[data-color="blue"] {
+  color: var(--tag-blue);
+}
+.page-icon[data-color="purple"] {
+  color: var(--tag-purple);
+}
+.page-icon[data-color="pink"] {
+  color: var(--tag-pink);
+}
+.page-icon[data-color="red"] {
+  color: var(--tag-red);
+}
+
+/* Icon picker */
+.icon-picker {
+  width: 320px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  overflow: hidden;
+}
+.icon-picker-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 6px 0;
+}
+.icon-picker-tabs > button {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.icon-picker-tabs > button:hover {
+  background: var(--accent);
+}
+.icon-picker-tabs > button[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.icon-picker-tabs > .icon-picker-remove {
+  margin-left: auto;
+  font-weight: 400;
+}
+/* The emoji picker brings its own frame; inside ours it needs none. */
+.icon-picker .EmojiPickerReact {
+  border: none;
+  border-radius: 0;
+  --epr-bg-color: var(--popover);
+}
+.icon-picker-icons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 400px;
+  padding: 8px;
+}
+.icon-picker-search {
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  font-size: 13px;
+  outline: none;
+}
+.icon-picker-search:focus {
+  border-color: var(--ring);
+}
+.icon-picker-colors {
+  display: flex;
+  gap: 6px;
+  padding: 0 2px;
+}
+.icon-picker-colors > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+.icon-picker-colors > button > span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.icon-picker-colors > button[aria-checked="true"] {
+  border-color: currentColor;
+}
+.icon-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  align-content: start;
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+}
+.icon-picker-grid > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.icon-picker-grid > button:hover,
+.icon-picker-grid > button[aria-pressed="true"] {
+  background: var(--accent);
+}
+.icon-picker-note {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  text-align: center;
+}

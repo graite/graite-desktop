@@ -232,7 +232,7 @@ def memories_path(state: Any, root: str | None) -> str | None:
 
 
 def _allowed(state: Any, root: str, cloud: bool) -> bool:
-    return not cloud or policy.resolve(state.settings.vault, state.db, root).cloud_allowed
+    return policy.resolve(state.settings.vault, state.db, root).readable(cloud=cloud)
 
 
 def _rows(state: Any, parent: str, paths: list[str] | None = None) -> list[Any]:

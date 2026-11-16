@@ -26,7 +26,7 @@ export function MarkdownAnswer({
 }) {
   return (
     <Markdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={[[remarkGfm, { singleTilde: false }]]}
       urlTransform={(url) => (/^(graite:|graite-cite:|https?:|mailto:)/i.test(url) ? url : "")}
       components={{
         img: ({ alt }) => <span>{alt}</span>,

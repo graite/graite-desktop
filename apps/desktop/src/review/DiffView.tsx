@@ -7,7 +7,7 @@ function ReviewMarkdown({ text, kind }: { text: string; kind?: "add" | "del" }) 
   return (
     <div className="review-markdown" data-kind={kind}>
       <Markdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[[remarkGfm, { singleTilde: false }]]}
         skipHtml
         components={{
           // Previews must not fetch images, or navigate away from an unsaved review.

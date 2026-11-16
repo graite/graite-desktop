@@ -47,13 +47,12 @@ it("offers a mode dropdown with Ask, Draft and Act", async () => {
   await waitFor(() => expect(onModeChange).toHaveBeenCalledWith("act"));
 });
 
-it("opens files and nested page selection from the plus menu", async () => {
-  const onPages = vi.fn();
-  render(<Composer {...base} onPages={onPages} />);
+it("adds files from the plus menu and shows the page selection beside the mode", async () => {
+  render(<Composer {...base} pages={<button type="button">All pages</button>} />);
+  expect(screen.getByRole("button", { name: "All pages" })).toBeTruthy();
   fireEvent.keyDown(screen.getByRole("button", { name: "Add context" }), { key: "ArrowDown" });
   expect(await screen.findByRole("menuitem", { name: "Files" })).toBeTruthy();
-  fireEvent.click(screen.getByRole("menuitem", { name: "Pages" }));
-  expect(onPages).toHaveBeenCalled();
+  expect(screen.queryByRole("menuitem", { name: "Pages" })).toBeNull();
 });
 
 it("shows attachment chips with their reading status and stops a running answer", () => {

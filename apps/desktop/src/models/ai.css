@@ -1,9 +1,25 @@
+/* Settings covers the page area and the chat panel; the sidebar column (16rem, `w-64` in
+   Workspace) stays and shows the settings sections. On its own it brings that sidebar along. */
 .ai-settings {
   position: absolute;
-  inset: 0;
+  inset: 0 0 0 16rem;
   z-index: 30;
   overflow: auto;
   background: var(--background);
+}
+.ai-settings[data-own-sidebar] {
+  inset: 0;
+  display: flex;
+  overflow: hidden;
+}
+.ai-settings[data-own-sidebar] > aside {
+  width: 16rem;
+  flex-shrink: 0;
+}
+.ai-settings[data-own-sidebar] > .ai-settings-content {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
 }
 .ai-topbar {
   display: flex;
@@ -17,9 +33,9 @@
   font-size: 12px;
 }
 .ai-settings-content {
-  max-width: 900px;
-  margin: auto;
-  padding: 58px 40px 36px;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 44px 40px 36px;
 }
 .ai-eyebrow {
   display: flex;
@@ -804,9 +820,9 @@
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: #fff;
+  background: var(--background);
   border: 1px solid var(--border);
-  color: #202124;
+  color: var(--foreground);
   font-size: 16px;
   font-weight: 600;
   flex-shrink: 0;
@@ -1502,6 +1518,7 @@
 .ai-starter-fit.good {
   color: #4f5b38;
 }
+.ai-starter-fit.tight,
 .ai-starter-fit.slow {
   color: #8a6a1f;
 }

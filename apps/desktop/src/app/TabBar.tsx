@@ -1,0 +1,103 @@
+import { useState } from "react";
+import { FilePlus, Plus, Search, X } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { PagePicker } from "@/editor/PagePicker";
+import { PageIcon } from "@/components/PageIcon";
+import type { TreeNode } from "@/lib/api";
+import { findNode, lastSegment } from "@/editor/tree-utils";
+
+/** The open pages, across the top of the page area. Click to switch, × or middle-click to close.
+ * The + makes a new page or opens an existing one in a new tab. */
+export function TabBar({
+  tabs,
+  active,
+  tree,
+  onSelect,
+  onClose,
+  onNew,
+  onOpen,
+}: {
+  tabs: string[];
+  active: string | null;
+  tree: TreeNode[];
+  onSelect: (path: string) => void;
+  onClose: (path: string) => void;
+  onNew: () => void;
+  /** Open an existing page in a new tab. */
+  onOpen: (path: string) => void;
+}) {
+  const [picking, setPicking] = useState(false);
+  return (
+    <div className="page-tabs" role="tablist" aria-label="Open pages">
+      {tabs.map((path) => {
+        const node = findNode(tree, path);
+        const title = node?.title ?? lastSegment(path);
+        const selected = path === active;
+        return (
+          <div key={path} className="page-tab" data-active={selected || undefined}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              title={title}
+              className="page-tab-open"
+              onClick={() => onSelect(path)}
+              onAuxClick={(e) => {
+                if (e.button !== 1) return;
+                e.preventDefault();
+                onClose(path);
+              }}
+            >
+              <PageIcon
+                icon={node?.icon ?? null}
+                hasContent={node?.has_content ?? false}
+                className="size-3.5 shrink-0"
+              />
+              <span>{title}</span>
+            </button>
+            <button
+              type="button"
+              className="page-tab-close"
+              aria-label={`Close ${title}`}
+              title="Close tab"
+              onClick={() => onClose(path)}
+            >
+              <X size={12} />
+            </button>
+          </div>
+        );
+      })}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button type="button" className="page-tab-new" aria-label="New tab" title="New tab">
+            <Plus size={14} />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem onSelect={onNew}>
+            <FilePlus size={15} /> Add new page
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setPicking(true)}>
+            <Search size={15} /> Open a page…
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <PagePicker
+        open={picking}
+        tree={tree}
+        excludePath={null}
+        title="Open a page"
+        onPick={(page) => {
+          setPicking(false);
+          onOpen(page.path);
+        }}
+        onCancel={() => setPicking(false)}
+      />
+    </div>
+  );
+}

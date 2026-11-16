@@ -84,6 +84,16 @@
   --pill-lh: 16px;
   --shimmer-base: oklch(0.556 0 0);
   --shimmer-shine: oklch(0.205 0 0);
+  /* Tag colours: property tags and page icons. */
+  --tag-gray: #808080;
+  --tag-brown: #986f50;
+  --tag-orange: #c37932;
+  --tag-yellow: #a78b24;
+  --tag-green: #3e9470;
+  --tag-blue: #4285b6;
+  --tag-purple: #8a61ad;
+  --tag-pink: #b56394;
+  --tag-red: #bf625a;
 }
 
 .dark {

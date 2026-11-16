@@ -1,6 +1,6 @@
 import { createPortal } from "react-dom";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Database, Settings2, Orbit } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Settings2, Orbit } from "lucide-react";
 import { toast } from "sonner";
 import { onDaemonEvent, pages, type TreeNode } from "@/lib/api";
 import {
@@ -12,7 +12,7 @@ import {
   type Scope,
   toScope,
 } from "@/lib/ai";
-import { checkedFromScope, countSelected, scopeLabel } from "@/lib/scope";
+import { ALL_PAGES } from "@/lib/scope";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -30,6 +30,7 @@ import { ConversationList } from "./ConversationList";
 import { MessageList } from "./MessageList";
 import { LimitsCallout } from "./Sources";
 import { ScopeDialog } from "./ScopeDialog";
+import { ScopeMenu } from "./ScopeMenu";
 import { StreamingAnswer } from "./StreamingAnswer";
 import { useChangedPages } from "./useChangedPages";
 import { useChatStream } from "./useChatStream";
@@ -45,8 +46,6 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import type { useAssistant } from "@/assistant/useAssistant";
 import "@/models/ai.css";
 import "./ai-page.css";
-
-const ALL_PAGES: Scope = { kind: "vault", roots: [], excluded: [] };
 
 /** The Graite AI page: a full-window chat over the whole knowledge base. */
 export function AIPage({
@@ -148,11 +147,6 @@ export function AIPage({
     end.current?.scrollIntoView?.({ block: "end" });
   }, [chat.stream, chat.messages, chat.status]);
 
-  const scopeText = useMemo(
-    () => scopeLabel(scope, countSelected(tree, checkedFromScope(tree, scope))),
-    [scope, tree],
-  );
-
   const applyScope = async (next: Scope) => {
     setScope(next);
     setScopeOpen(false);
@@ -165,6 +159,17 @@ export function AIPage({
       }
     }
   };
+
+  const pagesMenu = () => (
+    <ScopeMenu
+      scope={scope}
+      tree={tree}
+      onChange={(next) => void applyScope(next)}
+      onChoose={() => setScopeOpen(true)}
+      disabled={chat.busy}
+      indexing={pending}
+    />
+  );
 
   const send = async (text = draft) => {
     if (!configured) {
@@ -310,14 +315,6 @@ export function AIPage({
             )}
           </nav>
           <div className="ai-page-header-actions">
-            <button type="button" className="ai-page-scope" onClick={() => setScopeOpen(true)}>
-              <Database size={12} /> {scopeText}
-            </button>
-            {!!pending && (
-              <span className="ai-index-pill" title="Sections still being indexed">
-                Indexing {pending}
-              </span>
-            )}
             <Button
               variant="ghost"
               size="icon"
@@ -339,11 +336,6 @@ export function AIPage({
                 </div>
                 <h2>How can I help you today?</h2>
                 <p>Explore your ideas, find answers, and make something new.</p>
-                {!configured ? (
-                  <Button className="mb-4" onClick={() => onSettings()}>
-                    <Settings2 size={15} /> Choose your model
-                  </Button>
-                ) : null}
               </div>
             )}
             <ContextBlock context={chat.context} onNavigate={onNavigate} changed={changedPages} />
@@ -384,8 +376,7 @@ export function AIPage({
           {active && section === "chat" && (
             <Composer
               contextId={selected?.id ?? "new"}
-              onPages={() => setScopeOpen(true)}
-              pageLabel={scopeText}
+              pages={pagesMenu()}
               onSettings={() => onSettings()}
               settingsVersion={settingsVersion}
               onModelChanged={() => setModelVersion((v) => v + 1)}
@@ -410,6 +401,7 @@ export function AIPage({
         scope={scope}
         onApply={(next) => void applyScope(next)}
         onCancel={() => setScopeOpen(false)}
+        allowNone
       />
     </main>
   );

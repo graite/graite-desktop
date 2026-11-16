@@ -82,14 +82,14 @@ Body starts here. The H1 is optional; `title` in frontmatter is authoritative.
 |---|---|---|---|
 | `id` | uuidv7 | fileops, once | Stable across renames and moves. The index, versions and proposals key on it. |
 | `title` | string | user | Display title. Folder name is derived from it. |
-| `icon` | string | user | Emoji, or `lucide:<name>`. |
+| `icon` | string | user | Emoji, or a [Lucide](https://lucide.dev) icon: `lucide:<name>` or, with a colour, `lucide:<name>:<color>` (`gray`, `brown`, `orange`, `yellow`, `green`, `blue`, `purple`, `pink`, `red`; the tag colours). An unknown name or colour shows the plain page glyph or the default colour. |
 | `created`, `updated` | ISO-8601 UTC | fileops only | Clients never set `updated`; it is written on every fileops write. |
 | `tags` | list | user | Obsidian-compatible. |
 | `order` | float | user / UI | Sibling ordering. Floats allow insert-between without renumbering. |
 | `aliases` | list | user | Extra names wikilinks may use; also used to resolve links after external renames. |
 | `autonomy` | `auto-apply` \| `propose` \| `none` | user | Inherits from the nearest page or `AGENTS.md`, then vault config. Default `propose`. `none` means no AI updates at all and cannot be lifted by a nested page. |
 | `auto_apply_kinds` | list of `append`, `create`, `edit`, `properties`, `rows`, `delete` | user | Only read when `autonomy: auto-apply`. `edit` also covers `properties` and `rows` (table row changes, D69). `move` is never auto-applied; `delete` only where listed explicitly (the assistant's memory root sets it, the settings dialog never offers it, D57). |
-| `cloud` | `allowed` \| `local-only` | user | `local-only` keeps this page and everything below it out of cloud providers (Claude, OpenAI-compatible servers off this machine); such pages are left out of answers produced by a cloud model and the answer says so. Cannot be lifted by a nested page. |
+| `cloud` | `allowed` \| `local-only` \| `none` | user | Who may read this page and everything below it. `local-only` keeps it out of cloud providers: Graite Cloud, Claude, OpenAI-compatible servers off this machine, and apps connected over MCP. A model Graite runs, or a model server at a loopback address on this machine, counts as local (D87). `none` closes the page to every model, local ones included. Such pages are left out of answers and the answer says so. A nested page can only be stricter, never more open. |
 | `instructions` | string | user | How this page and its subtree should be structured. Accumulates root to leaf: every ancestor's instructions apply, then this page's. |
 | `skills` | list | user | Allowlist of skill names for this subtree. Omit = inherit. |
 | `model` | catalog id or saved model id (`m_…`) | user | Override for this subtree. Saved models live app-wide (`~/.graite/connections.json`). Unavailable → default with a status event. |

@@ -3305,6 +3305,44 @@
         "title": "InstallBody",
         "type": "object"
       },
+      "InstructionExampleModel": {
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "icon": {
+            "title": "Icon",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "description",
+          "category",
+          "icon",
+          "text"
+        ],
+        "title": "InstructionExampleModel",
+        "type": "object"
+      },
       "InstructionFile": {
         "properties": {
           "hash": {
@@ -4619,6 +4657,18 @@
           }
         },
         "title": "PreviewBody",
+        "type": "object"
+      },
+      "Profile": {
+        "properties": {
+          "first_name": {
+            "default": "",
+            "description": "What the user likes to be called.",
+            "title": "First Name",
+            "type": "string"
+          }
+        },
+        "title": "Profile",
         "type": "object"
       },
       "PropertiesRequest": {
@@ -6527,7 +6577,8 @@
             "enum": [
               "page",
               "folder",
-              "vault"
+              "vault",
+              "none"
             ],
             "title": "Kind",
             "type": "string"
@@ -7699,7 +7750,7 @@
   },
   "info": {
     "title": "graite-daemon",
-    "version": "0.3.3"
+    "version": "0.4.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -12565,6 +12616,66 @@
         ]
       }
     },
+    "/api/v1/profile": {
+      "get": {
+        "operationId": "read_profile_api_v1_profile_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Profile",
+        "tags": [
+          "Profile"
+        ]
+      },
+      "put": {
+        "operationId": "write_profile_api_v1_profile_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Profile"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Write Profile",
+        "tags": [
+          "Profile"
+        ]
+      }
+    },
     "/api/v1/tables": {
       "get": {
         "operationId": "list_tables_api_v1_tables_get",
@@ -13699,6 +13810,32 @@
           }
         },
         "summary": "List Templates",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/api/v1/templates/instructions": {
+      "get": {
+        "description": "Examples of AI instructions to start a page's AI settings from.",
+        "operationId": "list_instruction_examples_api_v1_templates_instructions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InstructionExampleModel"
+                  },
+                  "title": "Response List Instruction Examples Api V1 Templates Instructions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Instruction Examples",
         "tags": [
           "templates"
         ]

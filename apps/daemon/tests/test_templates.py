@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 
 from graite.config import Settings
 from graite.tables import csvio
-from graite.templates import catalog
+from graite.templates import catalog, instructions
 from graite.vault.blocks import check_fences
 
 SLUGS = [t.slug for t in catalog.templates()]
@@ -273,3 +273,17 @@ def test_the_balance_sheet_balances(client: TestClient) -> None:
         equity = p["opening"] + p["owner"] + p["profit"]
         assert assets - liabilities - equity == pytest.approx(p["transfers"], abs=0.01), (asof, p)
         assert p["transfers"] == pytest.approx(0, abs=0.01)
+
+
+def test_instruction_examples_are_listed_and_fit_a_page(client: TestClient) -> None:
+    """The examples of AI instructions (D90): each one is usable as a page's instructions."""
+    found = client.get("/api/v1/templates/instructions").json()
+    assert len(found) >= 12
+    assert len({e["slug"] for e in found}) == len(found)
+    assert {e["category"] for e in found} <= set(instructions.CATEGORIES)
+    for example in found:
+        assert example["name"] and example["description"] and example["icon"]
+        assert 200 < len(example["text"]) <= instructions.MAX_CHARS
+        # Plain instructions: no frontmatter left over and no blocks the text editor drops.
+        assert not example["text"].startswith("---")
+        assert "```" not in example["text"]
