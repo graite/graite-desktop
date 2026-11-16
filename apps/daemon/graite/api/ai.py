@@ -29,6 +29,7 @@ from graite.models.config import (
     is_cloud,
     load_config,
     save_config,
+    save_reasoning,
 )
 from graite.models.downloader import CatalogModel
 from graite.models.hardware import Hardware, detect
@@ -111,11 +112,42 @@ class AIStatus(BaseModel):
     gpu_layers: int
     runtime_warning: str | None = None
     benchmark: dict[str, Any] | None
+    reasoning: dict[str, bool] = Field(
+        default_factory=lambda: {"toggle": False, "effort": False},
+        description="Whether the chat model in use has a thinking switch (`toggle`) and an "
+        "effort level (`effort`) to offer. The composer hides what is not there.",
+    )
     whisper_binary: str = Field(
         default="",
         description="The whisper-server that speech to text will run: the configured path, "
         "else the one on PATH. Empty when there is none.",
     )
+
+
+def _reasoning(config: AIConfig, manager: Any) -> dict[str, bool]:
+    if config.provider == "local":
+        if not config.model_path:
+            return {"toggle": False, "effort": False}
+        # A local model has a thinking switch when its chat template reads `enable_thinking`;
+        # that is known once the model has been loaded. Until then the switch is offered.
+        known = manager.thinking_templates.get(config.model_path)
+        probe = Provider("local", manager.server.url, "local", "")
+        return {"toggle": known is not False and probe.reasoning()["toggle"], "effort": False}
+    if not config.model:
+        return {"toggle": False, "effort": False}
+    return Provider(config.provider, config.base_url, config.model, "").reasoning()
+
+
+class ReasoningSettings(BaseModel):
+    thinking: Literal["auto", "on", "off"] | None = None
+    effort: Literal["low", "medium", "high"] | None = None
+
+
+@router.put("/reasoning", response_model=AIConfig)
+async def set_reasoning(body: ReasoningSettings, request: Request) -> AIConfig:
+    """Thinking and effort, from the composer. Unlike PUT /config this never unloads a model:
+    both only change what is sent with the next question."""
+    return await asyncio.to_thread(save_reasoning, request.app.state.db, body.thinking, body.effort)
 
 
 def _whisper_binary(configured: str) -> str:
@@ -147,6 +179,7 @@ async def status(request: Request) -> AIStatus:
         runtime_warning=manager.server.warning,
         benchmark=json.loads(row[0]) if row else None,
         whisper_binary=await asyncio.to_thread(_whisper_binary, config.whisper_binary_path),
+        reasoning=_reasoning(config, manager),
     )
 
 

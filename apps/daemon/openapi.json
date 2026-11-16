@@ -31,6 +31,16 @@
             "title": "Context Size",
             "type": "integer"
           },
+          "effort": {
+            "default": "medium",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Effort",
+            "type": "string"
+          },
           "embedding_model_id": {
             "default": "",
             "title": "Embedding Model Id",
@@ -92,6 +102,16 @@
               }
             ],
             "title": "Saved Model Id"
+          },
+          "thinking": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "on",
+              "off"
+            ],
+            "title": "Thinking",
+            "type": "string"
           },
           "tts_binary_path": {
             "default": "",
@@ -178,6 +198,14 @@
           "loaded": {
             "title": "Loaded",
             "type": "boolean"
+          },
+          "reasoning": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "description": "Whether the chat model in use has a thinking switch (`toggle`) and an effort level (`effort`) to offer. The composer hides what is not there.",
+            "title": "Reasoning",
+            "type": "object"
           },
           "runtime_warning": {
             "anyOf": [
@@ -5250,6 +5278,44 @@
         "title": "Queued",
         "type": "object"
       },
+      "ReasoningSettings": {
+        "properties": {
+          "effort": {
+            "anyOf": [
+              {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort"
+          },
+          "thinking": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "on",
+                  "off"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thinking"
+          }
+        },
+        "title": "ReasoningSettings",
+        "type": "object"
+      },
       "RejectBatchBody": {
         "properties": {
           "ids": {
@@ -6296,6 +6362,16 @@
             "title": "Context Size",
             "type": "integer"
           },
+          "effort": {
+            "default": "medium",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Effort",
+            "type": "string"
+          },
           "embedding_model_id": {
             "default": "",
             "title": "Embedding Model Id",
@@ -6357,6 +6433,16 @@
               }
             ],
             "title": "Saved Model Id"
+          },
+          "thinking": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "on",
+              "off"
+            ],
+            "title": "Thinking",
+            "type": "string"
           },
           "tts_binary_path": {
             "default": "",
@@ -9877,6 +9963,48 @@
           }
         },
         "summary": "Revert Proposal",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/api/v1/ai/reasoning": {
+      "put": {
+        "description": "Thinking and effort, from the composer. Unlike PUT /config this never unloads a model:\nboth only change what is sent with the next question.",
+        "operationId": "set_reasoning_api_v1_ai_reasoning_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasoningSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIConfig"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Reasoning",
         "tags": [
           "AI"
         ]

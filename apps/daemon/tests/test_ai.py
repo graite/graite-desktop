@@ -442,3 +442,66 @@ def test_whisper_server_path_is_cleaned_checked_and_kept(
     assert client.get("/api/v1/ai/status").json()["whisper_binary"] == ""
     # Clearing it goes back to the whisper-server on PATH.
     assert save("").json()["whisper_binary_path"] == ""
+
+
+def test_thinking_and_effort_are_spelled_per_provider() -> None:
+    """D95: one setting, each API's own words for it; the default sends nothing."""
+    messages = [{"role": "user", "content": "hi"}]
+
+    def body(kind: str, url: str, thinking: bool | None, effort: str | None) -> dict:
+        return Provider(kind, url, "m", "k")._body(messages, [], thinking, effort)[1]
+
+    hints = {"thinking", "output_config", "reasoning", "reasoning_effort", "chat_template_kwargs"}
+    for kind, url in (
+        ("anthropic", ""),
+        ("compatible", "http://localhost:1234/v1"),
+        ("compatible", "https://openrouter.ai/api/v1"),
+        ("local", "http://127.0.0.1:1/v1"),
+    ):
+        assert not hints & set(body(kind, url, None, None)), kind
+
+    claude = body("anthropic", "", True, "high")
+    assert claude["thinking"] == {"type": "adaptive", "display": "summarized"}
+    assert claude["output_config"] == {"effort": "high"}
+    # Current Claude models cannot switch thinking off; the least effort is the nearest thing.
+    off = body("anthropic", "", False, "high")
+    assert "thinking" not in off and off["output_config"] == {"effort": "low"}
+
+    router = "https://openrouter.ai/api/v1"
+    assert body("compatible", router, True, "low")["reasoning"] == {"effort": "low"}
+    assert body("compatible", router, False, "high")["reasoning"] == {"effort": "none"}
+
+    server = body("compatible", "http://localhost:1234/v1", True, "high")
+    assert server["chat_template_kwargs"] == {"enable_thinking": True}
+    assert server["reasoning_effort"] == "high"
+
+    local = body("local", "http://127.0.0.1:1/v1", False, "high")
+    assert local["chat_template_kwargs"] == {"enable_thinking": False}
+    assert local["reasoning_budget_tokens"] == 0 and "reasoning_effort" not in local
+    assert Provider("local", "http://127.0.0.1:1/v1", "m", "k").reasoning() == {
+        "toggle": True,
+        "effort": False,
+    }
+
+
+def test_reasoning_settings_save_without_unloading_the_model(client: TestClient) -> None:
+    status = client.get("/api/v1/ai/status").json()
+    assert status["config"]["thinking"] == "auto" and status["config"]["effort"] == "medium"
+    # No model chosen yet: nothing to offer.
+    assert status["reasoning"] == {"toggle": False, "effort": False}
+
+    stopped = []
+
+    async def stop() -> None:
+        stopped.append(1)
+
+    client.app.state.models.server.stop = stop  # type: ignore[method-assign]
+    saved = client.put("/api/v1/ai/reasoning", json={"thinking": "on", "effort": "high"})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["thinking"] == "on" and saved.json()["effort"] == "high"
+    assert client.put("/api/v1/ai/reasoning", json={"effort": "low"}).json()["thinking"] == "on"
+    assert client.put("/api/v1/ai/reasoning", json={"effort": "max"}).status_code == 422
+    assert not stopped
+
+    config(client)  # an OpenAI-compatible server
+    assert client.get("/api/v1/ai/status").json()["reasoning"] == {"toggle": True, "effort": True}

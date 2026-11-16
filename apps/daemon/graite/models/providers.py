@@ -16,7 +16,14 @@ DEFAULT_MAX_TOKENS = 2048
 # Fields we add for speed or quality that the answer itself does not depend on. Gateways spell
 # them differently and some reject what they do not recognise, so a hint may never cost a turn:
 # a 400 on a request carrying them is retried once without them. See `chat`.
-OPTIONAL_HINTS = ("reasoning", "chat_template_kwargs", "reasoning_budget_tokens")
+OPTIONAL_HINTS = (
+    "reasoning",
+    "chat_template_kwargs",
+    "reasoning_budget_tokens",
+    "reasoning_effort",
+    "thinking",
+    "output_config",
+)
 # Endpoints that refused them, as (url, model). `ModelManager.use` builds a fresh Provider per
 # turn, so remembering here rather than on the instance keeps it to one retry per process.
 _NO_HINTS: dict[tuple[str, str], set[str]] = {}
@@ -221,11 +228,25 @@ class Provider:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
         thinking: bool | None,
+        effort: str | None = None,
     ) -> tuple[str, dict[str, Any]]:
-        """The endpoint and the JSON for one request."""
+        """The endpoint and the JSON for one request.
+
+        `thinking` and `effort` are the user's choice (None: the model's own default). Each
+        API spells them its own way, and every spelling is an optional hint (`chat`).
+        """
         if self.kind == "anthropic":
-            return "https://api.anthropic.com/v1/messages", self.anthropic_body(messages, tools)
-        body: dict[str, Any] = {
+            body = self.anthropic_body(messages, tools)
+            # Current Claude models think adaptively and cannot be told not to; effort is the
+            # control. "On" asks for a readable summary of the thinking, "off" for the least.
+            if thinking is True:
+                body["thinking"] = {"type": "adaptive", "display": "summarized"}
+            if thinking is False:
+                body["output_config"] = {"effort": "low"}
+            elif effort:
+                body["output_config"] = {"effort": effort}
+            return "https://api.anthropic.com/v1/messages", body
+        body = {
             "model": self.model,
             "messages": messages,
             "tools": tools,
@@ -237,15 +258,35 @@ class Provider:
         if thinking is not None and self.kind in ("local", "compatible") and not self.is_openrouter:
             # llama-server and LM Studio pass this into the chat template.
             body["chat_template_kwargs"] = {"enable_thinking": thinking}
-        if thinking is False and self.is_openrouter:
-            # OpenRouter ignores chat_template_kwargs; "none" is its own off switch.
-            body["reasoning"] = {"effort": "none"}
+        if self.is_openrouter:
+            if thinking is False:
+                # OpenRouter ignores chat_template_kwargs; "none" is its own off switch.
+                body["reasoning"] = {"effort": "none"}
+            elif effort or thinking:
+                body["reasoning"] = {"effort": effort or "medium"}
+        elif effort and thinking is not False and self.kind != "local":
+            # The OpenAI spelling, which most model servers and gateways follow.
+            body["reasoning_effort"] = effort
         if thinking is False and self.kind == "local":
             body["reasoning_budget_tokens"] = 0
         if self.kind == "local":
             body["stream_options"] = {"include_usage": True}
             body["cache_prompt"] = True  # llama-server reuses the KV prefix across turns
         return self.url + "/chat/completions", body
+
+    def reasoning(self) -> dict[str, bool]:
+        """Whether this endpoint has a thinking switch and an effort level to offer (D95)."""
+        refused = _NO_HINTS.get((self.url, self.model), set())
+        if self.kind == "anthropic":
+            return {"toggle": "thinking" not in refused, "effort": "output_config" not in refused}
+        if self.is_openrouter:
+            return {"toggle": "reasoning" not in refused, "effort": "reasoning" not in refused}
+        if self.kind == "local":
+            return {"toggle": "chat_template_kwargs" not in refused, "effort": False}
+        return {
+            "toggle": "chat_template_kwargs" not in refused,
+            "effort": "reasoning_effort" not in refused,
+        }
 
     async def _failed(self, url: str, response: httpx.Response, *, droppable: bool) -> None:
         """A non-2xx streaming response: say what the server said, in the log only.
@@ -334,11 +375,12 @@ class Provider:
         tools: list[dict[str, Any]],
         *,
         thinking: bool | None = None,
+        effort: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """`thinking=False` asks a reasoning model to answer directly (spoken replies cannot
         wait for it). Every gateway spells that differently, so we send the one its own API
         documents — and when a server refuses the hint, we drop the hint, not the turn."""
-        url, body = self._body(messages, tools, thinking)
+        url, body = self._body(messages, tools, thinking, effort)
         endpoint = (self.url, self.model)
         hinted = [key for key in OPTIONAL_HINTS if key in body]
         for key in _NO_HINTS.get(endpoint, set()):

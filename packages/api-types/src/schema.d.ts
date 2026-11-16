@@ -648,6 +648,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ai/reasoning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Reasoning
+         * @description Thinking and effort, from the composer. Unlike PUT /config this never unloads a model:
+         *     both only change what is sent with the next question.
+         */
+        put: operations["set_reasoning_api_v1_ai_reasoning_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ai/runs": {
         parameters: {
             query?: never;
@@ -2326,6 +2347,12 @@ export interface components {
              */
             context_size: number;
             /**
+             * Effort
+             * @default medium
+             * @enum {string}
+             */
+            effort: "low" | "medium" | "high";
+            /**
              * Embedding Model Id
              * @default
              */
@@ -2368,6 +2395,12 @@ export interface components {
             resident: boolean;
             /** Saved Model Id */
             saved_model_id?: string | null;
+            /**
+             * Thinking
+             * @default auto
+             * @enum {string}
+             */
+            thinking: "auto" | "on" | "off";
             /**
              * Tts Binary Path
              * @default
@@ -2413,6 +2446,13 @@ export interface components {
             keychain_error: string | null;
             /** Loaded */
             loaded: boolean;
+            /**
+             * Reasoning
+             * @description Whether the chat model in use has a thinking switch (`toggle`) and an effort level (`effort`) to offer. The composer hides what is not there.
+             */
+            reasoning?: {
+                [key: string]: boolean;
+            };
             /** Runtime Warning */
             runtime_warning?: string | null;
             /**
@@ -4183,6 +4223,13 @@ export interface components {
             /** Job Id */
             job_id: string;
         };
+        /** ReasoningSettings */
+        ReasoningSettings: {
+            /** Effort */
+            effort?: ("low" | "medium" | "high") | null;
+            /** Thinking */
+            thinking?: ("auto" | "on" | "off") | null;
+        };
         /** RejectBatchBody */
         RejectBatchBody: {
             /** Ids */
@@ -4520,6 +4567,12 @@ export interface components {
              */
             context_size: number;
             /**
+             * Effort
+             * @default medium
+             * @enum {string}
+             */
+            effort: "low" | "medium" | "high";
+            /**
              * Embedding Model Id
              * @default
              */
@@ -4562,6 +4615,12 @@ export interface components {
             resident: boolean;
             /** Saved Model Id */
             saved_model_id?: string | null;
+            /**
+             * Thinking
+             * @default auto
+             * @enum {string}
+             */
+            thinking: "auto" | "on" | "off";
             /**
              * Tts Binary Path
              * @default
@@ -6543,6 +6602,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Proposal"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_reasoning_api_v1_ai_reasoning_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasoningSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIConfig"];
                 };
             };
             /** @description Validation Error */

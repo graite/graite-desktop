@@ -120,6 +120,9 @@ const enc = encodeURIComponent;
 
 export const ai = {
   status: () => request<AIStatus>("/api/v1/ai/status"),
+  /** Thinking and effort for the next question; never reloads the model. */
+  reasoning: (change: { thinking?: "auto" | "on" | "off"; effort?: "low" | "medium" | "high" }) =>
+    request<AIConfig>("/api/v1/ai/reasoning", { method: "PUT", body: JSON.stringify(change) }),
   save: (config: AIConfig, api_key?: string, clear_key = false) =>
     request<AIConfig>("/api/v1/ai/config", {
       method: "PUT",

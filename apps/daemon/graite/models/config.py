@@ -40,6 +40,10 @@ class AIConfig(BaseModel):
     embedding_model_id: str = ""
     vision: bool = False
     max_output_tokens: int = Field(default=2048, ge=256, le=32768)
+    # How much the model reasons before it answers, where the model has a say (D95).
+    # "auto" sends nothing and leaves it to the model's own default.
+    thinking: Literal["auto", "on", "off"] = "auto"
+    effort: Literal["low", "medium", "high"] = "medium"
 
     @model_validator(mode="after")
     def valid_url(self) -> AIConfig:
@@ -282,3 +286,15 @@ def initialize(db: sqlite3.Connection, token: str) -> None:
         "INSERT OR REPLACE INTO tokens VALUES ('ui', 'ui', ?, ?)",
         (json.dumps(["read", "write", "admin"]), hashlib.sha256(token.encode()).hexdigest()),
     )
+
+
+# Settings that only change what is sent with a request: no engine restart is needed for them.
+REQUEST_ONLY = frozenset({"max_output_tokens", "thinking", "effort"})
+
+
+def save_reasoning(db: sqlite3.Connection, thinking: str | None, effort: str | None) -> AIConfig:
+    """Change `thinking` and `effort` and nothing else (the composer's control)."""
+    update = {k: v for k, v in (("thinking", thinking), ("effort", effort)) if v is not None}
+    config = AIConfig.model_validate({**load_config(db).model_dump(), **update})
+    db.execute("INSERT OR REPLACE INTO meta VALUES ('ai_config', ?)", (config.model_dump_json(),))
+    return config

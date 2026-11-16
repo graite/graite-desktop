@@ -716,6 +716,13 @@
   max-width: 190px;
   min-width: 0;
 }
+.ai-composer .ai-composer-reasoning {
+  gap: 4px;
+  padding: 0 6px;
+}
+.ai-composer .ai-composer-reasoning[data-set] {
+  color: var(--foreground);
+}
 .ai-composer-model > span {
   overflow: hidden;
   text-overflow: ellipsis;
