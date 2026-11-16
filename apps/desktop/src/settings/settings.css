@@ -491,6 +491,18 @@
 .settings-card > :is(form, div) {
   margin-top: 14px;
 }
+/* What is going on with updates, and the one thing to do about it. */
+.settings-update {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--settings-inset);
+  font-size: 12.5px;
+  color: var(--muted-foreground);
+}
 /* A text box with its button on the same line, the same height. */
 .settings-row {
   display: flex;

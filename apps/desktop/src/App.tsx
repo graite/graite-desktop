@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { UpdateNotice } from "./app/UpdateNotice";
 import { VaultGate } from "./app/VaultGate";
 import { Workspace } from "./app/Workspace";
 
@@ -20,6 +21,7 @@ export default function App() {
   return (
     <TooltipProvider>
       <VaultGate>{(info) => <Workspace vault={info} />}</VaultGate>
+      <UpdateNotice />
       <Toaster />
     </TooltipProvider>
   );

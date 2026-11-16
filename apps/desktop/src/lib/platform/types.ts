@@ -34,6 +34,13 @@ export interface VaultProbe {
   other_files: boolean;
 }
 
+/** A newer version of the app that this install can update itself to. */
+export interface AppUpdate {
+  version: string;
+  /** The release notes, when the release has any. */
+  notes: string | null;
+}
+
 export interface Platform {
   readonly kind: "desktop" | "web" | "mobile";
   getDaemonInfo(): Promise<DaemonInfo>;
@@ -55,4 +62,14 @@ export interface Platform {
   forgetVault?(path: string): Promise<VaultList>;
   /** Fires after the host switched vaults (from any window). Returns the unsubscribe. */
   onVaultChanged?(listener: (info: DaemonInfo) => void): () => void;
+  /** The app updating itself. Absent where the host has no app to update (the web app). */
+  updates?: {
+    /** The running version, and whether this install can update itself: not the Store
+     * build, a system package or a dev run, which are updated some other way. */
+    status(): Promise<{ version: string; supported: boolean }>;
+    check(): Promise<AppUpdate | null>;
+    /** Download and install what `check` found, then restart the app. `fraction` is null
+     * while the size of the download is unknown. */
+    install(onProgress?: (fraction: number | null) => void): Promise<void>;
+  };
 }

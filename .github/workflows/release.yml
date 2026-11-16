@@ -24,17 +24,24 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # `updates`: the app updates itself on this platform, so the build also makes signed
+          # update files and latest.json. Windows is updated by the Microsoft Store instead.
           - os: ubuntu-22.04
             bundles: appimage,deb
+            updates: true
           - os: macos-latest # Apple silicon runner (aarch64-apple-darwin)
             bundles: app,dmg # `app` keeps Graite.app in bundle/macos for the in-bundle smoke test
+            updates: true
           - os: windows-latest
             bundles: nsis # msi later: WiX's 260-char source-path limit vs the deep PyInstaller onedir (docs/development.md, Releasing)
+            updates: false
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     env:
       # macOS Developer ID signing + notarization runs only when the secrets exist (not in forks).
       HAVE_APPLE_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_API_KEY_P8 != '' }}
+      # Update files are signed with Tauri's updater key; without the secret (forks) none are made.
+      UPDATER_ARGS: ${{ matrix.updates && secrets.TAURI_SIGNING_PRIVATE_KEY != '' && '--config src-tauri/tauri.updater.conf.json' || '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -94,6 +101,17 @@ jobs:
             exit 1
           fi
           echo "::warning::APPLE_* signing secrets are missing; building an unsigned macOS bundle"
+      - name: updater key
+        if: matrix.updates && env.UPDATER_ARGS == ''
+        shell: bash
+        run: |
+          # Installed copies look at the newest release for latest.json; a release without it
+          # would leave them unable to update.
+          if [ "$GITHUB_REPOSITORY" = graite/graite-desktop ] && [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is missing; refusing to build a release without update files"
+            exit 1
+          fi
+          echo "::warning::TAURI_SIGNING_PRIVATE_KEY is missing; building without update files"
 
       # ---- Python sidecar: built on each OS, smoke-tested, placed into src-tauri/resources/daemon ----
       - uses: astral-sh/setup-uv@v5
@@ -170,6 +188,8 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
           tauriScript: pnpm tauri
@@ -180,16 +200,19 @@ jobs:
             Windows: unsigned, SmartScreen shows "unknown publisher".
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
-          args: --bundles ${{ matrix.bundles }}
+          args: --bundles ${{ matrix.bundles }} ${{ env.UPDATER_ARGS }}
 
       # ---- Manual run: same build, artifacts only ----
       - name: build bundles (dry run)
         if: github.event_name == 'workflow_dispatch'
         uses: tauri-apps/tauri-action@v0
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
           tauriScript: pnpm tauri
-          args: --bundles ${{ matrix.bundles }}
+          args: --bundles ${{ matrix.bundles }} ${{ env.UPDATER_ARGS }}
 
       # ---- macOS: Tauri notarizes and staples Graite.app, but only signs the DMG ----
       - name: notarize and staple the dmg
@@ -226,6 +249,15 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$app"
           spctl -a -vv -t exec "$app"
           xcrun stapler validate "$dmg"
+          # The update archive is what installed copies download: the app inside it must be the
+          # signed, notarized and stapled one, since the updater installs it as it is.
+          archive="$(ls apps/desktop/src-tauri/target/release/bundle/macos/*.app.tar.gz 2>/dev/null | head -n 1 || true)"
+          if [ -n "$archive" ]; then
+            check="$RUNNER_TEMP/update-archive"
+            mkdir -p "$check" && tar -xzf "$archive" -C "$check"
+            codesign --verify --deep --strict --verbose=2 "$check/Graite.app"
+            xcrun stapler validate "$check/Graite.app"
+          fi
 
       # ---- Microsoft Store: pack the same build into an unsigned .msix (the Store signs it) ----
       - name: build msix
