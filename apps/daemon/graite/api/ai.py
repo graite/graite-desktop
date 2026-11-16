@@ -7,6 +7,7 @@ import base64
 import hashlib
 import json
 import logging
+import shutil
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -110,6 +111,16 @@ class AIStatus(BaseModel):
     gpu_layers: int
     runtime_warning: str | None = None
     benchmark: dict[str, Any] | None
+    whisper_binary: str = Field(
+        default="",
+        description="The whisper-server that speech to text will run: the configured path, "
+        "else the one on PATH. Empty when there is none.",
+    )
+
+
+def _whisper_binary(configured: str) -> str:
+    path = Path(configured or shutil.which("whisper-server") or "").expanduser()
+    return str(path) if path.is_file() else ""
 
 
 @router.get("/status", response_model=AIStatus)
@@ -135,6 +146,7 @@ async def status(request: Request) -> AIStatus:
         gpu_layers=manager.server.layers,
         runtime_warning=manager.server.warning,
         benchmark=json.loads(row[0]) if row else None,
+        whisper_binary=await asyncio.to_thread(_whisper_binary, config.whisper_binary_path),
     )
 
 

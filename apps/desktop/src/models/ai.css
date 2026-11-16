@@ -1409,6 +1409,11 @@
   padding: 14px 16px;
   margin: 12px 0;
 }
+.ai-engine-note[data-field] > .ai-field {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
 .ai-engine-note > div:first-child {
   flex: 1;
   min-width: 0;

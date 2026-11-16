@@ -189,6 +189,12 @@
               }
             ],
             "title": "Runtime Warning"
+          },
+          "whisper_binary": {
+            "default": "",
+            "description": "The whisper-server that speech to text will run: the configured path, else the one on PATH. Empty when there is none.",
+            "title": "Whisper Binary",
+            "type": "string"
           }
         },
         "required": [
@@ -4099,6 +4105,61 @@
           "page_id"
         ],
         "title": "MovePageRequest",
+        "type": "object"
+      },
+      "MoveTextRequest": {
+        "description": "Text dragged out of `source_id` onto the page at `target_path`.",
+        "properties": {
+          "base_hash": {
+            "title": "Base Hash",
+            "type": "string"
+          },
+          "body": {
+            "description": "The source page's body without the moved text.",
+            "title": "Body",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "target_path": {
+            "title": "Target Path",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 2000000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "target_path",
+          "text",
+          "body",
+          "base_hash"
+        ],
+        "title": "MoveTextRequest",
+        "type": "object"
+      },
+      "MoveTextResult": {
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "source_hash": {
+            "title": "Source Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "source_hash"
+        ],
+        "title": "MoveTextResult",
         "type": "object"
       },
       "NewConnection": {
@@ -14582,6 +14643,47 @@
           }
         },
         "summary": "Move",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/api/v1/workspace/move-text": {
+      "post": {
+        "operationId": "move_text_api_v1_workspace_move_text_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveTextRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoveTextResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Move Text",
         "tags": [
           "workspace"
         ]

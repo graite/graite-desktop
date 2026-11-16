@@ -39,7 +39,7 @@ const SILENT_STOP_MS = 10_000;
 const MIC_LOST =
   "The microphone stopped working, so the conversation ended. Check the input in your computer’s Sound settings, then press Talk again.";
 const MIC_SILENT =
-  "No sound reached Graite from your microphone, so the conversation ended. Check the input in your computer’s Sound settings or in Settings → Voice, then press Talk again.";
+  "No sound reached Graite from your microphone, so the conversation ended. Check the input in your computer’s Sound settings or in Settings → Speech, then press Talk again.";
 
 const CLOSE_REASONS: Record<number, string> = {
   4401: "The voice connection was refused.",

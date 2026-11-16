@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
 from ipaddress import ip_address
+from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -234,7 +236,39 @@ def load_config(db: sqlite3.Connection) -> AIConfig:
     return config
 
 
+def executable_path(value: str, name: str) -> str:
+    """A path the user typed for an engine executable, cleaned up and checked.
+
+    Accepts what people paste: quotes around it, `~`, or the folder the executable is in.
+    Raises with words for the settings page when nothing runnable is there.
+    """
+    text = value.strip().strip("\"'").strip()
+    if not text:
+        return ""
+    path = Path(text).expanduser()
+    if path.is_dir():
+        inside = [path / name, path / f"{name}.exe", path / "bin" / name]
+        found = next((p for p in inside if p.is_file()), None)
+        if found is None:
+            raise ValueError(f"{path} is a folder without {name} in it. Give the file itself.")
+        path = found
+    if not path.is_file():
+        raise ValueError(f"There is no file at {path}. Give the full path to {name}.")
+    if not os.access(path, os.X_OK):
+        raise ValueError(f"{path} is not an executable file.")
+    return str(path)
+
+
 def save_config(db: sqlite3.Connection, config: SaveConfig) -> AIConfig:
+    previous = load_config(db)
+    if config.whisper_binary_path != previous.whisper_binary_path:
+        # Checked when it changes, so a path that has since gone missing cannot block saving
+        # other settings; speech then reports it where it is used.
+        config = config.model_copy(
+            update={
+                "whisper_binary_path": executable_path(config.whisper_binary_path, "whisper-server")
+            }
+        )
     clean = _link(AIConfig.model_validate(config.model_dump()))
     if config.api_key or config.clear_key:
         set_key_for(clean.provider, clean.base_url, None if config.clear_key else config.api_key)

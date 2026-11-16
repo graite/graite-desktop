@@ -99,7 +99,10 @@ class SpeechServer:
             Path(self.binary_path or shutil.which("whisper-server") or "").expanduser
         )
         if not binary.is_file():
-            raise ValueError("Set the whisper-server executable under Advanced settings and save.")
+            raise ValueError(
+                "whisper-server was not found. Install whisper.cpp, or give the path to "
+                "whisper-server under Settings → Speech."
+            )
         model_file = Path(self.model)
         if not await asyncio.to_thread(model_file.is_file):
             raise ValueError("Download the speech model first.")
