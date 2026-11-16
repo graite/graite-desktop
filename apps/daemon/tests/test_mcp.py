@@ -379,3 +379,46 @@ def test_databases_and_their_views_are_readable(client: TestClient) -> None:
     hidden, _ = call(client, "read_rows", table="companies")
     assert "error" in hidden
     assert not call(client, "read_tables", page_path="")[0]["tables"]
+
+
+def test_one_switch_turns_access_off_and_test_says_whether_it_works(client: TestClient) -> None:
+    page(client, "Atlas", "Roadmap notes")
+    info = client.get("/api/v1/mcp/info").json()
+    assert info["enabled"] is True and info["last_used"] is None
+
+    # "Test" does what an app does: initialize, list the tools, read the page tree.
+    result = client.post("/api/v1/mcp/test").json()
+    assert result["ok"] is True and result["via"] == "server", result
+    assert result["tools"] == len(info["tools"]) and result["pages"] >= 1
+    # Graite's own test is not "an app used Graite".
+    assert client.get("/api/v1/mcp/info").json()["last_used"] is None
+
+    rpc(client, "tools/list")
+    used = client.get("/api/v1/mcp/info").json()["last_used"]
+    assert used["client"] == "test-client" and used["at"].startswith("20")
+
+    off = client.put("/api/v1/mcp/enabled", json={"enabled": False}).json()
+    assert off["enabled"] is False
+    refused = client.post(
+        "/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, headers=MCP
+    )
+    assert refused.status_code == 403 and "switched off" in refused.json()["detail"]
+    result = client.post("/api/v1/mcp/test").json()
+    assert result["ok"] is False and "switched off" in result["error"]
+    # Nothing was removed: on again and it works as before.
+    assert client.put("/api/v1/mcp/enabled", json={"enabled": True}).json()["enabled"] is True
+    assert rpc(client, "tools/list")["result"]["tools"]
+    assert client.post("/api/v1/mcp/test").json()["ok"] is True
+
+
+def test_the_bridge_test_reports_a_command_that_is_gone(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from graite.api import mcp as mcp_api
+
+    monkeypatch.setattr(
+        mcp_api, "stdio_launch", lambda app_dir: ("/nonexistent/graite-daemon", ["mcp"])
+    )
+    result = client.post("/api/v1/mcp/test", params={"via": "bridge"}).json()
+    assert result["ok"] is False and result["via"] == "bridge"
+    assert result["error"]

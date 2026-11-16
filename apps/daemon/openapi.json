@@ -2748,6 +2748,19 @@
         "title": "EmbedResult",
         "type": "object"
       },
+      "EnabledIn": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "EnabledIn",
+        "type": "object"
+      },
       "EngineState": {
         "description": "What the UI shows for one engine.",
         "properties": {
@@ -3545,6 +3558,24 @@
         "title": "JobInfo",
         "type": "object"
       },
+      "LastUsed": {
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "client": {
+            "title": "Client",
+            "type": "string"
+          }
+        },
+        "required": [
+          "client",
+          "at"
+        ],
+        "title": "LastUsed",
+        "type": "object"
+      },
       "LocalFolder": {
         "properties": {
           "path": {
@@ -3649,6 +3680,11 @@
             "title": "Clients",
             "type": "array"
           },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
           "http_stable": {
             "title": "Http Stable",
             "type": "boolean"
@@ -3656,6 +3692,16 @@
           "http_url": {
             "title": "Http Url",
             "type": "string"
+          },
+          "last_used": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LastUsed"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "remote": {
             "$ref": "#/components/schemas/RemoteInfo"
@@ -7179,6 +7225,51 @@
           "columns"
         ],
         "title": "TemplateTable",
+        "type": "object"
+      },
+      "TestResult": {
+        "description": "The outcome of \"Test\": a real MCP round trip, the way an app would make it.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "ms": {
+            "default": 0,
+            "title": "Ms",
+            "type": "integer"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "pages": {
+            "default": 0,
+            "title": "Pages",
+            "type": "integer"
+          },
+          "tools": {
+            "default": 0,
+            "title": "Tools",
+            "type": "integer"
+          },
+          "via": {
+            "title": "Via",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "via"
+        ],
+        "title": "TestResult",
         "type": "object"
       },
       "TicketRequest": {
@@ -11643,6 +11734,48 @@
         ]
       }
     },
+    "/api/v1/mcp/enabled": {
+      "put": {
+        "description": "Switch access for AI apps on or off. Off refuses every app at once, local and remote,\nwithout removing what was set up, so switching it on again just works.",
+        "operationId": "set_enabled_api_v1_mcp_enabled_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnabledIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Enabled",
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
     "/api/v1/mcp/info": {
       "get": {
         "operationId": "info_api_v1_mcp_info_get",
@@ -11700,6 +11833,54 @@
           }
         },
         "summary": "Set Remote",
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
+    "/api/v1/mcp/test": {
+      "post": {
+        "description": "Check that an AI app can use Graite right now, by doing what the app does.",
+        "operationId": "test_api_v1_mcp_test_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "via",
+            "required": false,
+            "schema": {
+              "default": "server",
+              "enum": [
+                "server",
+                "bridge"
+              ],
+              "title": "Via",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test",
         "tags": [
           "mcp"
         ]

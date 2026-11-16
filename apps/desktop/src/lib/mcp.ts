@@ -4,6 +4,7 @@ import type { components } from "@graite/api-types";
 export type McpInfo = components["schemas"]["McpInfo"];
 export type RemoteInfo = components["schemas"]["RemoteInfo"];
 export type ClientStatus = components["schemas"]["ClientStatus"];
+export type TestResult = components["schemas"]["TestResult"];
 export type ClientId = "claude-code" | "codex" | "cursor";
 
 /** The entry name in local apps. The remote connector is `graite`, so the two never clash. */
@@ -17,6 +18,12 @@ export const mcp = {
       method: "PUT",
       body: JSON.stringify({ enabled }),
     }),
+  /** The one switch: off refuses every AI app, on this computer and remotely. */
+  setEnabled: (enabled: boolean) =>
+    request<McpInfo>("/api/v1/mcp/enabled", { method: "PUT", body: JSON.stringify({ enabled }) }),
+  /** A real round trip: through the daemon ("server") or the command an app starts ("bridge"). */
+  test: (via: "server" | "bridge" = "server") =>
+    request<TestResult>(`/api/v1/mcp/test?via=${via}`, { method: "POST" }),
   /** Graite adds itself to Claude Code, Codex or Cursor on this computer. */
   addClient: (id: ClientId) =>
     request<ClientStatus>(`/api/v1/mcp/clients/${id}`, { method: "POST" }),

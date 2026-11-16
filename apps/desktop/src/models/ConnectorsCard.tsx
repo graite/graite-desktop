@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Copy, Globe, Laptop, Loader2 } from "lucide-react";
+import { Check, CircleAlert, Copy, Globe, Laptop, Loader2, Plug } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -15,6 +15,7 @@ import {
   type ClientStatus,
   type McpInfo,
   type RemoteInfo,
+  type TestResult,
 } from "@/lib/mcp";
 import { platform } from "@/lib/platform";
 import "./mcp.css";
@@ -51,31 +52,59 @@ function Snippet({ label, hint, text }: { label: string; hint: string; text: str
   );
 }
 
-function Step({
-  n,
-  title,
-  done,
-  children,
-}: {
-  n: number;
-  title: string;
-  done: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <li className="connector-step" data-done={done}>
-      <span className="connector-step-n" aria-hidden>
-        {done ? <Check size={13} /> : n}
-      </span>
-      <div>
-        <strong>{title}</strong>
-        {children}
-      </div>
-    </li>
+/** "2 minutes ago", for the line that says an app really did use Graite. */
+export function ago(iso: string, now = Date.now()): string {
+  const seconds = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
+  if (seconds < 45) return "just now";
+  const units: [number, string][] = [
+    [60, "minute"],
+    [3600, "hour"],
+    [86400, "day"],
+  ];
+  let [size, name] = units[0]!;
+  for (const unit of units) if (seconds >= unit[0]) [size, name] = unit;
+  const count = Math.max(1, Math.round(seconds / size));
+  return `${count} ${name}${count === 1 ? "" : "s"} ago`;
+}
+
+/** What a test found, in one sentence. */
+function Outcome({ result }: { result: TestResult }) {
+  return result.ok ? (
+    <p className="connector-outcome" data-ok role="status">
+      <Check size={14} />
+      {result.via === "bridge"
+        ? `Works. The app can start Graite and sees ${result.tools} tools (${result.ms} ms).`
+        : `Works. An app can use ${result.tools} tools and read your ${result.pages} ${
+            result.pages === 1 ? "page" : "pages"
+          } (${result.ms} ms).`}
+    </p>
+  ) : (
+    <p className="connector-outcome" role="alert">
+      <CircleAlert size={14} />
+      {result.error || "It did not work."}
+    </p>
   );
 }
 
-/** Claude or ChatGPT in the browser: through Graite Cloud, in three steps. */
+/** A "Test" button with its result under it. */
+function useTest(via: "server" | "bridge") {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<TestResult | null>(null);
+  const run = async () => {
+    setBusy(true);
+    setResult(null);
+    try {
+      setResult(await mcp.test(via));
+    } catch (e) {
+      setResult({ ok: false, via, tools: 0, pages: 0, ms: 0, error: (e as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { busy, result, run, clear: () => setResult(null) };
+}
+
+/** Claude, ChatGPT or Grok in the browser: through Graite Cloud. */
 function BrowserConnector({
   initial,
   onOpenAccount,
@@ -146,108 +175,104 @@ function BrowserConnector({
     }
   };
   const signedIn = !!account?.signed_in;
-  const status = !remote.enabled
-    ? "Off"
-    : remote.connected
-      ? "Connected through Graite Cloud"
-      : remote.error || "Connecting…";
+  const ready = remote.enabled && remote.connected;
+  const status = !signedIn
+    ? "Sign in first"
+    : !remote.enabled
+      ? "Off"
+      : remote.connected
+        ? "Connected"
+        : remote.error || "Connecting…";
   return (
-    <section className="connector" aria-label="Connect in the browser">
+    <section className="connector" aria-label="Apps in the browser">
       <header className="connector-head">
         <Globe size={18} />
         <div>
-          <h3>Connect Claude, ChatGPT or Grok</h3>
-          <p>Let an AI app in your browser work in this vault, through your Graite account.</p>
+          <h3>Claude, ChatGPT or Grok in the browser</h3>
+          <p>
+            They reach this vault through your Graite account, so only you can open it from them.
+          </p>
         </div>
       </header>
-      <ol className="connector-steps">
-        <Step n={1} title="Sign in to Graite Cloud" done={signedIn}>
-          {signedIn ? (
-            <small>Signed in{account?.email ? ` as ${account.email}` : ""}.</small>
-          ) : (
-            <>
-              <small>
-                Your Graite account is what the AI app signs in with, so only you can open this
-                vault from it.
-              </small>
-              <div className="connector-actions">
-                <Button size="sm" variant="outline" onClick={() => void signIn()}>
-                  Sign in
-                </Button>
-                {onOpenAccount && (
-                  <Button size="sm" variant="ghost" onClick={onOpenAccount}>
-                    What is Graite Cloud?
-                  </Button>
-                )}
-              </div>
-            </>
-          )}
-        </Step>
-        <Step n={2} title="Turn on remote access" done={remote.enabled && remote.connected}>
-          <div className="mcp-remote">
-            <small id="mcp-remote-hint">
-              Opens a secure connection from this computer to Graite Cloud while Graite is open.{" "}
-              {status}.
-            </small>
-            <Switch
-              aria-label="Remote access"
-              checked={remote.enabled}
-              aria-describedby="mcp-remote-hint"
-              disabled={busy || !signedIn}
-              onCheckedChange={() => void toggle()}
-            />
+      {!signedIn ? (
+        <div className="connector-row">
+          <span>
+            <strong>Sign in to Graite Cloud</strong>
+            <small>The AI app signs in with the same account and you click Allow.</small>
+          </span>
+          <div className="connector-actions">
+            {onOpenAccount && (
+              <Button size="sm" variant="ghost" onClick={onOpenAccount}>
+                What is Graite Cloud?
+              </Button>
+            )}
+            <Button size="sm" onClick={() => void signIn()}>
+              Sign in
+            </Button>
           </div>
-        </Step>
-        <Step n={3} title="Add Graite as a connector in your AI app" done={false}>
-          <small>
-            Copy this address, then follow the steps for your app. Each app asks you to sign in with
-            your Graite account and click Allow: that is what gives it access.
-          </small>
-          <Snippet label="Connector URL" hint="Paste it into your AI app" text={remote.url} />
-          <ul className="connector-howto" aria-label="How to add the connector">
-            <li>
-              <strong>Claude</strong>
-              <span>
-                Open Settings → Connectors and choose Add custom connector. Give it a name, paste
-                the address and add it, then choose Connect.
-              </span>
-            </li>
-            <li>
-              <strong>ChatGPT</strong>
-              <span>
-                In ChatGPT on the web, open Settings → Apps &amp; Connectors → Advanced settings and
-                turn on Developer mode. Then create a connector, paste the address as its server URL
-                and confirm that you trust it.
-              </span>
-            </li>
-            <li>
-              <strong>Grok</strong>
-              <span>
-                Open grok.com/connectors, choose New connector → Custom, give it a name and paste
-                the address.
-              </span>
-            </li>
-          </ul>
-          <small>
-            These apps rename their menus now and then, and some offer custom connectors only on
-            certain plans. Look for “Connectors” in the app’s settings if a step has moved.
-          </small>
-        </Step>
-      </ol>
-      <div className="connector-can">
-        <strong>Then you can ask it to</strong>
-        <ul>
-          <li>show your pages as a tree and find a page by name</li>
-          <li>read and search your pages</li>
-          <li>create pages, boards, cards and properties</li>
-          <li>follow the AI instructions you set on a page</li>
-        </ul>
-        <p className="mcp-note">
-          Every change waits in Review until you accept it, unless the page applies AI changes
-          automatically. Pages marked local-only stay hidden, and so do pages with AI turned off.
-          Graite has to be open on this computer.
-        </p>
-      </div>
+        </div>
+      ) : (
+        <div className="connector-row">
+          <span>
+            <label htmlFor="mcp-remote-switch">
+              <strong>Remote access</strong>
+            </label>
+            <small id="mcp-remote-hint" data-state={ready ? "ok" : undefined}>
+              {status}
+              {account?.email ? ` · signed in as ${account.email}` : ""}. Works while Graite is open
+              on this computer.
+            </small>
+          </span>
+          <Switch
+            id="mcp-remote-switch"
+            aria-label="Remote access"
+            checked={remote.enabled}
+            aria-describedby="mcp-remote-hint"
+            disabled={busy}
+            onCheckedChange={() => void toggle()}
+          />
+        </div>
+      )}
+      {signedIn && remote.enabled && (
+        <>
+          <Snippet
+            label="Connector URL"
+            hint="Paste it into your AI app as a custom connector"
+            text={remote.url}
+          />
+          <details>
+            <summary>Where to paste it in Claude, ChatGPT and Grok</summary>
+            <ul className="connector-howto" aria-label="How to add the connector">
+              <li>
+                <strong>Claude</strong>
+                <span>
+                  Open Settings → Connectors and choose Add custom connector. Give it a name, paste
+                  the address and add it, then choose Connect.
+                </span>
+              </li>
+              <li>
+                <strong>ChatGPT</strong>
+                <span>
+                  In ChatGPT on the web, open Settings → Apps &amp; Connectors → Advanced settings
+                  and turn on Developer mode. Then create a connector, paste the address as its
+                  server URL and confirm that you trust it.
+                </span>
+              </li>
+              <li>
+                <strong>Grok</strong>
+                <span>
+                  Open grok.com/connectors, choose New connector → Custom, give it a name and paste
+                  the address.
+                </span>
+              </li>
+            </ul>
+            <small className="mcp-note">
+              These apps rename their menus now and then, and some offer custom connectors only on
+              certain plans. Look for “Connectors” in the app’s settings if a step has moved.
+            </small>
+          </details>
+        </>
+      )}
     </section>
   );
 }
@@ -264,21 +289,24 @@ const MANUAL: Record<ClientId, (info: McpInfo) => { hint: string; text: string }
 function ClientRow({ info, initial }: { info: McpInfo; initial: ClientStatus }) {
   const [client, setClient] = useState(initial);
   const [busy, setBusy] = useState(false);
+  const test = useTest("bridge");
   const add = async () => {
     setBusy(true);
+    test.clear();
     try {
       const next = await mcp.addClient(client.id as ClientId);
       setClient(next);
-      toast.success(`Graite is added to ${client.name}. Restart it to pick it up.`);
+      toast.success(`Graite is added to ${client.name}. Restart ${client.name} to pick it up.`);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
       setBusy(false);
     }
   };
+  const ready = client.installed && !client.outdated;
   const state = client.installed
     ? client.outdated
-      ? "Added, but pointing at an older Graite"
+      ? "Added, but pointing at an older Graite. Press Update."
       : "Added"
     : client.found
       ? "Not added yet"
@@ -288,26 +316,42 @@ function ClientRow({ info, initial }: { info: McpInfo; initial: ClientStatus }) 
     <li className="connector-app" aria-label={client.name}>
       <div className="connector-app-head">
         <div>
-          <strong>{client.name}</strong>
-          <small>
-            {state} · <code>{client.where}</code>
-          </small>
+          <strong>
+            {client.name}
+            {ready && (
+              <span className="connector-added">
+                <Check size={13} /> Added
+              </span>
+            )}
+          </strong>
+          {!ready && <small>{state}</small>}
           {client.note && <small className="mcp-note">{client.note}</small>}
         </div>
-        {client.can_install && (!client.installed || client.outdated) ? (
+        {ready ? (
+          <Button
+            size="sm"
+            variant="outline"
+            aria-label={`Test ${client.name}`}
+            onClick={() => void test.run()}
+            disabled={test.busy}
+          >
+            {test.busy ? <Loader2 size={14} className="animate-spin" /> : null} Test
+          </Button>
+        ) : client.can_install ? (
           <Button size="sm" onClick={() => void add()} disabled={busy}>
             {busy ? <Loader2 size={14} className="animate-spin" /> : null}
             {client.installed ? "Update" : `Add to ${client.name}`}
           </Button>
-        ) : client.installed ? (
-          <span className="connector-added">
-            <Check size={14} /> Added
-          </span>
         ) : null}
       </div>
+      {test.result && <Outcome result={test.result} />}
       {manual ? (
         <details>
           <summary>Set it up by hand</summary>
+          <small className="mcp-note">
+            Graite writes one entry, <code>graite-local</code>, to <code>{client.where}</code> and
+            leaves the rest alone. This is the same thing by hand.
+          </small>
           <Snippet label={client.name} hint={manual.hint} text={manual.text} />
         </details>
       ) : null}
@@ -317,7 +361,6 @@ function ClientRow({ info, initial }: { info: McpInfo; initial: ClientStatus }) 
 
 /** Claude Code, Codex and Cursor on this computer: Graite adds itself to their config. */
 function LocalApps({ info }: { info: McpInfo }) {
-  const [open, setOpen] = useState(info.clients.some((c) => c.installed));
   const [token, setToken] = useState("");
   useEffect(() => {
     let live = true;
@@ -334,79 +377,153 @@ function LocalApps({ info }: { info: McpInfo }) {
   const moving = info.stdio_command.startsWith("/tmp/.mount_");
   return (
     <section className="connector" aria-label="Apps on this computer">
-      <div className="connector-toggle">
+      <header className="connector-head">
         <Laptop size={18} />
-        <span>
-          <label htmlFor="local-apps-switch">
-            <strong>Also connect apps on this computer</strong>
-          </label>
-          <small id="local-apps-hint">
-            Claude Code, Codex or Cursor. They talk to Graite directly, without Graite Cloud.
-          </small>
-        </span>
-        <Switch
-          id="local-apps-switch"
-          checked={open}
-          aria-describedby="local-apps-hint"
-          onCheckedChange={setOpen}
-        />
-      </div>
-      {open ? (
-        <>
-          <ol className="connector-steps">
-            <Step n={1} title="Add Graite to your app" done={info.clients.some((c) => c.installed)}>
-              <small>
-                Graite writes one entry, <code>graite-local</code>, into the app’s own settings and
-                leaves the rest alone.
-              </small>
-            </Step>
-            <Step n={2} title="Restart the app and ask about your vault" done={false}>
-              <small>It can do everything listed above. Graite has to be open.</small>
-            </Step>
-          </ol>
-          <ul className="connector-apps">
-            {info.clients.map((c) => (
-              <ClientRow key={c.id} info={info} initial={c} />
-            ))}
-          </ul>
-          {info.http_stable && token ? (
-            <Snippet
-              label="Direct HTTP"
-              hint="This daemon keeps its address and token between launches"
-              text={httpCommand(info, token)}
-            />
-          ) : null}
-          {moving ? (
-            <p className="mcp-note" role="note">
-              This copy of Graite runs from an AppImage, which gets a new location every time it
-              starts, and its file could not be found. Start Graite by opening the .AppImage file
-              itself, or install the .deb or .rpm package.
-            </p>
-          ) : null}
-        </>
+        <div>
+          <h3>Apps on this computer</h3>
+          <p>
+            One click adds Graite; then restart the app and ask it about your vault. No account
+            needed.
+          </p>
+        </div>
+      </header>
+      <ul className="connector-apps">
+        {info.clients.map((c) => (
+          <ClientRow key={c.id} info={info} initial={c} />
+        ))}
+      </ul>
+      {info.http_stable && token ? (
+        <details>
+          <summary>Another app, over HTTP</summary>
+          <Snippet
+            label="Direct HTTP"
+            hint="This daemon keeps its address and token between launches"
+            text={httpCommand(info, token)}
+          />
+        </details>
+      ) : null}
+      {moving ? (
+        <p className="mcp-note" role="note">
+          This copy of Graite runs from an AppImage, which gets a new location every time it starts,
+          and its file could not be found. Start Graite by opening the .AppImage file itself, or
+          install the .deb or .rpm package.
+        </p>
       ) : null}
     </section>
   );
 }
 
-/** Settings → AI connectors: AI apps in the browser first, apps on this computer second. */
+/**
+ * Settings → AI connectors. One switch decides whether AI apps can use Graite at all, "Test"
+ * says whether it works right now, and under it each kind of app is one short section.
+ */
 export function ConnectorsCard({ onOpenAccount }: { onOpenAccount?: () => void } = {}) {
   const [info, setInfo] = useState<McpInfo | null>(null);
-  useEffect(() => {
-    let live = true;
-    void mcp
-      .info()
-      .then((value) => live && setInfo(value))
-      .catch(() => live && setInfo(null));
-    return () => {
-      live = false;
-    };
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const test = useTest("server");
+  const live = useRef(true);
+  const load = useCallback(async () => {
+    try {
+      const value = await mcp.info();
+      if (live.current) {
+        setInfo(value);
+        setError("");
+      }
+    } catch (e) {
+      if (live.current) setError((e as Error).message || "Graite did not answer.");
+    }
   }, []);
-  if (!info) return null;
+  useEffect(() => {
+    live.current = true;
+    void load();
+    return () => {
+      live.current = false;
+    };
+  }, [load]);
+  if (!info)
+    return error ? (
+      <div className="connectors">
+        <section className="connector" aria-label="AI connectors">
+          <p className="connector-outcome" role="alert">
+            <CircleAlert size={14} /> Could not load the connector settings: {error}
+          </p>
+          <div className="connector-actions">
+            <Button size="sm" variant="outline" onClick={() => void load()}>
+              Try again
+            </Button>
+          </div>
+        </section>
+      </div>
+    ) : null;
+  // A daemon from before the switch existed is always on.
+  const enabled = info.enabled !== false;
+  const toggle = async () => {
+    setBusy(true);
+    test.clear();
+    try {
+      setInfo(await mcp.setEnabled(!enabled));
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <div className="connectors">
-      <BrowserConnector initial={info.remote} onOpenAccount={onOpenAccount} />
-      <LocalApps info={info} />
+      <section className="connector" aria-label="AI connectors">
+        <div className="connector-toggle">
+          <Plug size={18} />
+          <span>
+            <label htmlFor="mcp-enabled-switch">
+              <strong>Let AI apps use Graite</strong>
+            </label>
+            <small id="mcp-enabled-hint">
+              {enabled
+                ? info.last_used
+                  ? `On · last used by ${info.last_used.client}, ${ago(info.last_used.at)}.`
+                  : "On · no app has used it yet."
+                : "Off. No app can read or change anything. What you set up below is kept."}
+            </small>
+          </span>
+          <Switch
+            id="mcp-enabled-switch"
+            aria-label="Let AI apps use Graite"
+            checked={enabled}
+            aria-describedby="mcp-enabled-hint"
+            disabled={busy}
+            onCheckedChange={() => void toggle()}
+          />
+        </div>
+        {enabled && (
+          <>
+            <div className="connector-row">
+              <span>
+                <small>
+                  Apps can read and search your pages and propose changes. Every change waits in
+                  Review until you accept it, and pages marked local-only or with AI turned off stay
+                  hidden.
+                </small>
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void test.run().then(load)}
+                disabled={test.busy}
+              >
+                {test.busy ? <Loader2 size={14} className="animate-spin" /> : null} Test
+              </Button>
+            </div>
+            {test.result && <Outcome result={test.result} />}
+          </>
+        )}
+      </section>
+      {enabled && (
+        <>
+          <BrowserConnector initial={info.remote} onOpenAccount={onOpenAccount} />
+          <LocalApps info={info} />
+        </>
+      )}
     </div>
   );
 }

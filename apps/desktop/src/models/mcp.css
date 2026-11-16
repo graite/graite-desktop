@@ -199,3 +199,54 @@
   font-size: 12px;
   color: var(--muted-foreground);
 }
+
+.connector-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+.connector-row > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.connector-row strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.connector-row small {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+.connector-row small[data-state="ok"] {
+  color: var(--foreground);
+}
+.connector-outcome {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  background: color-mix(in srgb, var(--destructive) 10%, transparent);
+  overflow-wrap: anywhere;
+}
+.connector-outcome svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.connector-outcome[data-ok] {
+  background: var(--muted);
+}
+.connector details > summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.connector details[open] > summary {
+  margin-bottom: 8px;
+}
