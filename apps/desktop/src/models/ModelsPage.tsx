@@ -38,6 +38,7 @@ import { ModelLibrary } from "./ModelLibrary";
 import { StarterModels } from "./StarterModels";
 import { useTechMode } from "@/lib/techMode";
 import { ConnectorsCard } from "./ConnectorsCard";
+import { UpdateCard } from "@/settings/UpdateCard";
 import { VaultCard } from "./VaultCard";
 import { VoicesCard } from "@/settings/VoicesCard";
 import { Explainer } from "@/settings/Explainer";
@@ -724,6 +725,7 @@ function GeneralSection() {
         </div>
       </section>
       <VaultCard />
+      <UpdateCard />
     </>
   );
 }

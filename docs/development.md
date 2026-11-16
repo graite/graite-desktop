@@ -167,9 +167,42 @@ artifacts, no release.
    `apps/desktop/package.json`, `apps/daemon/pyproject.toml` (and `uv lock`),
    `apps/daemon/graite/__init__.py`, `packages/api-types/package.json`, `packages/md-convert/package.json`.
 2. Commit, tag `vX.Y.Z` (the workflow refuses a tag that does not start with the `tauri.conf.json` version),
-   push the tag.
+   push the tag. The version must be higher than the last published one, or installed copies
+   will not see it as an update.
 3. Review the draft release, write the notes there, publish. Tags with a suffix
    (e.g. `v0.2.0-rc.1`) are marked as pre-releases; use them for test builds.
+
+### App updates
+
+The macOS app and the Linux AppImage update themselves (`tauri-plugin-updater`,
+`src-tauri/src/updates.rs`): the app looks at
+`https://github.com/graite/graite-desktop/releases/latest/download/latest.json` shortly after
+startup and a few times a day, says when there is a newer version, and installs it only when
+the user clicks **Install and restart** (the notice, or Settings > General > Updates). The
+Microsoft Store updates the Windows package itself, a `.deb` belongs to the system's package
+manager, and dev runs have nothing to replace: there the app never checks.
+
+- **Key.** Update files are signed with Tauri's updater key (not the Apple certificate). The
+  public key is in `tauri.conf.json` (`plugins.updater.pubkey`). The private key is the
+  repository secret `TAURI_SIGNING_PRIVATE_KEY` (the content of the key file), with
+  `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` when the key has a password. Generate a pair with
+  `pnpm tauri signer generate -w ~/.tauri/graite-updater.key`. **Keep a backup of the private
+  key**: without it no installed copy can be updated again, and signature checking cannot be
+  turned off. Never commit it.
+- **Build.** `tauri.conf.json` leaves `createUpdaterArtifacts` off, so local builds and forks
+  need no key. `release.yml` adds `--config src-tauri/tauri.updater.conf.json` on macOS and
+  Linux when the secret exists; Tauri then also writes `Graite.app.tar.gz` + `.sig` and
+  `.AppImage.sig`, and `tauri-action` uploads them with a `latest.json` that the jobs merge. A
+  tag push in `graite/graite-desktop` without the secret fails rather than publish a release
+  that installed copies cannot update to.
+- **Publishing.** `releases/latest` is the newest release that is neither a draft nor a
+  pre-release, so nobody is offered an update until the draft is published, and `-rc` tags
+  never reach users. Check that `latest.json` is attached before publishing.
+- **macOS.** The updater installs the app from the archive as it is, so the job checks that the
+  app inside `Graite.app.tar.gz` is signed and stapled.
+
+To verify on a real install (not possible in CI): install a published version, publish a
+newer one, and follow the notice through the restart on macOS and with the AppImage.
 
 ### macOS signing and notarization
 

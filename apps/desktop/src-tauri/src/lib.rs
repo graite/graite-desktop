@@ -1,6 +1,7 @@
 mod daemon;
 #[cfg(target_os = "linux")]
 pub use daemon::bundled_sidecar;
+mod updates;
 mod vaults;
 
 /// Shown instead of reloading once the web view has crashed three times within a minute.
@@ -219,6 +220,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
             let startup = daemon::DaemonStartup::default();
             app.manage(startup.clone());
             let handle = app.handle().clone();
@@ -301,7 +303,10 @@ pub fn run() {
             list_vaults,
             inspect_vault,
             open_vault,
-            forget_vault
+            forget_vault,
+            updates::update_status,
+            updates::check_update,
+            updates::install_update
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

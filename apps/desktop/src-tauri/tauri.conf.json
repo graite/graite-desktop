@@ -27,9 +27,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": [
-      "resources/daemon"
-    ],
+    "resources": ["resources/daemon"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -45,6 +43,12 @@
       "appimage": {
         "bundleMediaFramework": true
       }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDNCNDY3RTBDRDA1MTI2OTIKUldTU0psSFFESDVHTytjWTh0c0xoOFhUejQ4Q0pXcyt3NmI3L0RtYVl3RFpuNW5Qam1RTE1zNUEK",
+      "endpoints": ["https://github.com/graite/graite-desktop/releases/latest/download/latest.json"]
     }
   }
 }

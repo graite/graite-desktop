@@ -2,6 +2,7 @@ import { microphone } from "./recording";
 import { invoke } from "@tauri-apps/api/core";
 import {
   NoVaultError,
+  type AppUpdate,
   type DaemonInfo,
   type Platform,
   type VaultList,
@@ -76,5 +77,25 @@ export const desktopPlatform: Platform = {
       active = false;
       unlisten?.();
     };
+  },
+  updates: {
+    status: () => invoke<{ version: string; supported: boolean }>("update_status"),
+    check: () => invoke<AppUpdate | null>("check_update"),
+    async install(onProgress) {
+      const { listen } = await import("@tauri-apps/api/event");
+      const stop = await listen<{ downloaded: number; total: number | null }>(
+        "update-progress",
+        ({ payload }) =>
+          onProgress?.(payload.total ? Math.min(1, payload.downloaded / payload.total) : null),
+      );
+      try {
+        // Resolves only on failure: after a successful install the shell restarts the app.
+        await invoke<void>("install_update");
+      } catch (e) {
+        throw e instanceof Error ? e : new Error(String(e));
+      } finally {
+        stop();
+      }
+    },
   },
 };
