@@ -48,6 +48,7 @@ import { MediaContext } from "./media/context";
 import { EditorSurface } from "./EditorSurface";
 import { useViewSchema } from "./views/useViewSchema";
 import { editorExtensions } from "./reviewDecorations";
+import { isMovableText } from "./textDrag";
 import { useSelectAllStages } from "./useSelectAllStages";
 import { markdownPasteHandler } from "./paste";
 import { Breadcrumbs } from "@/app/Breadcrumbs";
@@ -562,6 +563,108 @@ export function PageEditor({
     [editor, page.id, onSaved, onTreeChanged, onNavigate, markDisk, queued],
   );
 
+  /**
+   * Move text out of this page onto the page at `targetPath`. `take` removes it from the
+   * editor and returns it as Markdown; the daemon then appends it to the target and writes
+   * this page without it in one step, and the removal is undone if that fails.
+   */
+  const moveText = useCallback(
+    async (targetPath: string, take: () => string | null) => {
+      if (targetPath === pathRef.current) return;
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      await titleCommitRef.current;
+      try {
+        await queued(async () => {
+          // Typed-but-unsaved text goes to disk first, so the move starts from a known hash.
+          if (dirtyRef.current) {
+            const pending = outgoing();
+            const saved = await pages.put(pathRef.current, pending.markdown, baseHashRef.current);
+            baseHashRef.current = saved.hash;
+            baselineRef.current = pending.next;
+            dirtyRef.current = false;
+            markDisk(pending.markdown);
+          }
+          syncingRef.current = true;
+          let text: string | null;
+          try {
+            text = take();
+          } finally {
+            syncingRef.current = false;
+          }
+          if (!text?.trim()) return;
+          const { markdown, next } = outgoing();
+          try {
+            const result = await workspace.moveText(
+              page.id,
+              targetPath,
+              text,
+              markdown,
+              baseHashRef.current ?? "",
+            );
+            baseHashRef.current = result.source_hash;
+            baselineRef.current = next;
+            markDisk(markdown);
+            onSaved(result.source_hash);
+            onTreeChanged();
+            const target = findNode(tree, targetPath);
+            toast.success(`Moved to ${target?.title ?? targetPath}`, {
+              action: { label: "Open", onClick: () => onNavigate(targetPath) },
+            });
+          } catch (e) {
+            syncingRef.current = true;
+            try {
+              editor.undo();
+            } finally {
+              syncingRef.current = false;
+            }
+            throw e;
+          }
+        });
+      } catch (e) {
+        toast.error(`Could not move the text: ${(e as Error).message}`);
+      }
+    },
+    [editor, page.id, tree, outgoing, queued, markDisk, onSaved, onTreeChanged, onNavigate],
+  );
+
+  /** Blocks dragged by their handle onto a page. */
+  const moveBlocks = useCallback(
+    (blockIds: string[], targetPath: string) =>
+      moveText(targetPath, () => {
+        const blocks = blockIds
+          .map((id) => editor.getBlock(id))
+          .filter(Boolean) as unknown as GraiteBlock[];
+        if (!isMovableText(blocks)) {
+          toast.error("Only text can be moved to another page this way.");
+          return null;
+        }
+        const text = fromBlocks(blocks as unknown as Parameters<typeof fromBlocks>[0]);
+        editor.removeBlocks(blocks.map((b) => b.id));
+        return text;
+      }),
+    [editor, moveText],
+  );
+
+  /** The selected text, dragged onto a page. */
+  const moveSelection = useCallback(
+    (targetPath: string) =>
+      moveText(targetPath, () => {
+        const cut = editor.getSelectionCutBlocks().blocks as unknown as GraiteBlock[];
+        if (!isMovableText(cut)) {
+          toast.error("Only text can be moved to another page this way.");
+          return null;
+        }
+        const text = fromBlocks(cut as unknown as Parameters<typeof fromBlocks>[0]);
+        const whole = (editor.getSelection()?.blocks ?? []) as unknown as GraiteBlock[];
+        const before = fromBlocks(whole as unknown as Parameters<typeof fromBlocks>[0]);
+        // Whole blocks are removed; part of a line leaves the rest of the line in place.
+        if (whole.length && before === text) editor.removeBlocks(whole.map((b) => b.id));
+        else editor.transact((tr) => tr.deleteSelection());
+        return text;
+      }),
+    [editor, moveText],
+  );
+
   const scheduleSave = useCallback(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => void save(), SAVE_DEBOUNCE_MS);
@@ -943,6 +1046,8 @@ export function PageEditor({
               openRow: onOpenRow,
               onTreeChanged,
               moveMedia,
+              moveBlocks,
+              moveSelection,
               movePage: onMovePage,
             }}
           >

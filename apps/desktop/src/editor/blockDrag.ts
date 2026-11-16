@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { SideMenuExtension } from "@blocknote/core/extensions";
 import type { GraiteBlock, GraiteEditor } from "./schema";
+import { isMovableText } from "./textDrag";
 
 /**
  * Moving blocks with the side-menu handle, driven by pointer events instead of HTML5 drag and
@@ -10,7 +11,8 @@ import type { GraiteBlock, GraiteEditor } from "./schema";
  *
  * A press on the handle that moves less than DRAG_THRESHOLD stays a click and opens the
  * handle's menu as before. Dropping a media block on a page (sidebar row or page link) moves
- * the file there; dropping a page link on another page link nests that page under it.
+ * the file there; dropping a page link on another page link nests that page under it;
+ * dropping text blocks on a page moves the text into that page.
  */
 
 const DRAG_THRESHOLD = 4;
@@ -21,6 +23,7 @@ const PAGE_TARGET = "[data-media-drop-page]";
 export interface BlockDropActions {
   moveMedia?: (blockId: string, path: string) => Promise<void>;
   movePage?: (sourcePath: string, targetPath: string) => Promise<void>;
+  moveBlocks?: (blockIds: string[], path: string) => Promise<void>;
 }
 
 type Placement = "before" | "after";
@@ -46,7 +49,7 @@ function isInside(el: Element, ids: Set<string>): boolean {
 }
 
 export function useBlockDrag(editor: GraiteEditor, actions: BlockDropActions) {
-  const { moveMedia, movePage } = actions;
+  const { moveMedia, movePage, moveBlocks } = actions;
   useEffect(() => {
     const view = editor.prosemirrorView;
     const root = view.dom;
@@ -116,6 +119,8 @@ export function useBlockDrag(editor: GraiteEditor, actions: BlockDropActions) {
           if (source && source !== path && !path.startsWith(source + "/"))
             return { kind: "page", path, element: page };
         }
+        // Text blocks dropped on a page are moved into it.
+        if (moveBlocks && isMovableText(blocks)) return { kind: "page", path, element: page };
         return null;
       };
 
@@ -211,8 +216,11 @@ export function useBlockDrag(editor: GraiteEditor, actions: BlockDropActions) {
         if (!done) return;
         if (done.kind === "page") {
           const moved = blocks[0]!;
-          if (moved.type === "localMedia") void moveMedia?.(moved.id, done.path);
-          else void movePage?.((moved.props as { path: string }).path, done.path);
+          if (blocks.length === 1 && moved.type === "localMedia")
+            void moveMedia?.(moved.id, done.path);
+          else if (blocks.length === 1 && moved.type === "pageLink")
+            void movePage?.((moved.props as { path: string }).path, done.path);
+          else void moveBlocks?.([...ids], done.path);
           return;
         }
         if (ids.has(done.id)) return;
@@ -306,5 +314,5 @@ export function useBlockDrag(editor: GraiteEditor, actions: BlockDropActions) {
       doc.removeEventListener("pointerdown", pointerDown, true);
       doc.removeEventListener("dragstart", nativeDrag, true);
     };
-  }, [editor, moveMedia, movePage]);
+  }, [editor, moveMedia, movePage, moveBlocks]);
 }

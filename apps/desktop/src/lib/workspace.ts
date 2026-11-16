@@ -40,4 +40,16 @@ export const workspace = {
       method: "POST",
       body: JSON.stringify({ page_id: pageId, target_id: targetId, position }),
     }),
+  /** Append `text` to the page at `targetPath` and save the source page as `body`, as one step. */
+  moveText: (sourceId: string, targetPath: string, text: string, body: string, baseHash: string) =>
+    request<{ path: string; source_hash: string }>("/api/v1/workspace/move-text", {
+      method: "POST",
+      body: JSON.stringify({
+        source_id: sourceId,
+        target_path: targetPath,
+        text,
+        body,
+        base_hash: baseHash,
+      }),
+    }),
 };
