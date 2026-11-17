@@ -17,6 +17,7 @@ import sqlite_vec
 
 from graite.events import EventBus
 from graite.index.db import transaction
+from graite.index.summaries import counts as summary_counts
 from graite.models.config import load_config
 from graite.models.downloader import CatalogModel, Downloader
 from graite.models.manager import Manager
@@ -94,6 +95,8 @@ class Embedder:
         with transaction(self.db):
             if self.has_vec():
                 self.db.execute("DROP TABLE chunk_vec")
+            # Summary vectors belong to the same model: they are rebuilt by summarize_page.
+            self.db.execute("DROP TABLE IF EXISTS summary_vec")
             self.db.execute(f"CREATE VIRTUAL TABLE chunk_vec USING vec0(embedding float[{dim}])")
             self.db.execute("UPDATE chunks SET embedded_model=NULL")
             self.db.execute(
@@ -124,6 +127,9 @@ class Embedder:
             "pending_chunks": int(counts["pending"] or 0) if item else int(counts["chunks"] or 0),
             "worker": self.state,
             "last_error": self.last_error,
+            # The vault map: how many pages with text have an up-to-date one-line summary.
+            **summary_counts(self.db),
+            "updated_at": self.db.execute("SELECT max(indexed_at) FROM pages").fetchone()[0],
         }
 
     def publish(self, **extra: Any) -> None:

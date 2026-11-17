@@ -33,6 +33,9 @@ ToolFn = Callable[..., Awaitable[Any]]
 _EXAMPLE = '[{"name": "Status", "type": "status", "options": ["To do", "Done"], "value": "To do"}]'
 
 
+SNIPPET_CHARS = 300  # what a search hit shows; read_page(path, section) gives the rest
+
+
 class PropertyInput(typing.TypedDict, total=False):
     """One typed field on a page. Only `name` is required: the rest is inferred when missing."""
 
@@ -311,11 +314,20 @@ async def _page_databases(registry: Any, rel: str) -> list[dict[str, Any]]:
     return out
 
 
-@tool("read", "Read a page or section. If truncated, read again with next_offset to continue.")
+@tool(
+    "read",
+    "Read one section of a page (give `section`, a heading from a search hit or the page's "
+    "outline), or a whole page. A page too long for one read comes back as its outline and "
+    "its beginning: read the section you need, or continue with next_offset. Prefer a "
+    "section: it is all a question usually needs.",
+)
 async def read_page(
     registry: Any,
     path: Annotated[str, "Exact vault-relative page path from the pages list or a search hit."],
-    section: Annotated[str | None, "Optional heading text to read only that section."] = None,
+    section: Annotated[
+        str | None,
+        "A heading of the page, as in a search hit ('Plan > Risks') or its last part ('Risks').",
+    ] = None,
     offset: Annotated[
         int, "Character offset; use next_offset from a truncated read to continue."
     ] = 0,
@@ -326,18 +338,24 @@ async def read_page(
     doc = await registry.ops.read_page(rel)
     body = doc.body
     heading = None
+    rows = registry.ops.db.execute(
+        "SELECT text, heading_path FROM chunks WHERE page_path=? ORDER BY ord", (rel,)
+    ).fetchall()
+    paths = [json.loads(r["heading_path"]) for r in rows]
     if section:
-        rows = registry.ops.db.execute(
-            "SELECT text, heading_path FROM chunks WHERE page_path=? ORDER BY ord", (rel,)
-        ).fetchall()
-        wanted = section.strip().lower()
-        parts = [
-            r["text"]
-            for r in rows
-            if any(h.strip().lower() == wanted for h in json.loads(r["heading_path"]))
-        ]
-        if parts:
-            body, heading = "\n\n".join(parts), section.strip()
+        wanted = [part.strip().lower() for part in section.split(">") if part.strip()]
+        lowered = [[h.strip().lower() for h in hp] for hp in paths]
+        # The exact heading path first ("Plan > Risks"), then a path ending in it, then any
+        # heading of that name: two sections called "Notes" are told apart by their parents.
+        for matches in (
+            lambda hp: hp == wanted,
+            lambda hp: len(hp) >= len(wanted) and hp[-len(wanted) :] == wanted,
+            lambda hp: bool(wanted) and wanted[-1] in hp,
+        ):
+            parts = [r["text"] for r, hp in zip(rows, lowered, strict=True) if matches(hp)]
+            if parts:
+                body, heading = "\n\n".join(parts), section.strip()
+                break
     effective = registry.scope.policy_for(doc.path)
     excerpt = body[offset : offset + registry.result_limit]
     result = {
@@ -361,6 +379,18 @@ async def read_page(
         result["board_path"], result["board_fields"] = board
     if heading:
         result["section"] = heading
+    elif section:
+        result["section_note"] = "No heading matches; this is the page from its beginning."
+    if not heading and not offset and len(body) > registry.result_limit:
+        # Too long for one read: say what is in it, so the next call can ask for a section
+        # instead of paging through everything.
+        outline = list(dict.fromkeys(" > ".join(hp) for hp in paths if hp))
+        if outline:
+            result["outline"] = outline[:60]
+            result["outline_note"] = (
+                "This page is long; `body` is only its beginning. Read the part you need "
+                "with read_page(path, section=<a heading above>)."
+            )
     if offset or len(body) > registry.result_limit:
         result["offset"] = offset
         result["total_chars"] = len(body)
@@ -420,6 +450,67 @@ async def list_children(
             if meta.get("instructions"):
                 child["has_instructions"] = True  # read_page returns them
     return children
+
+
+@tool(
+    "read",
+    "The map of the pages in scope: each page's path, title and a one-line summary of what "
+    "it says, without its text. Use it to see what exists and where before you search or "
+    "read. Give a page path to list only what is under it; follow next_offset for more.",
+)
+async def read_navigation(
+    registry: Any,
+    path: Annotated[str, "Page to start from, or an empty string for everything."] = "",
+    offset: Annotated[int, "Where to continue; use next_offset from the last call."] = 0,
+) -> Any:
+    from graite.index.summaries import excerpt
+
+    if not isinstance(offset, int) or offset < 0:
+        raise ValueError("offset must be a non-negative integer.")
+    root = registry.scoped(path) if path else ""
+    wanted = sorted(
+        p for p in registry.scope.paths if not root or p == root or p.startswith(root + "/")
+    )
+    rows = {
+        r["path"]: r
+        for r in registry.ops.db.execute(
+            "SELECT path, title, summary, summary_hash, body_hash, has_content FROM pages"
+        ).fetchall()
+    }
+    lines: list[str] = []
+    used = 0
+    next_offset: int | None = None
+    for index in range(offset, len(wanted)):
+        page = wanted[index]
+        row = rows.get(page)
+        if row is None:
+            continue
+        summary = row["summary"] if row["summary_hash"] == row["body_hash"] else None
+        if not summary and row["has_content"]:
+            # No summary yet (or the page changed since): its first lines stand in.
+            first = registry.ops.db.execute(
+                "SELECT text FROM chunks WHERE page_path=? ORDER BY ord LIMIT 1", (page,)
+            ).fetchone()
+            summary = excerpt(first["text"]) if first else ""
+        title = row["title"]
+        name = page if title == page.rsplit("/", 1)[-1] else f"{page} ({title})"
+        line = f"{name}: {summary}" if summary else name
+        if lines and used + len(line) + 1 > registry.result_limit:
+            next_offset = index
+            break
+        lines.append(line[:300])
+        used += len(line) + 1
+    result: dict[str, Any] = {
+        "path": root,
+        "pages": len(wanted),
+        "map": "\n".join(lines) or "(no pages)",
+        "note": "One page per line: path, then what it says. Nothing here is the page's "
+        "text; search_vault finds passages and read_page(path, section) reads one.",
+    }
+    if next_offset is not None:
+        result["truncated"] = True
+        result["next_offset"] = next_offset
+    return result
 
 
 def _with_own_instructions(registry: Any, paths: list[str]) -> set[str]:
@@ -515,24 +606,41 @@ async def find_pages(
     return result
 
 
-@tool("search", "Search the pages in scope for passages that match a question or keywords.")
+@tool(
+    "search",
+    "Search the pages in scope. Returns the best pages for a question or keywords, each with "
+    "its title, the heading the match is under, a score and a short snippet. This is how to "
+    "find things: search first, then read_page(path, section) for the section you need.",
+)
 async def search_vault(
     registry: Any,
     query: Annotated[str, "A question or a few keywords; quote exact phrases."],
-    k: Annotated[int, "How many passages to return (1-20)."] = 8,
+    k: Annotated[int, "How many pages to return (1-8)."] = 6,
 ) -> Any:
     query = str(query)[:300].strip()
     if not query:
         raise ValueError("Enter at least one search word.")
-    k = max(1, min(int(k), 20))
-    candidates = await registry.searcher.search(query, registry.scope, k=k)
-    results = []
-    for c in candidates[:k]:
+    k = max(1, min(int(k), 8))
+    candidates = await registry.searcher.search(query, registry.scope, k=k + 2)
+    # One result per page: its best passage, with the other headings that matched listed, so
+    # five hits in one long page do not crowd out four other pages.
+    merged: dict[str, dict[str, Any]] = {}
+    for c in candidates:
+        heading = " > ".join(c.heading_path)
+        entry = merged.get(c.page_path)
+        if entry is not None:
+            if heading and heading != entry["heading"] and heading not in entry["also"]:
+                entry["also"].append(heading)
+            continue
+        if len(merged) >= k:
+            continue
         entry = {
             "path": c.page_path,
             "title": c.title,
-            "heading": " > ".join(c.heading_path),
-            "snippet": c.text[:600],
+            "heading": heading,
+            "score": round(c.score, 4),
+            "snippet": c.text[:SNIPPET_CHARS] + ("…" if len(c.text) > SNIPPET_CHARS else ""),
+            "also": [],
         }
         registry.note_source(
             kind="page",
@@ -545,7 +653,13 @@ async def search_vault(
             result=entry,
             chunk_ids=[c.chunk_id],
         )
-        results.append(entry)
+        merged[c.page_path] = entry
+    results = list(merged.values())
+    for entry in results:
+        if entry["also"]:
+            entry["also"] = entry["also"][:4]
+        else:
+            del entry["also"]
     rows = await _search_rows(registry, query)
     return {"passages": results, "rows": rows} if rows else results
 

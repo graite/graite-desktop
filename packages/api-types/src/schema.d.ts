@@ -3125,6 +3125,11 @@ export interface components {
       mode?: ("ask" | "draft" | "act") | null;
       /** Page Path */
       page_path?: string | null;
+      /**
+       * Pinned Paths
+       * @description Pages the user pinned with @ in the message: their text is given to the model first, within the context budget, whatever the search finds.
+       */
+      pinned_paths?: string[];
       /** Replace From */
       replace_from?: number | null;
       selection?: components["schemas"]["Selection"] | null;
@@ -3742,6 +3747,18 @@ export interface components {
       pages: number;
       /** Pending Chunks */
       pending_chunks: number;
+      /**
+       * Summaries
+       * @default 0
+       */
+      summaries: number;
+      /**
+       * Summary Pages
+       * @default 0
+       */
+      summary_pages: number;
+      /** Updated At */
+      updated_at?: string | null;
       /** Vector Model */
       vector_model: string | null;
       /** Worker */
@@ -3957,6 +3974,8 @@ export interface components {
        * @default false
        */
       cut_short: boolean;
+      /** Depth */
+      depth?: string | null;
       /**
        * Interrupted
        * @default false
@@ -3970,6 +3989,8 @@ export interface components {
       } | null;
       /** Mode */
       mode?: string | null;
+      /** Pinned */
+      pinned?: string[] | null;
       /** Proposals */
       proposals?: string[] | null;
       /** Role */

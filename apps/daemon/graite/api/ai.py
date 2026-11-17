@@ -308,6 +308,9 @@ class Message(BaseModel):
     mode: str | None = None
     attachments: list[MessageAttachment] | None = None
     selection: Selection | None = None
+    # Pages the user pinned with @ in this message, and "deep" when it was researched.
+    pinned: list[str] | None = None
+    depth: str | None = None
     run_id: str | None = None
     sources: list[dict[str, Any]] | None = None
     cited: list[int] | None = None
@@ -679,12 +682,57 @@ class ChatRequest(BaseModel):
     attachments: list[str] = Field(default_factory=list)
     selection: Selection | None = None
     replace_from: int | None = Field(default=None, ge=0)
+    pinned_paths: list[str] = Field(
+        default_factory=list,
+        max_length=8,
+        description="Pages the user pinned with @ in the message: their text is given to the "
+        "model first, within the context budget, whatever the search finds.",
+    )
     depth: Literal["quick", "deep"] | None = Field(
         default=None,
         description="How a question in Ask mode is answered: 'quick' is one search and one "
         "model call with no tools; 'deep' researches in several small steps and takes "
         "longer. Left out, the model works with its tools as before (the app sends 'quick').",
     )
+
+
+def _pinned_sources(state: Any, scope: Any, paths: list[str], budget_tokens: int) -> list[Source]:
+    """The text of pages pinned with @, as sources. Each page gets an equal share of half the
+    context budget; a longer page is cut there and the model can read on with read_page."""
+    wanted = [p for p in dict.fromkeys(paths) if scope.contains(p)]
+    if not wanted:
+        return []
+    share = max(400, (budget_tokens * 4 // 2) // len(wanted))
+    out: list[Source] = []
+    for path in wanted:
+        page = state.db.execute(
+            "SELECT id, title, file_hash FROM pages WHERE path=?", (path,)
+        ).fetchone()
+        rows = state.db.execute(
+            "SELECT id, text, start_line, end_line FROM chunks WHERE page_path=? ORDER BY ord",
+            (path,),
+        ).fetchall()
+        if page is None or not rows:
+            continue
+        text = "\n\n".join(r["text"] for r in rows)
+        if len(text) > share:
+            text = text[:share] + "\n[Pinned page shortened to fit; the rest was not read.]"
+        out.append(
+            Source(
+                0,
+                "page",
+                path,
+                page["id"],
+                page["title"],
+                [],
+                text,
+                page["file_hash"],
+                [r["id"] for r in rows],
+                rows[0]["start_line"],
+                rows[-1]["end_line"],
+            )
+        )
+    return out
 
 
 def _attachment_sources(
@@ -843,6 +891,11 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
         feedback=state.proposals.undelivered_rejections(conversation_id),
         depth=body.depth,
     )
+    pinned = _pinned_sources(state, resolved, body.pinned_paths, config.context_budget_tokens)
+    if pinned:
+        ctx.extra_sources = [*pinned, *ctx.extra_sources]
+        ctx.preferred_paths = [s.page_path for s in pinned if s.page_path]
+        user_message["pinned"] = ctx.preferred_paths
     is_assistant = row["kind"] == "assistant"
     if is_assistant:
         from graite.assistant.service import build_turn
@@ -1157,6 +1210,11 @@ class IndexStatus(BaseModel):
     worker: str
     last_error: str | None
     jobs: dict[str, int]
+    # The vault map: pages with text, and how many of them have an up-to-date summary.
+    summary_pages: int = 0
+    summaries: int = 0
+    # When a page was last indexed (ISO time), or None for an empty vault.
+    updated_at: str | None = None
 
 
 @router.get("/index/status", response_model=IndexStatus)

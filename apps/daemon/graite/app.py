@@ -49,7 +49,7 @@ from graite.index import db
 from graite.index.embedder import Embedder
 from graite.jobs.cron import Cron
 from graite.jobs.handlers import HANDLERS
-from graite.jobs.queue import PRIORITY_BULK, PRIORITY_HOT, JobQueue
+from graite.jobs.queue import PRIORITY_BULK, PRIORITY_HOT, PRIORITY_SUMMARY, JobQueue
 from graite.jobs.worker import Worker
 from graite.mcp import runtime
 from graite.mcp.server import McpEndpoint, McpService
@@ -131,6 +131,13 @@ def create_app(settings: Settings) -> FastAPI:
             )
             app.state.queue.enqueue(
                 "embed", key="embed", priority=PRIORITY_HOT if hot else PRIORITY_BULK
+            )
+            # One-line summaries for the vault map, lowest priority, redone per changed page.
+            app.state.queue.enqueue(
+                "summarize_page",
+                {"preemptible": True},
+                key="summarize_page",
+                priority=PRIORITY_SUMMARY,
             )
 
         app.state.fileops.on_indexed = on_indexed

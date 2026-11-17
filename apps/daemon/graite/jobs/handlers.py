@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from graite.index.db import transaction
-from graite.jobs.queue import PRIORITY_REBUILD
+from graite.jobs.queue import PRIORITY_REBUILD, PRIORITY_SUMMARY
 from graite.jobs.worker import JobContext, PermanentJobError
+
+log = logging.getLogger("graite.jobs")
 
 
 async def embed(ctx: JobContext) -> dict[str, Any]:
@@ -558,6 +561,75 @@ def _unavailable(kind: str):  # type: ignore[no-untyped-def]
     return handler
 
 
+async def summarize_page(ctx: JobContext) -> dict[str, Any]:
+    """Write one-line summaries for pages that lack one (index/summaries.py), a few per run.
+
+    Works only with a model on this computer, and only while that model is already loaded:
+    summaries follow the user's own use of chat instead of loading several gigabytes in the
+    background. A chat turn preempts the job; it picks up where it left off.
+    """
+    from graite.index import summaries
+    from graite.models.config import load_config
+    from graite.retrieval.scope import Scope
+    from graite.retrieval.scope import resolve as resolve_scope
+
+    state = ctx.state
+    config = load_config(state.db)
+    if config.provider != "local" or not config.model_path:
+        return {"skipped": "summaries are written by a local model only"}
+    server = state.models.server
+    if not (server.process and server.process.returncode is None):
+        return {"skipped": "the chat model is not loaded"}
+    scope = await asyncio.to_thread(
+        resolve_scope, state.db, state.settings.vault, Scope("vault"), cloud_provider=False
+    )
+    todo = summaries.pending(state.db, set(scope.paths), summaries.BATCH)
+    written = 0
+    for row in todo:
+        if ctx.cancelled.is_set():
+            raise asyncio.CancelledError
+        text = summaries.page_text(state.db, row["path"])
+        if not text.strip():
+            summaries.store(state.db, row["path"], "", row["body_hash"])
+            continue
+        reply = ""
+        async with state.models.use(config) as provider:
+            async for delta in provider.chat(
+                [
+                    {"role": "system", "content": summaries.TASK},
+                    {"role": "user", "content": f"# {row['title']}\n\n{text}"},
+                ],
+                [],
+                thinking=False,
+            ):
+                reply += delta.get("content") or ""
+                if len(reply) > 1200:
+                    break
+        summary = summaries.clean(reply) or summaries.excerpt(text)
+        summaries.forget_vectors(state.db, row["path"])
+        summaries.store(state.db, row["path"], summary, row["body_hash"])
+        written += 1
+        ctx.progress(message=f"Summarised {row['path']}", done=written)
+    embedder = getattr(state, "embedder", None)
+    embedded = 0
+    if embedder is not None:
+        try:
+            embedded = await summaries.embed_missing(state.db, embedder)
+        except Exception:  # noqa: BLE001 - vectors are an extra; the summaries are saved
+            log.info("summary vectors skipped", exc_info=True)
+    left = summaries.pending(state.db, set(scope.paths), 1)
+    if left or embedded:
+        state.queue.enqueue(
+            "summarize_page",
+            {"preemptible": True},
+            key="summarize_page",
+            priority=PRIORITY_SUMMARY,
+        )
+    if embedder is not None:
+        embedder.publish()
+    return {"summarised": written, "embedded": embedded}
+
+
 async def media_extract(ctx: JobContext) -> dict[str, Any]:
     """Transcribe or OCR one page attachment (api/media.py). The extraction's own record holds
     the progress and the result; this job only gives it its turn at the local model."""
@@ -588,5 +660,6 @@ HANDLERS = {
     "assistant_reflect": assistant_reflect,
     "workflow_run": _unavailable("workflow_run"),
     "live_note": live_note,
-    **{kind: _unavailable(kind) for kind in ("summarize_page", "extract_entities")},
+    "summarize_page": summarize_page,
+    "extract_entities": _unavailable("extract_entities"),
 }
