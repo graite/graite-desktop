@@ -1,6 +1,7 @@
 ---
 name: tables
 description: Read, query and change data tables — CSV files in a page's _data folder shown by graite:table blocks — with read_tables, run_query_ro and propose_rows.
+requires: [read_tables]
 ---
 
 # Data tables

@@ -568,3 +568,54 @@ async def test_a_partly_malformed_leaked_batch_still_runs_the_good_call() -> Non
     events = await collect(provider, registry, max_rounds=4)
     assert registry.invoked == [("propose_append", ARGUMENTS)]
     assert events[-1] == {"type": "answer", "text": "Added it."}
+
+
+async def test_an_announced_read_that_never_happened_gets_one_more_go_with_tools() -> None:
+    """ "I will read the page now." and nothing else: the user was left waiting for a read
+    that was never made, and the next turn reported one that never happened."""
+    from graite.retrieval.answer import unkept_promise
+
+    provider = ScriptedProvider(
+        [{"content": "I will read the Todos page now."}],
+        [call()],
+        [{"content": "Two items are open."}],
+    )
+    registry = RecordingRegistry()
+
+    items = await collect(provider, registry, nudge=lambda text: unkept_promise(text, []))
+
+    assert [name for name, _ in registry.invoked] == ["search_vault"]
+    assert [i["text"] for i in items if i["type"] == "answer"] == ["Two items are open."]
+    assert sum(i["type"] == "reset" for i in items) == 2  # the correction, then the tool round
+
+
+async def test_the_correction_is_given_once_and_an_ordinary_answer_is_left_alone() -> None:
+    from graite.retrieval.answer import unkept_promise
+
+    stubborn = ScriptedProvider(
+        [{"content": "Let me check that page."}], [{"content": "Let me check that page."}]
+    )
+    items = await collect(stubborn, nudge=lambda text: unkept_promise(text, []))
+    assert [i["text"] for i in items if i["type"] == "answer"] == ["Let me check that page."]
+
+    plain = ScriptedProvider([{"content": "Good morning! How can I help?"}])
+    items = await collect(plain, nudge=lambda text: unkept_promise(text, []))
+    assert len(plain.offered) == 1 and items[-1]["text"] == "Good morning! How can I help?"
+
+
+def test_what_counts_as_an_unkept_promise() -> None:
+    from graite.retrieval.answer import unkept_promise
+
+    assert unkept_promise("I will read the open items from that page now.", [])
+    assert unkept_promise("I have checked the Todos page, and here are the open items.", [])
+    assert unkept_promise("Ik ga het even voor je opzoeken.", [])
+    assert unkept_promise("Ik heb de pagina gelezen en dit staat erop.", [])
+    # A page the question named and nobody opened, however the answer is worded.
+    hint = unkept_promise("There are three open items.", ["Projects/Atlas/Todos"])
+    assert hint and "Projects/Atlas/Todos" in hint
+    # Asking back is a legitimate way not to read; so is plain conversation.
+    assert (
+        unkept_promise("Do you mean the Todos page under Atlas?", ["Projects/Atlas/Todos"]) is None
+    )
+    assert unkept_promise("I will remember that. Anything else?", []) is None
+    assert unkept_promise("You're welcome.", []) is None

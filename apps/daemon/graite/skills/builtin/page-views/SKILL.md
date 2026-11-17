@@ -1,6 +1,7 @@
 ---
 name: page-views
 description: Build a board (kanban), table or list of pages — the parent's graite:view fence, the card pages under it, and the Status property that makes the columns.
+requires: [propose_view]
 ---
 
 # Boards, tables and lists

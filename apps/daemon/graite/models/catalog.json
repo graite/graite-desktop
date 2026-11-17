@@ -208,6 +208,33 @@
           "sha256": "ad2d99210a469e7d5ee66780a1e2e8604473e2dcc2ee09cef3409dbed2015c83"
         }
       ]
+    },
+    {
+      "id": "zonos3-mini-q8",
+      "name": "ZONOS3 Mini · Voice",
+      "role": "tts",
+      "repo": "ggml-org/ZONOS3-Mini-GGUF",
+      "revision": "2e7bc4126a2343787298e1a297a3d1c4a13165aa",
+      "filename": "ZONOS3-Mini-Q8_0.gguf",
+      "sha256": "60568efc88e2f9231f4f5c061e246421f575986642d72ab9ae68f77d6cf76be4",
+      "size": 1997229088,
+      "ctx": 0,
+      "min_ram_gb": 6,
+      "tier": "optional",
+      "notes": "A more natural voice for your assistant in 43 languages, with voice cloning from a short clip. It starts speaking before a sentence is finished. Runs on the chat engine, and needs a graphics card to keep up with a conversation.",
+      "verified_llama": "b12479 · Linux ARM64 Vulkan · built-in and cloned voice, English and Dutch, streamed",
+      "files": [
+        {
+          "filename": "ZONOS3-Mini-Q8_0.gguf",
+          "size": 854726208,
+          "sha256": "60568efc88e2f9231f4f5c061e246421f575986642d72ab9ae68f77d6cf76be4"
+        },
+        {
+          "filename": "mmproj-ZONOS3-Mini-F32.gguf",
+          "size": 1142502880,
+          "sha256": "aeeb92325b4b6927bef656390b78e1246148065f947d8b59c2663557a809414d"
+        }
+      ]
     }
   ]
 }

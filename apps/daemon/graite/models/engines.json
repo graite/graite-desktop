@@ -5,7 +5,7 @@
       "id": "llama",
       "name": "Chat engine",
       "binary": "llama-server",
-      "version": "b12359",
+      "version": "b12479",
       "repo": "ggml-org/llama.cpp",
       "license": "MIT",
       "purpose": "Runs your chat, search and OCR models on this computer. Graite starts it when a model is needed and stops it afterwards.",
@@ -18,9 +18,9 @@
           "label": "Apple Silicon (Metal)",
           "archives": [
             {
-              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-macos-arm64.tar.gz",
-              "sha256": "82b00abc740160e1b9980e6cc79c117345fa34af058c80e6c0a69aa8ddccde75",
-              "size": 16907811
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12479/llama-b12479-bin-macos-arm64.tar.gz",
+              "sha256": "36a87fe816a02caef078c939099f3bd59f2658afaf541e69ac66a2e41b0348a0",
+              "size": 17047457
             }
           ]
         },
@@ -32,9 +32,9 @@
           "label": "Intel Mac",
           "archives": [
             {
-              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-macos-x64.tar.gz",
-              "sha256": "25320d529077ef5a3d16e7b5da26438f221d88c8c0930a32b0c79457f5eede56",
-              "size": 12661621
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12479/llama-b12479-bin-macos-x64.tar.gz",
+              "sha256": "182736f86b4e3f6b957aea177af0a7da6699fae0469aa2ebfeed343b2d67d437",
+              "size": 12804235
             }
           ]
         },
@@ -46,9 +46,9 @@
           "label": "Graphics card (Vulkan)",
           "archives": [
             {
-              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-ubuntu-vulkan-x64.tar.gz",
-              "sha256": "19b60f00395a3f4954e46a5037695bc1d843404fc9d3124f82a612ecd8fbe9f0",
-              "size": 36153377
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12479/llama-b12479-bin-ubuntu-vulkan-x64.tar.gz",
+              "sha256": "e5839a001ea74d087f6d4caa6e9445ed33aa45b71cc5bf4193716775423e15f0",
+              "size": 36460195
             }
           ]
         },
@@ -60,9 +60,9 @@
           "label": "Processor only",
           "archives": [
             {
-              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-ubuntu-x64.tar.gz",
-              "sha256": "0bc1f091e8916102b6d8f2cf944233a620e90a0f856c72d0ce41150c65c2e72e",
-              "size": 23311084
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12479/llama-b12479-bin-ubuntu-x64.tar.gz",
+              "sha256": "8eec1c9c715159b33aaf02cc5efe2a60c052b0ff3d5fbc6ee88b288bc1085917",
+              "size": 23525016
             }
           ]
         },
@@ -74,14 +74,14 @@
           "label": "NVIDIA (CUDA 12)",
           "archives": [
             {
-              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-ubuntu-cuda-12.8-x64.tar.gz",
-              "sha256": "50c937bec5bbd9f74c99138034f7403283ee21f1943f2429d7b1e4c079eafc11",
-              "size": 199223370
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12479/llama-b12479-bin-ubuntu-cuda-12.8-x64.tar.gz",
+              "sha256": "15b95d40c7309d6887313a077b34824d0194f8b63e3f17cad0becef8c3231459",
+              "size": 200408184
             },
             {
-              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12359/cudart-llama-b12359-bin-ubuntu-cuda-12.8-x64.tar.gz",
-              "sha256": "75a12d227f44a391608992329241765343bd143ee9445b90dc62e154ee726e5d",
-              "size": 594371571
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12479/cudart-llama-b12479-bin-ubuntu-cuda-12.8-x64.tar.gz",
+              "sha256": "451e3a2bb11ad60ddbdf493b8952f32402bdcfd03bbbefff48e2ae3990c8a56c",
+              "size": 594376855
             }
           ]
         },
@@ -93,9 +93,9 @@
           "label": "Graphics card (Vulkan)",
           "archives": [
             {
-              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-ubuntu-vulkan-arm64.tar.gz",
-              "sha256": "3f8ae812a58ac92e5a596ca9fbc988f52854d147c5a7fe1264dddc90c1d085b4",
-              "size": 29435221
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12479/llama-b12479-bin-ubuntu-vulkan-arm64.tar.gz",
+              "sha256": "c325ad9098d21a8fbee48833110afce2e9616eb1abed82b4f0795cbbd0a2417e",
+              "size": 29691490
             }
           ]
         },
@@ -107,9 +107,9 @@
           "label": "Processor only",
           "archives": [
             {
-              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-ubuntu-arm64.tar.gz",
-              "sha256": "dc7aa17a67884619b7223870aca9fd6addbc01717713b04a714add1c31137359",
-              "size": 18949862
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12479/llama-b12479-bin-ubuntu-arm64.tar.gz",
+              "sha256": "8e8f7ec2c3a708c42fb1f963237f32e131ed53e42228697a9dc2ff59d8042ca6",
+              "size": 19144056
             }
           ]
         },
@@ -121,14 +121,14 @@
           "label": "NVIDIA (CUDA 13)",
           "archives": [
             {
-              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-ubuntu-cuda-13.5-arm64.tar.gz",
-              "sha256": "e12fd3ca9a599349cac5ec767825e17f8cab9dc2dab8d8e5b85d50ce21ef6d7d",
-              "size": 173529798
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12479/llama-b12479-bin-ubuntu-cuda-13.5-arm64.tar.gz",
+              "sha256": "fbfca464624ae9bab9b976ed1feb06bd6964d378e3b1f86964ca9e87586566b7",
+              "size": 196933084
             },
             {
-              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12359/cudart-llama-b12359-bin-ubuntu-cuda-13.5-arm64.tar.gz",
-              "sha256": "998f62318999710d398dad40821d1d037731f360791e41628d9dfcde207909d1",
-              "size": 559874231
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12479/cudart-llama-b12479-bin-ubuntu-cuda-13.5-arm64.tar.gz",
+              "sha256": "017e1cff6b57fd8933b2e482ef779e45c521dd6687a6c755e61004972d0dcda9",
+              "size": 559873338
             }
           ]
         },
@@ -140,9 +140,9 @@
           "label": "Graphics card (Vulkan)",
           "archives": [
             {
-              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-win-vulkan-x64.zip",
-              "sha256": "e8d18c6e4210cca87e7307c2ea78363ac8d158e4e1397358ec96ab70b53a0d5e",
-              "size": 38090643
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12479/llama-b12479-bin-win-vulkan-x64.zip",
+              "sha256": "676f674c755f4607528c9a488e13d29b19a64bb9f0a39a44f174a63b067709e3",
+              "size": 38336058
             }
           ]
         },
@@ -154,9 +154,9 @@
           "label": "Processor only",
           "archives": [
             {
-              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-win-cpu-x64.zip",
-              "sha256": "837c1655e87df3b66989f4be33a792a1399c785bf259038dc75c900096683e69",
-              "size": 25097509
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12479/llama-b12479-bin-win-cpu-x64.zip",
+              "sha256": "02305d4f6114f037d4bff8a95b0da9c3f25c521ef496b9426db8869d554cdd84",
+              "size": 25254276
             }
           ]
         },
@@ -168,12 +168,12 @@
           "label": "NVIDIA (CUDA 12)",
           "archives": [
             {
-              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-win-cuda-12.4-x64.zip",
-              "sha256": "e9c0abf442e8339c06728366c1ad2c711332f9939c0c00603fb75d85fd44c914",
-              "size": 318976332
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12479/llama-b12479-bin-win-cuda-12.4-x64.zip",
+              "sha256": "b3a5fac03e3c43c6975d30e40bf26a1b685bb0dac52ff0d4ee105c6e806bb5c2",
+              "size": 321019547
             },
             {
-              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12359/cudart-llama-bin-win-cuda-12.4-x64.zip",
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12479/cudart-llama-bin-win-cuda-12.4-x64.zip",
               "sha256": "8c79a9b226de4b3cacfd1f83d24f962d0773be79f1e7b75c6af4ded7e32ae1d6",
               "size": 391443627
             }
@@ -187,9 +187,9 @@
           "label": "Processor only",
           "archives": [
             {
-              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-win-cpu-arm64.zip",
-              "sha256": "d27564c754478d2832789dfcebfc5ace018e36a224c41d810b7cbc1ba8243ec0",
-              "size": 13455326
+              "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12479/llama-b12479-bin-win-cpu-arm64.zip",
+              "sha256": "9cf291686370d047af6d0838b14197faa4e4c925f6667274b3c44bd1bfa1a00f",
+              "size": 13595175
             }
           ]
         }

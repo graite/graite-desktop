@@ -157,6 +157,16 @@ mic PCM16 16 kHz ─▶ Reframer (512 samples) ─▶ Silero VAD ─▶ TurnAnal
 - **Engines** (`voice/tts.py`): `get_engine()` is the only place that knows them.
   `engines/crispasr.py` owns a `crispasr --server --backend chatterbox` process on a loopback
   port with a generated key; `engines/stub.py` needs no model and keeps the path testable.
+- **Two voice models**: Chatterbox through `crispasr` (24 kHz, a sentence at a time) and ZONOS3
+  Mini through `llama-server` (`engines/llama_tts.py`, 44.1 kHz, streamed within the
+  sentence). `voice/tts.py::voice_model` picks the one chosen in settings (`tts_model`) while
+  it is installed, else the first installed; the session and the client take the sample rate
+  from the engine (D112).
+- **A crashing engine** does not end the answer: a sentence the engine died on before any sound
+  is retried (the engine starts itself again, up to three attempts), one that broke off halfway
+  is left and the next sentence follows. An engine that keeps failing sends `error` and the
+  written answer is still saved. The engine's last stderr lines go to `daemon.log` when its
+  process exits (D110).
 - **Resources**: `VoiceRuntime.open` checks free memory, holds the foreground gate, pins the
   chat model, and loads whisper, the TTS engine and the chat model together. One session at a
   time. `model_busy()` makes model-changing routes answer 409 meanwhile.

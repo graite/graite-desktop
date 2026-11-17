@@ -23,6 +23,7 @@ import json
 import logging
 import re
 from collections.abc import Awaitable, Callable
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -52,6 +53,12 @@ SILENT_AFTER = 3.0  # seconds of no frames at all before saying the input is dea
 NEVER_HEARD_AFTER = 12.0
 # A tool round this long with the user hearing nothing earns one more "still looking".
 STILL_AFTER = 4.0
+# How often one sentence is offered to the speech engine before the voice gives up.
+SYNTH_ATTEMPTS = 3
+VOICE_FAILED = (
+    "The voice engine stopped while speaking, so the rest was not read aloud. "
+    "The full answer is in the conversation."
+)
 
 
 class VoiceSession:
@@ -494,7 +501,7 @@ class VoiceSession:
         self._played.clear()
         self.reference.reset()
         self.guard.begin_answer()
-        voice = Voice(language, self.voice.reference, self.voice.exaggeration, self.voice.cfg)
+        voice = replace(self.voice, language=language)
         sentences: asyncio.Queue[str | None] = asyncio.Queue()
         speaker = asyncio.create_task(self._speak(sentences, voice))
         chunker = SpeechChunker()
@@ -563,7 +570,11 @@ class VoiceSession:
                     await self.send_json(item)
             stop_still()
             sentences.put_nowait(None)
-            await speaker
+            try:
+                await speaker
+            except Exception:  # noqa: BLE001 - the answer exists; only its voice failed
+                log.exception("speaking the answer failed")
+                await self.send_json({"type": "error", "text": VOICE_FAILED})
             await self.send_json({"type": "speech_end", "ms": round(self._total_ms())})
         except asyncio.CancelledError:
             stop_still()
@@ -648,11 +659,45 @@ class VoiceSession:
             while (sentence := await sentences.get()) is not None:
                 chunks: asyncio.Queue[bytes | None] = asyncio.Queue()
                 await ready.put((sentence, chunks))
-                async for chunk in self.tts.synthesize(spoken(sentence), voice):
-                    chunks.put_nowait(chunk)
-                chunks.put_nowait(None)
+                try:
+                    await self._synthesize_one(sentence, chunks, voice)
+                finally:
+                    chunks.put_nowait(None)
         finally:
             await ready.put(None)
+
+    async def _synthesize_one(
+        self, sentence: str, chunks: asyncio.Queue[bytes | None], voice: Voice
+    ) -> None:
+        """One sentence, surviving an engine that dies on it.
+
+        A native engine can crash on a single request (a GPU fault, memory). The engine starts
+        itself again on the next call, so a sentence that produced no sound yet is simply tried
+        again; one that broke off halfway is left as it is, since saying its start twice is
+        worse than a clipped ending, and the answer goes on with the next sentence. Only an
+        engine that keeps failing ends the speech, and then loudly (`_turn` reports it).
+        """
+        assert self.tts is not None
+        for attempt in range(1, SYNTH_ATTEMPTS + 1):
+            produced = False
+            try:
+                async for chunk in self.tts.synthesize(spoken(sentence), voice):
+                    produced = True
+                    chunks.put_nowait(chunk)
+                return
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception(
+                    "speech engine failed on a sentence of %d characters (attempt %d of %d)",
+                    len(sentence),
+                    attempt,
+                    SYNTH_ATTEMPTS,
+                )
+                if produced:
+                    return
+                if attempt == SYNTH_ATTEMPTS:
+                    raise
 
     async def _speak(self, sentences: asyncio.Queue[str | None], voice: Voice) -> None:
         assert self.tts is not None
@@ -690,6 +735,9 @@ class VoiceSession:
                     await self.send_json(
                         {"type": "audio_end", "utterance": index, "ms": round(entry[1])}
                     )
+            # The producer ends the queue whether it finished or failed; a failure must not
+            # pass for "everything was said".
+            await producer
         finally:
             producer.cancel()
             await asyncio.gather(producer, return_exceptions=True)

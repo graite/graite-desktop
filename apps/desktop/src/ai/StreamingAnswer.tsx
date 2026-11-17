@@ -37,11 +37,13 @@ export function StreamingAnswer({
         <Orbit size={12} /> Graite
       </div>
       <TaskProgress steps={activity} hideRunning live={live} />
+      {/* Above the text while it streams: below it they would be pushed down with every
+          token. The finished message (MessageList) shows them under the answer. */}
+      <Sources sources={newSources} onNavigate={onNavigate} label="new" />
       <div className="ai-prose markdown">
         <MarkdownAnswer content={parts.answer} onNavigate={onNavigate} />
       </div>
       {actions && <ChatProposals proposals={proposals} actions={actions} onNavigate={onNavigate} />}
-      <Sources sources={newSources} onNavigate={onNavigate} label="new" />
     </div>
   );
 }

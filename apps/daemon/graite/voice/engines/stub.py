@@ -14,6 +14,7 @@ from graite.voice.tts import Voice
 class StubEngine:
     name = "stub"
     sample_rate = 24000
+    controls: tuple[str, ...] = ()
 
     def __init__(self, seconds_per_word: float = 0.18, delay: float = 0.0) -> None:
         self.seconds_per_word = seconds_per_word

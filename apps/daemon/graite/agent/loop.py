@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 from graite.models.providers import Provider
@@ -148,16 +148,21 @@ async def run(
     effort: str | None = None,
     context_size: int | None = None,
     max_tool_calls: int | None = None,
+    nudge: Callable[[str], str | None] | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """Run the tool loop. `registry` may be None when `max_rounds` is 1: a single round has
     no tools. After `max_tool_calls` tool calls the next round is the last, so a turn cannot
-    keep reading for ever."""
+    keep reading for ever.
+
+    `nudge` looks at an answer given before any tool was used and may return a correction
+    ("you said you would read it: do so"); the model then gets one more go with its tools.
+    Small models announce a read, or report one, without making the call."""
     rounds = max(1, max_rounds)
     executed = 0
     options: dict[str, Any] = {} if thinking is None else {"thinking": thinking}
     if effort:
         options["effort"] = effort
-    retried = False
+    retried = nudged = False
     seen_ids: set[str] = set()
     for round_index in range(rounds):
         round_number = round_index + 1
@@ -231,6 +236,17 @@ async def run(
             content = ""
         if not calls:
             if visible(content):
+                correction = (
+                    nudge(visible(content))
+                    if nudge is not None and not nudged and not executed and not last_round
+                    else None
+                )
+                if correction:
+                    nudged = True
+                    messages.append({"role": "assistant", "content": visible(content)})
+                    messages.append({"role": "user", "content": correction})
+                    yield {"type": "reset"}
+                    continue
                 yield {"type": "answer", "text": visible(content)}
                 return
             if not retried and not last_round:

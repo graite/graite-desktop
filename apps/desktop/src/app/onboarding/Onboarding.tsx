@@ -44,7 +44,7 @@ interface Nav {
 }
 
 /** The first run, once per computer: the name, a welcome, the basics, connecting AI apps, a
- * page's AI settings, reviews, the Graite account and a first page. Every step can be passed;
+ * page's AI settings, reviewing changes, the Graite account and a first page. Every step can be passed;
  * the last one ends it. */
 export function Onboarding({
   initialName = "",
@@ -196,7 +196,7 @@ function WelcomeStep({ firstName, nav }: { firstName: string; nav: Nav }) {
       <Text title={firstName ? `Welcome aboard, ${firstName}` : "Welcome aboard"}>
         <p>
           Your pages are plain Markdown files on this computer, and they’re yours to keep. AI brings
-          suggestions, never surprises: changes wait for your review, unless you tell otherwise.
+          suggestions, never surprises: you choose whether changes wait for your review.
         </p>
       </Text>
       <Footer nav={nav} />
@@ -265,7 +265,7 @@ function ConnectStep({ nav }: { nav: Nav }) {
       <Text title="Connect to Claude, ChatGPT or others">
         <p>
           With <b>AI connectors</b>, the AI app you already use can read your pages and propose
-          changes. What it changes waits for your review.
+          changes. Whether a change waits for your review is up to each page’s AI settings.
         </p>
         <p>
           Graite’s own AI runs in <b>Graite Cloud</b>, so it works without installing anything.
@@ -301,10 +301,11 @@ function ReviewStep({ nav }: { nav: Nav }) {
   return (
     <>
       <Shots shots={[["review"]]} />
-      <Text title="You review every change">
+      <Text title="Review changes, or let AI apply them">
         <p>
-          AI never edits a page by itself. It proposes a change, shown right in the page, and you{" "}
-          <b>accept</b> or reject it.
+          You decide per page what happens to AI’s changes. They can <b>wait for your review</b>,
+          shown right in the page for you to accept or reject, or be <b>applied directly</b>. Set it
+          in the page’s AI settings; subpages follow.
         </p>
         <p>
           The <b>Studio</b> is where you ask questions about your notes, set up agents for routine

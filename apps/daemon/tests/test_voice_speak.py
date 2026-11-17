@@ -88,3 +88,78 @@ async def test_audio_starts_on_the_first_chunk_not_the_finished_sentence() -> No
     await session._speak(sentences, Voice("en", None, 0.5, 0.5))
 
     assert timeline.index("send-start One.") < timeline.index("synth-end One.")
+
+
+class FlakyEngine:
+    """Dies on chosen calls, the way a native engine does when its process crashes."""
+
+    name = "flaky"
+    sample_rate = 24000
+
+    def __init__(self, failures: dict[int, str]) -> None:
+        self.failures = failures  # call number -> "before" or "during" the audio
+        self.calls: list[str] = []
+
+    async def synthesize(self, text: str, voice: Any) -> Any:
+        self.calls.append(text)
+        failure = self.failures.get(len(self.calls))
+        if failure == "before":
+            raise RuntimeError("engine died")
+        yield CHUNK
+        if failure == "during":
+            raise RuntimeError("engine died")
+        yield CHUNK
+
+
+def _queue(*texts: str) -> asyncio.Queue[str | None]:
+    sentences: asyncio.Queue[str | None] = asyncio.Queue()
+    for text in (*texts, None):
+        sentences.put_nowait(text)
+    return sentences
+
+
+async def test_a_sentence_the_engine_died_on_is_tried_again() -> None:
+    """One crashed request used to end the whole answer in silence, mid-thought."""
+    timeline: list[str] = []
+    session = _session(timeline)
+    engine = FlakyEngine({2: "before"})
+    session.tts = engine  # type: ignore[assignment]
+
+    await session._speak(_queue("One.", "Two.", "Three."), Voice("en", None, 0.5, 0.5))
+
+    assert engine.calls == ["One.", "Two.", "Two.", "Three."]
+    assert [t for t in timeline if t.startswith("send-end")] == [
+        "send-end One.",
+        "send-end Two.",
+        "send-end Three.",
+    ]
+
+
+async def test_a_sentence_cut_off_halfway_is_not_repeated_and_the_answer_goes_on() -> None:
+    timeline: list[str] = []
+    session = _session(timeline)
+    engine = FlakyEngine({1: "during"})
+    session.tts = engine  # type: ignore[assignment]
+
+    await session._speak(_queue("One.", "Two."), Voice("en", None, 0.5, 0.5))
+
+    assert engine.calls == ["One.", "Two."]
+    assert [t for t in timeline if t.startswith("send-start")] == [
+        "send-start One.",
+        "send-start Two.",
+    ]
+
+
+async def test_an_engine_that_keeps_dying_is_an_error_not_a_finished_answer() -> None:
+    import pytest
+
+    timeline: list[str] = []
+    session = _session(timeline)
+    engine = FlakyEngine({2: "before", 3: "before", 4: "before"})
+    session.tts = engine  # type: ignore[assignment]
+
+    with pytest.raises(RuntimeError):
+        await session._speak(_queue("One.", "Two.", "Three."), Voice("en", None, 0.5, 0.5))
+
+    assert engine.calls == ["One.", "Two.", "Two.", "Two."]
+    assert [t for t in timeline if t.startswith("send-end")] == ["send-end One."]

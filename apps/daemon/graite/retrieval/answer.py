@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
@@ -562,6 +563,49 @@ def clarification(text: str) -> tuple[str | None, str]:
         return None, text
     cleaned = (text[: match.start()] + text[match.end() :]).strip()
     return match.group(1).strip(), cleaned
+
+
+# "I will read the page now", "let me check", "ik ga het even opzoeken": an action announced,
+# in the languages the assistant is used in. Only ever consulted when no tool was called.
+_PROMISE = re.compile(
+    r"\b(i will|i'll|i’ll|let me|i am going to|i'm going to|i’m going to|one moment|"
+    r"ik ga|ik zal|laat me|momentje|een moment)\b[^.?!]{0,120}?"
+    r"\b(read|check|look|open|search|find|review|pull up|"
+    r"lezen|lees|kijken|kijk|opzoeken|zoeken|zoek|bekijken|controleren|nakijken|openen)\b",
+    re.I,
+)
+_CLAIM = re.compile(
+    r"\b(i have|i've|i’ve|i just|ik heb)\b[^.?!]{0,60}?"
+    r"\b(checked|read|looked|opened|searched|reviewed|"
+    r"gelezen|gekeken|bekeken|gecontroleerd|nagekeken|opgezocht|gezocht|geopend)\b",
+    re.I,
+)
+
+
+def unkept_promise(text: str, paths: list[str]) -> str | None:
+    """A correction for an answer that used no tool, or None when the answer may stand.
+
+    Three things a small model does instead of reading: it says it will read ("I will read
+    the page now") and stops; it says it has ("I have checked the page") and makes up the
+    content; or it answers a question that names one of the user's pages (`paths`, from
+    `navigation.page_reference`) straight from the dialogue. A question back to the user is
+    left alone: asking is a legitimate way not to read.
+    """
+    if text.rstrip().endswith("?") or "CLARIFY:" in text:
+        return None
+    if _CLAIM.search(text):
+        problem = "You said you checked a page, but you called no tool, so nothing was read."
+    elif _PROMISE.search(text):
+        problem = "You said you would look, but you called no tool, so nothing has happened."
+    elif paths:
+        problem = "You answered a question about the user's pages without opening any."
+    else:
+        return None
+    where = f" Likely pages: {json.dumps(paths[:4], ensure_ascii=False)}." if paths else ""
+    return (
+        f"{problem}{where} Call read_page (or search_vault, list_children, read_rows) now, "
+        "then answer only from what the tool returns. Do not announce it again."
+    )
 
 
 def limits(

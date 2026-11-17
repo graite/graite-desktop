@@ -87,6 +87,7 @@ Models, pinned by revision and checksum in `apps/daemon/graite/models/catalog.js
 | Silero VAD v5 (voice activity) | `onnx-community/silero-vad` | MIT |
 | Smart Turn v3 (turn detection) | `pipecat-ai/smart-turn-v3` | BSD-2-Clause |
 | Chatterbox Multilingual (voice) | `cstr/chatterbox-GGUF` | MIT (Resemble AI Chatterbox) |
+| ZONOS3 Mini (voice) | `ggml-org/ZONOS3-Mini-GGUF` | Apache-2.0 (Zyphra ZONOS3 Mini) |
 
 The Settings → Chat model list also offers Gemma 4 and Qwen3.8 models; those models carry
 their own terms on Hugging Face. The Google and Qwen logos in `apps/desktop/public/model-brands/`

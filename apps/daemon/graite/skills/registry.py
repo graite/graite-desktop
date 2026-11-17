@@ -164,9 +164,18 @@ class Registry:
             if t.name in self.allowed and t.group in self.groups
         ]
 
+    def can_follow(self, skill: dict[str, Any]) -> bool:
+        """Whether this run has the tools the skill is about. The background loop and the
+        memory passes run with a short tool list; a skill that tells them to call a tool
+        they do not have only produces refused calls."""
+        available = {name for name in self.allowed if tool_module.TOOLS[name].group in self.groups}
+        return all(tool in available for tool in skill.get("requires") or [])
+
     def skill_index(self) -> str:
         return "\n".join(
-            f"- {name}: {skill['description']}" for name, skill in self.library.items()
+            f"- {name}: {skill['description']}"
+            for name, skill in self.library.items()
+            if self.can_follow(skill)
         )
 
     def scoped(self, path: str) -> str:
