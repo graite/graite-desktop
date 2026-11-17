@@ -44,7 +44,7 @@ export function AssistantVoice({
   onSaved: (info: AssistantInfo) => void;
   onSettings: (tab?: "voice") => void;
 }) {
-  const current = info.voice ?? { language: "auto", exaggeration: 0.5, cfg: 0.5 };
+  const current = info.voice ?? { language: "auto", exaggeration: 0.5, cfg: 0.5, speed: 1 };
   const [status, setStatus] = useState<VoiceStatus | null>(null);
   const [voices, setVoices] = useState<VoiceInfo[]>([]);
   const [busy, setBusy] = useState("");
@@ -86,6 +86,7 @@ export function AssistantVoice({
         language: current.language === "auto" ? "en" : current.language,
         exaggeration: current.exaggeration,
         cfg: current.cfg,
+        speed: current.speed,
       });
       const url = URL.createObjectURL(blob);
       audio.current?.pause();
@@ -94,6 +95,8 @@ export function AssistantVoice({
       await audio.current.play();
     });
   const missing = status && !status.ready ? (status.missing ?? []) : [];
+  // Each voice model listens to its own settings; show only the ones that do something.
+  const controls = new Set(status?.controls ?? []);
   return (
     <div className="assistant-pane" data-page-scroll>
       <h2>Voice</h2>
@@ -149,38 +152,60 @@ export function AssistantVoice({
           </ModelSelect>
           <small>“The language I speak” follows what speech recognition hears, turn by turn.</small>
         </label>
-        <label>
-          <span>Expressiveness · {Number(current.exaggeration ?? 0.5).toFixed(2)}</span>
-          <input
-            type="range"
-            min={0}
-            max={1.5}
-            step={0.05}
-            defaultValue={current.exaggeration ?? 0.5}
-            disabled={!!busy}
-            onPointerUp={(e) =>
-              void patch({ exaggeration: Number((e.target as HTMLInputElement).value) })
-            }
-            onKeyUp={(e) =>
-              void patch({ exaggeration: Number((e.target as HTMLInputElement).value) })
-            }
-          />
-          <small>Higher is livelier and less steady.</small>
-        </label>
-        <label>
-          <span>Pace and steadiness · {Number(current.cfg ?? 0.5).toFixed(2)}</span>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            defaultValue={current.cfg ?? 0.5}
-            disabled={!!busy}
-            onPointerUp={(e) => void patch({ cfg: Number((e.target as HTMLInputElement).value) })}
-            onKeyUp={(e) => void patch({ cfg: Number((e.target as HTMLInputElement).value) })}
-          />
-          <small>Lower it when a cloned voice speaks another language than its recording.</small>
-        </label>
+        {controls.has("exaggeration") && (
+          <label>
+            <span>Expressiveness · {Number(current.exaggeration ?? 0.5).toFixed(2)}</span>
+            <input
+              type="range"
+              min={0}
+              max={1.5}
+              step={0.05}
+              defaultValue={current.exaggeration ?? 0.5}
+              disabled={!!busy}
+              onPointerUp={(e) =>
+                void patch({ exaggeration: Number((e.target as HTMLInputElement).value) })
+              }
+              onKeyUp={(e) =>
+                void patch({ exaggeration: Number((e.target as HTMLInputElement).value) })
+              }
+            />
+            <small>Higher is livelier and less steady.</small>
+          </label>
+        )}
+        {controls.has("cfg") && (
+          <label>
+            <span>Pace and steadiness · {Number(current.cfg ?? 0.5).toFixed(2)}</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              defaultValue={current.cfg ?? 0.5}
+              disabled={!!busy}
+              onPointerUp={(e) => void patch({ cfg: Number((e.target as HTMLInputElement).value) })}
+              onKeyUp={(e) => void patch({ cfg: Number((e.target as HTMLInputElement).value) })}
+            />
+            <small>Lower it when a cloned voice speaks another language than its recording.</small>
+          </label>
+        )}
+        {controls.has("speed") && (
+          <label>
+            <span>Pace · {Number(current.speed ?? 1).toFixed(2)}</span>
+            <input
+              type="range"
+              min={0.7}
+              max={1.4}
+              step={0.05}
+              defaultValue={current.speed ?? 1}
+              disabled={!!busy}
+              onPointerUp={(e) =>
+                void patch({ speed: Number((e.target as HTMLInputElement).value) })
+              }
+              onKeyUp={(e) => void patch({ speed: Number((e.target as HTMLInputElement).value) })}
+            />
+            <small>1.00 is the voice’s own pace; higher speaks faster.</small>
+          </label>
+        )}
       </div>
       <Button
         variant="outline"

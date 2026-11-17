@@ -15,6 +15,7 @@ export interface SampleOptions {
   voiceId?: string;
   exaggeration?: number;
   cfg?: number;
+  speed?: number;
 }
 
 async function binary(path: string, init: RequestInit, failure: string): Promise<Response> {
@@ -47,6 +48,7 @@ export const voice = {
           voice_id: options.voiceId,
           exaggeration: options.exaggeration,
           cfg: options.cfg,
+          speed: options.speed,
         }),
       },
       "The sample failed",

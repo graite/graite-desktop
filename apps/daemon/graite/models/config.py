@@ -33,6 +33,9 @@ class AIConfig(BaseModel):
     whisper_binary_path: str = ""
     ocr_binary_path: str = ""
     tts_binary_path: str = ""  # crispasr (GGML Chatterbox), the assistant's voice
+    # Catalog id of the voice model to speak with when more than one is installed; empty
+    # means whichever is installed (voice/tts.py).
+    tts_model: str = ""
     # Where reading documents (OCR) and listening (speech to text) run: "local" on this
     # computer, "graite" through Graite Cloud. "auto" (the default, and what rows written
     # before the switch existed read as) uses the local model when it is installed, else
@@ -311,6 +314,7 @@ REQUEST_ONLY = frozenset(
         "max_tool_calls",
         "ocr_provider",
         "stt_provider",
+        "tts_model",
     }
 )
 

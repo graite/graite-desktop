@@ -85,6 +85,8 @@ class VoiceSettings(BaseModel):
     reference: str | None = Field(default=None, max_length=200)
     exaggeration: float = Field(default=0.5, ge=0, le=2)
     cfg: float = Field(default=0.5, ge=0, le=1)
+    # Pace for voice models that take one (ZONOS3): 1 is the model's own.
+    speed: float = Field(default=1.0, ge=0.6, le=1.6)
     consent_at: str | None = Field(default=None, max_length=40)
 
 

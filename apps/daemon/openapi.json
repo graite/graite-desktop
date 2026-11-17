@@ -152,6 +152,11 @@
             "title": "Tts Binary Path",
             "type": "string"
           },
+          "tts_model": {
+            "default": "",
+            "title": "Tts Model",
+            "type": "string"
+          },
           "vision": {
             "default": false,
             "title": "Vision",
@@ -5050,6 +5055,19 @@
             ],
             "title": "Language"
           },
+          "speed": {
+            "anyOf": [
+              {
+                "maximum": 1.6,
+                "minimum": 0.6,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speed"
+          },
           "text": {
             "default": "",
             "maxLength": 300,
@@ -6806,6 +6824,11 @@
             "title": "Tts Binary Path",
             "type": "string"
           },
+          "tts_model": {
+            "default": "",
+            "title": "Tts Model",
+            "type": "string"
+          },
           "vision": {
             "default": false,
             "title": "Vision",
@@ -8101,6 +8124,13 @@
             ],
             "title": "Reference"
           },
+          "speed": {
+            "default": 1.0,
+            "maximum": 1.6,
+            "minimum": 0.6,
+            "title": "Speed",
+            "type": "number"
+          },
           "voice_id": {
             "anyOf": [
               {
@@ -8124,12 +8154,30 @@
             "title": "Active",
             "type": "boolean"
           },
+          "controls": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Controls",
+            "type": "array"
+          },
           "missing": {
             "items": {
               "$ref": "#/components/schemas/Missing"
             },
             "title": "Missing",
             "type": "array"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
           },
           "ready": {
             "title": "Ready",

@@ -34,6 +34,8 @@ export function ModelLibrary({
   disabled,
   kind = "chat",
   roles,
+  voiceModel,
+  onChooseVoice,
 }: {
   onChoose: (path: string) => void;
   selectedPath: string;
@@ -41,6 +43,9 @@ export function ModelLibrary({
   kind?: "chat" | "utilities";
   /** Utilities only: show just these roles (a Settings tab shows its own models). */
   roles?: string[];
+  /** The voice model chosen in settings ("" = whichever is installed), and how to choose. */
+  voiceModel?: string;
+  onChooseVoice?: (id: string) => void;
 }) {
   const { models, setModels, error, setError, act: runAction, reload } = useCatalog();
   const [showSetup, setShowSetup] = useState(false);
@@ -57,6 +62,9 @@ export function ModelLibrary({
       setRemoving(null);
     }
   };
+  // Mirrors the daemon (voice/tts.py): the chosen model while installed, else the first.
+  const voices = models.filter((m) => m.role === "tts" && m.status === "installed");
+  const speaking = (voices.find((m) => m.id === voiceModel) ?? voices[0])?.id;
   const listening =
     kind === "utilities" && roles?.includes("vad") && roles.includes("turn")
       ? models.filter((m) => m.role === "vad" || m.role === "turn")
@@ -285,6 +293,16 @@ export function ModelLibrary({
                     >
                       <Check size={13} />
                       {selectedPath === m.local_path ? "Selected" : "Use model"}
+                    </Button>
+                  ) : m.role === "tts" && onChooseVoice && voices.length > 1 ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={disabled || speaking === m.id}
+                      onClick={() => onChooseVoice(m.id)}
+                    >
+                      <Check size={13} />
+                      {speaking === m.id ? "In use" : "Use this voice"}
                     </Button>
                   ) : (
                     <span className="flex items-center gap-1">

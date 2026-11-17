@@ -2554,6 +2554,11 @@ export interface components {
        */
       tts_binary_path: string;
       /**
+       * Tts Model
+       * @default
+       */
+      tts_model: string;
+      /**
        * Vision
        * @default false
        */
@@ -4370,6 +4375,8 @@ export interface components {
       exaggeration?: number | null;
       /** Language */
       language?: string | null;
+      /** Speed */
+      speed?: number | null;
       /**
        * Text
        * @default
@@ -4951,6 +4958,11 @@ export interface components {
        */
       tts_binary_path: string;
       /**
+       * Tts Model
+       * @default
+       */
+      tts_model: string;
+      /**
        * Vision
        * @default false
        */
@@ -5447,6 +5459,11 @@ export interface components {
       language: string;
       /** Reference */
       reference?: string | null;
+      /**
+       * Speed
+       * @default 1
+       */
+      speed: number;
       /** Voice Id */
       voice_id?: string | null;
     };
@@ -5457,8 +5474,12 @@ export interface components {
        * @default false
        */
       active: boolean;
+      /** Controls */
+      controls?: string[];
       /** Missing */
       missing?: components["schemas"]["Missing"][];
+      /** Model */
+      model?: string | null;
       /** Ready */
       ready: boolean;
     };

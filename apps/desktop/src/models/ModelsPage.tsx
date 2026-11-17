@@ -698,6 +698,8 @@ export function ModelsPage({
                   roles={["vad", "turn", "tts"]}
                   selectedPath=""
                   onChoose={() => {}}
+                  voiceModel={config.tts_model ?? ""}
+                  onChooseVoice={(tts_model) => patch({ tts_model })}
                   disabled={!!busy}
                 />
                 {techMode && (

@@ -9,7 +9,14 @@ from typing import Any
 
 from graite.profile import first_name
 from graite.voice.session import SendBytes, SendJson, VoiceSession
-from graite.voice.tts import EngineUnavailable, TTSEngine, Voice, get_engine
+from graite.voice.tts import (
+    EngineUnavailable,
+    TTSEngine,
+    Voice,
+    get_engine,
+    runs_on_llama,
+    voice_model,
+)
 from graite.voice.voices import VoiceLibrary
 
 log = logging.getLogger("graite.voice")
@@ -88,15 +95,34 @@ class VoiceRuntime:
             "Sign in to Graite Cloud, or download the Whisper speech model under Settings → "
             "Speech.",
         )
-        need(self._installed("tts") is not None, "tts", "Download the Chatterbox voice model.")
-        from graite.voice.engines.crispasr import resolve_binary
+        model = voice_model(config, self.state.downloads)
+        need(model is not None, "tts", "Download a voice model.")
+        if model is not None and runs_on_llama(model):
+            from graite.voice.engines import llama_tts
 
-        need(
-            resolve_binary(config.tts_binary_path) is not None,
-            "tts_engine",
-            "Install the voice engine.",
-        )
-        return {"ready": not missing, "missing": missing, "active": self.session is not None}
+            binary = llama_tts.resolve_binary(config.binary_path)
+            need(binary is not None, "tts_engine", "Install the chat engine.")
+            if binary is not None:
+                need(llama_tts.can_speak(binary), "tts_engine", llama_tts.OLD_ENGINE)
+        else:
+            from graite.voice.engines.crispasr import resolve_binary
+
+            need(
+                resolve_binary(config.tts_binary_path) is not None,
+                "tts_engine",
+                "Install the voice engine.",
+            )
+        from graite.voice.engines.crispasr import CrispasrEngine
+        from graite.voice.engines.llama_tts import LlamaTtsEngine
+
+        engine = LlamaTtsEngine if model is not None and runs_on_llama(model) else CrispasrEngine
+        return {
+            "ready": not missing,
+            "missing": missing,
+            "active": self.session is not None,
+            "model": model.id if model is not None else None,
+            "controls": list(engine.controls),
+        }
 
     def _check_memory(self, config: Any, tts: TTSEngine) -> None:
         import psutil
@@ -183,6 +209,7 @@ class VoiceRuntime:
             reference,
             float(settings.get("exaggeration", 0.5)),
             float(settings.get("cfg", 0.5)),
+            float(settings.get("speed", 1.0)),
         )
         return voice, language == "auto"
 
@@ -200,7 +227,15 @@ class VoiceRuntime:
             except OSError:
                 stamp = str(voice.reference)
         key = "|".join(
-            [tts.name, text, voice.language, stamp, f"{voice.exaggeration:.2f}", f"{voice.cfg:.2f}"]
+            [
+                tts.name,
+                text,
+                voice.language,
+                stamp,
+                f"{voice.exaggeration:.2f}",
+                f"{voice.cfg:.2f}",
+                f"{voice.speed:.2f}",
+            ]
         )
         folder = self.state.settings.app_dir / "cache" / "voice"
         cached = folder / f"greeting-{hashlib.sha256(key.encode()).hexdigest()[:16]}.pcm"
@@ -318,8 +353,10 @@ class VoiceRuntime:
     async def sample_engine(self, config: Any) -> TTSEngine:
         """A loaded engine for "hear a sample". It stays loaded for a minute, so trying a few
         sentences or voices in a row does not pay the start-up every time."""
+        engine = self.make_tts(config)
+        if self._preview is not None and self._preview.name != engine.name:
+            await self._drop_preview()  # another voice model was chosen since the last sample
         if self._preview is None:
-            engine = self.make_tts(config)
             await engine.load()
             self._preview = engine
         if self._preview_timer is not None:

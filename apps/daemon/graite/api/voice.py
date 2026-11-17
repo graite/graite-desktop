@@ -45,6 +45,10 @@ class VoiceStatus(BaseModel):
     ready: bool
     missing: list[Missing] = Field(default_factory=list)
     active: bool = False
+    # The voice model that will speak (catalog id) and the settings it listens to, so the
+    # assistant's Voice tab shows only controls that do something.
+    model: str | None = None
+    controls: list[str] = Field(default_factory=list)
 
 
 @router.get("/voice/status", response_model=VoiceStatus)
@@ -203,6 +207,7 @@ class PreviewBody(BaseModel):
     voice_id: str | None = None
     exaggeration: float | None = Field(default=None, ge=0, le=2)
     cfg: float | None = Field(default=None, ge=0, le=1)
+    speed: float | None = Field(default=None, ge=0.6, le=1.6)
 
 
 @router.post("/voice/preview")
@@ -227,6 +232,7 @@ async def preview(body: PreviewBody, request: Request) -> Response:
         reference,
         voice.exaggeration if body.exaggeration is None else body.exaggeration,
         voice.cfg if body.cfg is None else body.cfg,
+        voice.speed if body.speed is None else body.speed,
     )
     name = definition.name if definition else "your assistant"
     text = body.text.strip() or f"Hi, I am {name}. This is how I sound."
