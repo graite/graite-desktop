@@ -1,6 +1,11 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-const mocks = vi.hoisted(() => ({ status: vi.fn(), save: vi.fn(), request: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  status: vi.fn(),
+  save: vi.fn(),
+  request: vi.fn(),
+  reasoning: vi.fn(),
+}));
 vi.mock("@/lib/api", () => ({ request: mocks.request }));
 vi.mock("@/lib/ai", () => ({ ai: mocks }));
 const cloudMocks = vi.hoisted(() => ({
@@ -150,4 +155,64 @@ it("offers Graite Cloud once signed in and switches the vault to it", async () =
     }),
   );
   expect(onModelChanged).toHaveBeenCalled();
+});
+
+const props = {
+  busy: false,
+  working: false,
+  onWorking: () => {},
+  value: "",
+  onChange: () => {},
+};
+
+it("offers thinking and effort only where the model in use has them", async () => {
+  const config = { provider: "local", model_path: "/one.gguf", thinking: "auto", effort: "medium" };
+  setup(config);
+  // A model with neither: no control at all.
+  const none = render(<ComposerModel {...props} />);
+  await screen.findByText("One");
+  expect(screen.queryByRole("button", { name: "Thinking and effort" })).toBeNull();
+  none.unmount();
+
+  // A local model with a thinking switch but no effort level.
+  mocks.status.mockResolvedValue({
+    config,
+    active: { label: "One" },
+    reasoning: { toggle: true, effort: false },
+  });
+  mocks.reasoning.mockImplementation(async (change: Record<string, string>) => {
+    mocks.status.mockResolvedValue({
+      config: { ...config, ...change },
+      active: { label: "One" },
+      reasoning: { toggle: true, effort: false },
+    });
+    return { ...config, ...change };
+  });
+  render(<ComposerModel {...props} />);
+  const button = await screen.findByRole("button", { name: "Thinking and effort" });
+  fireEvent.pointerDown(button, { button: 0, ctrlKey: false });
+  expect(await screen.findByText("Thinking")).toBeTruthy();
+  expect(screen.queryByText("Effort")).toBeNull();
+  fireEvent.click(screen.getByRole("menuitemradio", { name: /Off/ }));
+  await waitFor(() => expect(mocks.reasoning).toHaveBeenCalledWith({ thinking: "off" }));
+  // The button says what is set, and choosing it did not go through the model-reloading save.
+  expect(await screen.findByText("Thinking off")).toBeTruthy();
+  expect(mocks.save).not.toHaveBeenCalled();
+});
+
+it("offers effort on a model that has it, and greys it out while thinking is off", async () => {
+  const config = { provider: "compatible", saved_model_id: "m1", thinking: "off", effort: "high" };
+  mocks.status.mockResolvedValue({
+    config,
+    active: { label: "Sonnet 4" },
+    reasoning: { toggle: true, effort: true },
+  });
+  mocks.request.mockImplementation(async (url: string) =>
+    url.endsWith("/catalog") ? CATALOG : STORE,
+  );
+  render(<ComposerModel {...props} />);
+  const button = await screen.findByRole("button", { name: "Thinking and effort" });
+  fireEvent.pointerDown(button, { button: 0, ctrlKey: false });
+  const high = await screen.findByRole("menuitemradio", { name: /High/ });
+  expect(high.getAttribute("aria-disabled") ?? high.getAttribute("data-disabled")).not.toBeNull();
 });

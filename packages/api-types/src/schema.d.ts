@@ -648,6 +648,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/ai/reasoning": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Set Reasoning
+     * @description Thinking and effort, from the composer. Unlike PUT /config this never unloads a model:
+     *     both only change what is sent with the next question.
+     */
+    put: operations["set_reasoning_api_v1_ai_reasoning_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/ai/runs": {
     parameters: {
       query?: never;
@@ -1333,6 +1354,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/mcp/enabled": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Set Enabled
+     * @description Switch access for AI apps on or off. Off refuses every app at once, local and remote,
+     *     without removing what was set up, so switching it on again just works.
+     */
+    put: operations["set_enabled_api_v1_mcp_enabled_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/mcp/info": {
     parameters: {
       query?: never;
@@ -1361,6 +1403,26 @@ export interface paths {
     /** Set Remote */
     put: operations["set_remote_api_v1_mcp_remote_put"];
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mcp/test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Test
+     * @description Check that an AI app can use Graite right now, by doing what the app does.
+     */
+    post: operations["test_api_v1_mcp_test_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1417,8 +1479,33 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Extract */
+    /**
+     * Extract
+     * @description Transcribe or OCR one attachment. It waits its turn for the local model, so asking
+     *     while another extraction or a chat answer is running is fine.
+     */
     post: operations["extract_api_v1_media_extract_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/media/extract/batch": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Extract Batch
+     * @description Queue one extraction per file, in the order given. All files are checked first, so a
+     *     bad one refuses the whole batch instead of leaving half of it queued.
+     */
+    post: operations["extract_batch_api_v1_media_extract_batch_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2268,6 +2355,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/workspace/move-text": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Move Text */
+    post: operations["move_text_api_v1_workspace_move_text_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/workspace/properties": {
     parameters: {
       query?: never;
@@ -2308,6 +2412,12 @@ export interface components {
        * @default 8192
        */
       context_size: number;
+      /**
+       * Effort
+       * @default medium
+       * @enum {string}
+       */
+      effort: "low" | "medium" | "high";
       /**
        * Embedding Model Id
        * @default
@@ -2351,6 +2461,12 @@ export interface components {
       resident: boolean;
       /** Saved Model Id */
       saved_model_id?: string | null;
+      /**
+       * Thinking
+       * @default auto
+       * @enum {string}
+       */
+      thinking: "auto" | "on" | "off";
       /**
        * Tts Binary Path
        * @default
@@ -2396,8 +2512,21 @@ export interface components {
       keychain_error: string | null;
       /** Loaded */
       loaded: boolean;
+      /**
+       * Reasoning
+       * @description Whether the chat model in use has a thinking switch (`toggle`) and an effort level (`effort`) to offer. The composer hides what is not there.
+       */
+      reasoning?: {
+        [key: string]: boolean;
+      };
       /** Runtime Warning */
       runtime_warning?: string | null;
+      /**
+       * Whisper Binary
+       * @description The whisper-server that speech to text will run: the configured path, else the one on PATH. Empty when there is none.
+       * @default
+       */
+      whisper_binary: string;
     };
     /** AcceptBody */
     AcceptBody: {
@@ -2691,6 +2820,26 @@ export interface components {
     BatchBody: {
       /** Ids */
       ids: string[];
+    };
+    /** BatchExtractRequest */
+    BatchExtractRequest: {
+      /** Files */
+      files: components["schemas"]["BatchFile"][];
+      /**
+       * Output
+       * @default toggle
+       * @enum {string}
+       */
+      output: "toggle" | "page";
+      /** Page Id */
+      page_id: string;
+    };
+    /** BatchFile */
+    BatchFile: {
+      /** File */
+      file: string;
+      /** Name */
+      name: string;
     };
     /** BatchResult */
     BatchResult: {
@@ -3267,6 +3416,11 @@ export interface components {
       /** Vectors */
       vectors: number[][];
     };
+    /** EnabledIn */
+    EnabledIn: {
+      /** Enabled */
+      enabled: boolean;
+    };
     /**
      * EngineState
      * @description What the UI shows for one engine.
@@ -3592,6 +3746,13 @@ export interface components {
       /** Status */
       status: string;
     };
+    /** LastUsed */
+    LastUsed: {
+      /** At */
+      at: string;
+      /** Client */
+      client: string;
+    };
     /** LocalFolder */
     LocalFolder: {
       /** Path */
@@ -3629,10 +3790,16 @@ export interface components {
     McpInfo: {
       /** Clients */
       clients: components["schemas"]["ClientStatus"][];
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled: boolean;
       /** Http Stable */
       http_stable: boolean;
       /** Http Url */
       http_url: string;
+      last_used?: components["schemas"]["LastUsed"] | null;
       remote: components["schemas"]["RemoteInfo"];
       /** Stdio Args */
       stdio_args: string[];
@@ -3818,6 +3985,32 @@ export interface components {
       position: "before" | "after" | "inside";
       /** Target Id */
       target_id?: string | null;
+    };
+    /**
+     * MoveTextRequest
+     * @description Text dragged out of `source_id` onto the page at `target_path`.
+     */
+    MoveTextRequest: {
+      /** Base Hash */
+      base_hash: string;
+      /**
+       * Body
+       * @description The source page's body without the moved text.
+       */
+      body: string;
+      /** Source Id */
+      source_id: string;
+      /** Target Path */
+      target_path: string;
+      /** Text */
+      text: string;
+    };
+    /** MoveTextResult */
+    MoveTextResult: {
+      /** Path */
+      path: string;
+      /** Source Hash */
+      source_hash: string;
     };
     /** NewConnection */
     NewConnection: {
@@ -4158,6 +4351,13 @@ export interface components {
       /** Job Id */
       job_id: string;
     };
+    /** ReasoningSettings */
+    ReasoningSettings: {
+      /** Effort */
+      effort?: ("low" | "medium" | "high") | null;
+      /** Thinking */
+      thinking?: ("auto" | "on" | "off") | null;
+    };
     /** RejectBatchBody */
     RejectBatchBody: {
       /** Ids */
@@ -4495,6 +4695,12 @@ export interface components {
        */
       context_size: number;
       /**
+       * Effort
+       * @default medium
+       * @enum {string}
+       */
+      effort: "low" | "medium" | "high";
+      /**
        * Embedding Model Id
        * @default
        */
@@ -4537,6 +4743,12 @@ export interface components {
       resident: boolean;
       /** Saved Model Id */
       saved_model_id?: string | null;
+      /**
+       * Thinking
+       * @default auto
+       * @enum {string}
+       */
+      thinking: "auto" | "on" | "off";
       /**
        * Tts Binary Path
        * @default
@@ -4790,6 +5002,33 @@ export interface components {
       name: string;
       /** Page */
       page: string;
+    };
+    /**
+     * TestResult
+     * @description The outcome of "Test": a real MCP round trip, the way an app would make it.
+     */
+    TestResult: {
+      /** Error */
+      error?: string | null;
+      /**
+       * Ms
+       * @default 0
+       */
+      ms: number;
+      /** Ok */
+      ok: boolean;
+      /**
+       * Pages
+       * @default 0
+       */
+      pages: number;
+      /**
+       * Tools
+       * @default 0
+       */
+      tools: number;
+      /** Via */
+      via: string;
     };
     /** TicketRequest */
     TicketRequest: {
@@ -6531,6 +6770,39 @@ export interface operations {
       };
     };
   };
+  set_reasoning_api_v1_ai_reasoning_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReasoningSettings"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AIConfig"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   list_runs_api_v1_ai_runs_get: {
     parameters: {
       query?: {
@@ -7791,6 +8063,39 @@ export interface operations {
       };
     };
   };
+  set_enabled_api_v1_mcp_enabled_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EnabledIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["McpInfo"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   info_api_v1_mcp_info_get: {
     parameters: {
       query?: never;
@@ -7831,6 +8136,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["RemoteInfo"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  test_api_v1_mcp_test_post: {
+    parameters: {
+      query?: {
+        via?: "server" | "bridge";
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TestResult"];
         };
       };
       /** @description Validation Error */
@@ -7970,6 +8306,39 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Extraction"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  extract_batch_api_v1_media_extract_batch_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BatchExtractRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Extraction"][];
         };
       };
       /** @description Validation Error */
@@ -10024,6 +10393,39 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["PageDocModel"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  move_text_api_v1_workspace_move_text_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MoveTextRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MoveTextResult"];
         };
       };
       /** @description Validation Error */

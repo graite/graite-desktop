@@ -58,3 +58,40 @@ async def move(request: Request, payload: MovePageRequest) -> PageDocModel:
         )
     except (ValueError, FileNotFoundError) as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+class MoveTextRequest(BaseModel):
+    """Text dragged out of `source_id` onto the page at `target_path`."""
+
+    source_id: str
+    target_path: str
+    text: str = Field(min_length=1, max_length=2_000_000)
+    body: str = Field(description="The source page's body without the moved text.")
+    base_hash: str
+
+
+class MoveTextResult(BaseModel):
+    path: str
+    source_hash: str
+
+
+@router.post("/move-text", response_model=MoveTextResult)
+async def move_text(request: Request, payload: MoveTextRequest) -> MoveTextResult:
+    from graite.vault.paths import VaultPathError
+
+    try:
+        return MoveTextResult(
+            **await request.app.state.fileops.move_text(
+                payload.source_id,
+                payload.target_path,
+                payload.text,
+                payload.body,
+                payload.base_hash,
+            )
+        )
+    except ConflictError as exc:
+        raise HTTPException(409, "This page changed. Reload it before moving text.") from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "The page no longer exists.") from exc
+    except (ValueError, VaultPathError) as exc:
+        raise HTTPException(400, str(exc)) from exc

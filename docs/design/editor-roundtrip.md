@@ -80,9 +80,14 @@ or losing their meta on save.
 ## 5. Canonicalization policy
 
 - Graite **never rewrites a file just by opening it.**
-- On the first save of a file Graite did not write, formatting normalizes once. If the
-  normalization diff exceeds a threshold (default 5% of lines), the UI shows a
-  "Reformatted on save" notice with a diff link. This happens once per file.
+- A save rewrites only what was edited. The editor serializes the whole document in canonical
+  form, and `minimalSave(disk, baseline, next)` in `packages/md-convert` merges that into the
+  text on disk line by line: base is the canonical document as loaded, ours the canonical
+  document now, theirs the file. Lines the user did not touch keep their spelling (`*`
+  bullets, `*em*`, table padding, soft line breaks, setext headings). A region the user
+  edited is written in canonical form. If the merged text does not parse to the same
+  document, the canonical text is written instead.
+- The empty paragraph BlockNote keeps at the end of a document is not written.
 - Files with `generated: true` frontmatter open read-only.
 
 ## 6. Save and conflict protocol

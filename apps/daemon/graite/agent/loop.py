@@ -145,10 +145,13 @@ async def run(
     *,
     max_rounds: int = 10,
     thinking: bool | None = None,
+    effort: str | None = None,
     context_size: int | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     rounds = max(1, max_rounds)
     options: dict[str, Any] = {} if thinking is None else {"thinking": thinking}
+    if effort:
+        options["effort"] = effort
     retried = False
     seen_ids: set[str] = set()
     for round_index in range(rounds):

@@ -20,7 +20,7 @@ class PermanentJobError(Exception):
 
 
 DEFAULT_LANES: dict[str, set[str]] = {
-    "embed": {"embed", "reindex", "attachment_text"},
+    "embed": {"embed", "reindex", "attachment_text", "media_extract"},
     "model": {
         "summarize_page",
         "agent_run",

@@ -31,6 +31,16 @@
             "title": "Context Size",
             "type": "integer"
           },
+          "effort": {
+            "default": "medium",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Effort",
+            "type": "string"
+          },
           "embedding_model_id": {
             "default": "",
             "title": "Embedding Model Id",
@@ -92,6 +102,16 @@
               }
             ],
             "title": "Saved Model Id"
+          },
+          "thinking": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "on",
+              "off"
+            ],
+            "title": "Thinking",
+            "type": "string"
           },
           "tts_binary_path": {
             "default": "",
@@ -179,6 +199,14 @@
             "title": "Loaded",
             "type": "boolean"
           },
+          "reasoning": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "description": "Whether the chat model in use has a thinking switch (`toggle`) and an effort level (`effort`) to offer. The composer hides what is not there.",
+            "title": "Reasoning",
+            "type": "object"
+          },
           "runtime_warning": {
             "anyOf": [
               {
@@ -189,6 +217,12 @@
               }
             ],
             "title": "Runtime Warning"
+          },
+          "whisper_binary": {
+            "default": "",
+            "description": "The whisper-server that speech to text will run: the configured path, else the one on PATH. Empty when there is none.",
+            "title": "Whisper Binary",
+            "type": "string"
           }
         },
         "required": [
@@ -1053,6 +1087,57 @@
           "ids"
         ],
         "title": "BatchBody",
+        "type": "object"
+      },
+      "BatchExtractRequest": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/BatchFile"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Files",
+            "type": "array"
+          },
+          "output": {
+            "default": "toggle",
+            "enum": [
+              "toggle",
+              "page"
+            ],
+            "title": "Output",
+            "type": "string"
+          },
+          "page_id": {
+            "title": "Page Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page_id",
+          "files"
+        ],
+        "title": "BatchExtractRequest",
+        "type": "object"
+      },
+      "BatchFile": {
+        "properties": {
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "name"
+        ],
+        "title": "BatchFile",
         "type": "object"
       },
       "BatchResult": {
@@ -2663,6 +2748,19 @@
         "title": "EmbedResult",
         "type": "object"
       },
+      "EnabledIn": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "EnabledIn",
+        "type": "object"
+      },
       "EngineState": {
         "description": "What the UI shows for one engine.",
         "properties": {
@@ -3460,6 +3558,24 @@
         "title": "JobInfo",
         "type": "object"
       },
+      "LastUsed": {
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "client": {
+            "title": "Client",
+            "type": "string"
+          }
+        },
+        "required": [
+          "client",
+          "at"
+        ],
+        "title": "LastUsed",
+        "type": "object"
+      },
       "LocalFolder": {
         "properties": {
           "path": {
@@ -3564,6 +3680,11 @@
             "title": "Clients",
             "type": "array"
           },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
           "http_stable": {
             "title": "Http Stable",
             "type": "boolean"
@@ -3571,6 +3692,16 @@
           "http_url": {
             "title": "Http Url",
             "type": "string"
+          },
+          "last_used": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LastUsed"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "remote": {
             "$ref": "#/components/schemas/RemoteInfo"
@@ -4099,6 +4230,61 @@
           "page_id"
         ],
         "title": "MovePageRequest",
+        "type": "object"
+      },
+      "MoveTextRequest": {
+        "description": "Text dragged out of `source_id` onto the page at `target_path`.",
+        "properties": {
+          "base_hash": {
+            "title": "Base Hash",
+            "type": "string"
+          },
+          "body": {
+            "description": "The source page's body without the moved text.",
+            "title": "Body",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "target_path": {
+            "title": "Target Path",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 2000000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "target_path",
+          "text",
+          "body",
+          "base_hash"
+        ],
+        "title": "MoveTextRequest",
+        "type": "object"
+      },
+      "MoveTextResult": {
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "source_hash": {
+            "title": "Source Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "source_hash"
+        ],
+        "title": "MoveTextResult",
         "type": "object"
       },
       "NewConnection": {
@@ -5189,6 +5375,44 @@
         "title": "Queued",
         "type": "object"
       },
+      "ReasoningSettings": {
+        "properties": {
+          "effort": {
+            "anyOf": [
+              {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort"
+          },
+          "thinking": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "on",
+                  "off"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thinking"
+          }
+        },
+        "title": "ReasoningSettings",
+        "type": "object"
+      },
       "RejectBatchBody": {
         "properties": {
           "ids": {
@@ -6235,6 +6459,16 @@
             "title": "Context Size",
             "type": "integer"
           },
+          "effort": {
+            "default": "medium",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Effort",
+            "type": "string"
+          },
           "embedding_model_id": {
             "default": "",
             "title": "Embedding Model Id",
@@ -6296,6 +6530,16 @@
               }
             ],
             "title": "Saved Model Id"
+          },
+          "thinking": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "on",
+              "off"
+            ],
+            "title": "Thinking",
+            "type": "string"
           },
           "tts_binary_path": {
             "default": "",
@@ -6981,6 +7225,51 @@
           "columns"
         ],
         "title": "TemplateTable",
+        "type": "object"
+      },
+      "TestResult": {
+        "description": "The outcome of \"Test\": a real MCP round trip, the way an app would make it.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "ms": {
+            "default": 0,
+            "title": "Ms",
+            "type": "integer"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "pages": {
+            "default": 0,
+            "title": "Pages",
+            "type": "integer"
+          },
+          "tools": {
+            "default": 0,
+            "title": "Tools",
+            "type": "integer"
+          },
+          "via": {
+            "title": "Via",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "via"
+        ],
+        "title": "TestResult",
         "type": "object"
       },
       "TicketRequest": {
@@ -9821,6 +10110,48 @@
         ]
       }
     },
+    "/api/v1/ai/reasoning": {
+      "put": {
+        "description": "Thinking and effort, from the composer. Unlike PUT /config this never unloads a model:\nboth only change what is sent with the next question.",
+        "operationId": "set_reasoning_api_v1_ai_reasoning_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasoningSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIConfig"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Reasoning",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
     "/api/v1/ai/runs": {
       "get": {
         "operationId": "list_runs_api_v1_ai_runs_get",
@@ -11403,6 +11734,48 @@
         ]
       }
     },
+    "/api/v1/mcp/enabled": {
+      "put": {
+        "description": "Switch access for AI apps on or off. Off refuses every app at once, local and remote,\nwithout removing what was set up, so switching it on again just works.",
+        "operationId": "set_enabled_api_v1_mcp_enabled_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnabledIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Enabled",
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
     "/api/v1/mcp/info": {
       "get": {
         "operationId": "info_api_v1_mcp_info_get",
@@ -11460,6 +11833,54 @@
           }
         },
         "summary": "Set Remote",
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
+    "/api/v1/mcp/test": {
+      "post": {
+        "description": "Check that an AI app can use Graite right now, by doing what the app does.",
+        "operationId": "test_api_v1_mcp_test_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "via",
+            "required": false,
+            "schema": {
+              "default": "server",
+              "enum": [
+                "server",
+                "bridge"
+              ],
+              "title": "Via",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test",
         "tags": [
           "mcp"
         ]
@@ -11622,6 +12043,7 @@
     },
     "/api/v1/media/extract": {
       "post": {
+        "description": "Transcribe or OCR one attachment. It waits its turn for the local model, so asking\nwhile another extraction or a chat answer is running is fine.",
         "operationId": "extract_api_v1_media_extract_post",
         "requestBody": {
           "content": {
@@ -11656,6 +12078,52 @@
           }
         },
         "summary": "Extract",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/v1/media/extract/batch": {
+      "post": {
+        "description": "Queue one extraction per file, in the order given. All files are checked first, so a\nbad one refuses the whole batch instead of leaving half of it queued.",
+        "operationId": "extract_batch_api_v1_media_extract_batch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchExtractRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Extraction"
+                  },
+                  "title": "Response Extract Batch Api V1 Media Extract Batch Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Extract Batch",
         "tags": [
           "media"
         ]
@@ -14582,6 +15050,47 @@
           }
         },
         "summary": "Move",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/api/v1/workspace/move-text": {
+      "post": {
+        "operationId": "move_text_api_v1_workspace_move_text_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveTextRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoveTextResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Move Text",
         "tags": [
           "workspace"
         ]

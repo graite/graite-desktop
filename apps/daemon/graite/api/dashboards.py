@@ -142,7 +142,7 @@ def _page(message: str, status: int) -> HTMLResponse:
 
 
 @router.get("/frame", response_class=HTMLResponse, include_in_schema=False)
-async def frame(request: Request, ticket: str) -> HTMLResponse:
+async def frame(request: Request, ticket: str, theme: str = "light") -> HTMLResponse:
     found = tickets(request).get(ticket)
     if found is None:
         return _page("This dashboard link expired. Reload the dashboard.", 403)
@@ -159,7 +159,7 @@ async def frame(request: Request, ticket: str) -> HTMLResponse:
     if not isinstance(html, str):
         return _page("This dashboard file does not exist (yet).", 404)
     return HTMLResponse(
-        render(html),
+        render(html, theme),
         headers={
             "Content-Security-Policy": CSP,
             "Cache-Control": "no-store",

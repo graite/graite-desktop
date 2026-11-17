@@ -558,7 +558,27 @@ def _unavailable(kind: str):  # type: ignore[no-untyped-def]
     return handler
 
 
+async def media_extract(ctx: JobContext) -> dict[str, Any]:
+    """Transcribe or OCR one page attachment (api/media.py). The extraction's own record holds
+    the progress and the result; this job only gives it its turn at the local model."""
+    from graite.api.media import ExtractRequest, run_extraction
+
+    state = ctx.state
+    extraction = state.media_jobs.get(str(ctx.job.payload.get("extraction_id") or ""))
+    # Cancelled while it waited, or left over from before a restart: nothing to do.
+    if extraction is None or extraction.status != "running":
+        return {"skipped": True}
+    try:
+        await run_extraction(
+            state, ExtractRequest.model_validate(ctx.job.payload["request"]), extraction
+        )
+    finally:
+        state.media_queue.pop(extraction.id, None)
+    return {"status": extraction.status}
+
+
 HANDLERS = {
+    "media_extract": media_extract,
     "embed": embed,
     "reindex": reindex,
     "attachment_text": attachment_text,

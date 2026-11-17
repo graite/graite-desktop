@@ -18,6 +18,8 @@ import { getSlashMenuItems, filterSlashItems, type SlashMenuDeps } from "./slash
 import { MediaContext } from "./media/context";
 import { BlockTypeMenuItem } from "./BlockTypeMenuItem";
 import { useBlockDrag } from "./blockDrag";
+import { useFileDrop } from "./fileDrop";
+import { TEXT_DRAG, beginTextDrag, dropTextOnPage, endTextDrag } from "./textDrag";
 import { useTheme } from "@/lib/theme";
 
 const SIDEBAR_PAGE = "application/graite-sidebar-page";
@@ -36,58 +38,98 @@ export function EditorSurface({
   onChange,
   instructionsOnly = false,
 }: EditorSurfaceProps) {
-  const { moveMedia, movePage } = useContext(MediaContext);
+  const { pageId, pagePath, moveMedia, movePage, moveBlocks, moveSelection } =
+    useContext(MediaContext);
+  useFileDrop(editor, pageId, !instructionsOnly);
   const theme = useTheme();
   useEffect(() => {
-    // A page dragged from the sidebar onto a page link in the text moves it under that page.
-    if (!movePage) return;
+    // Dropped on a page: a page dragged from the sidebar onto a page link in the text moves
+    // under that page, and text dragged out of this page onto a page link or a sidebar row
+    // moves into that page. Listening on the window, ahead of BlockNote's document-level
+    // handler, which would otherwise treat a drop on the sidebar as a drop into the text.
+    if (!movePage && !moveSelection) return;
     const root = editor.prosemirrorView.dom;
     let highlighted: HTMLElement | null = null;
     const clearHighlight = () => {
       highlighted?.removeAttribute("data-media-drop-active");
       highlighted = null;
     };
-    const linkAt = (event: DragEvent) =>
-      event.dataTransfer?.types.includes(SIDEBAR_PAGE) && event.target instanceof Element
-        ? event.target.closest<HTMLElement>("[data-media-drop-page]")
-        : null;
+    const kindOf = (event: DragEvent) => {
+      const types = event.dataTransfer?.types ?? [];
+      if (movePage && types.includes(SIDEBAR_PAGE)) return "page";
+      if (moveSelection && types.includes(TEXT_DRAG)) return "text";
+      return null;
+    };
+    const pageAt = (event: DragEvent) => {
+      const kind = kindOf(event);
+      if (!kind || !(event.target instanceof Element)) return null;
+      const page = event.target.closest<HTMLElement>("[data-media-drop-page]");
+      if (!page) return null;
+      // A sidebar page is only nested by dropping it on a link in the text; the sidebar
+      // handles drops on its own rows.
+      if (kind === "page") return root.contains(page) ? page : null;
+      // Text dropped on this page itself, or on a link inside the dragged selection, stays.
+      if (page.dataset.mediaDropPage === pagePath) return null;
+      if (page.closest(".ProseMirror-selectednode")) return null;
+      return page;
+    };
     const over = (event: DragEvent) => {
-      const target = linkAt(event);
+      const target = pageAt(event);
       if (highlighted !== target) clearHighlight();
       if (!target) return;
       event.preventDefault();
-      event.stopPropagation();
+      event.stopImmediatePropagation();
       if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
       highlighted = target;
       target.setAttribute("data-media-drop-active", "");
     };
     const drop = (event: DragEvent) => {
-      const target = linkAt(event);
+      const target = pageAt(event);
       const path = target?.dataset.mediaDropPage;
+      const kind = kindOf(event);
       clearHighlight();
       if (!path) return;
       event.preventDefault();
       event.stopImmediatePropagation();
+      if (kind === "text") {
+        dropTextOnPage(path);
+        return;
+      }
       try {
         const source = JSON.parse(event.dataTransfer?.getData(SIDEBAR_PAGE) ?? "") as {
           path: string;
         };
-        void movePage(source.path, path);
+        void movePage?.(source.path, path);
       } catch {
         /* Not a sidebar page. */
       }
     };
-    root.addEventListener("dragover", over, true);
-    root.addEventListener("dragleave", clearHighlight, true);
-    root.addEventListener("drop", drop, true);
+    // ProseMirror starts the drag of selected text; mark it so pages accept the drop.
+    const dragStart = (event: DragEvent) => {
+      if (!moveSelection || !event.dataTransfer || !editor.prosemirrorView.dragging) return;
+      if (editor.prosemirrorState.selection.empty) return;
+      event.dataTransfer.setData(TEXT_DRAG, "1");
+      event.dataTransfer.effectAllowed = "copyMove";
+      beginTextDrag((path) => void moveSelection(path));
+    };
+    const dragEnd = () => {
+      clearHighlight();
+      setTimeout(endTextDrag, 0);
+    };
+    root.addEventListener("dragstart", dragStart);
+    window.addEventListener("dragend", dragEnd);
+    window.addEventListener("dragover", over, true);
+    window.addEventListener("drop", drop, true);
     return () => {
       clearHighlight();
-      root.removeEventListener("dragover", over, true);
-      root.removeEventListener("dragleave", clearHighlight, true);
-      root.removeEventListener("drop", drop, true);
+      endTextDrag();
+      root.removeEventListener("dragstart", dragStart);
+      window.removeEventListener("dragend", dragEnd);
+      window.removeEventListener("dragover", over, true);
+      window.removeEventListener("drop", drop, true);
     };
-  }, [editor, movePage]);
-  useBlockDrag(editor, { moveMedia, movePage });
+  }, [editor, pagePath, movePage, moveSelection]);
+  useBlockDrag(editor, { moveMedia, movePage, moveBlocks });
   useEffect(() => {
     const root = editor.prosemirrorView.dom.ownerDocument;
     let timer: ReturnType<typeof setTimeout> | undefined;

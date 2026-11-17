@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from graite.cloud.session import get_cloud
-from graite.models.config import AIConfig, get_key, load_config
+from graite.models.config import REQUEST_ONLY, AIConfig, get_key, load_config
 from graite.models.llama_server import LlamaServer
 from graite.models.providers import Provider
 
@@ -41,6 +41,9 @@ class Manager:
         self.reaper: asyncio.Task[None] | None = None
         # A voice session keeps the chat model loaded between turns whatever `resident` says.
         self.pinned = False
+        # Per model file: whether its chat template has a thinking switch (`enable_thinking`).
+        # Learned when the model is loaded; absent means not known yet.
+        self.thinking_templates: dict[str, bool] = {}
 
     async def start(self) -> None:
         self.reaper = asyncio.create_task(self._reap())
@@ -117,8 +120,8 @@ class Manager:
         try:
             if (
                 self.loaded is None
-                or self.loaded.model_dump(exclude={"max_output_tokens"})
-                != config.model_dump(exclude={"max_output_tokens"})
+                or self.loaded.model_dump(exclude=set(REQUEST_ONLY))
+                != config.model_dump(exclude=set(REQUEST_ONLY))
                 or not self.server.process
                 or self.server.process.returncode is not None
             ):
@@ -126,6 +129,7 @@ class Manager:
                 await self._make_room_for(config.model_path)
                 await self.server.start(config)
                 self.loaded = config
+                await self._note_thinking_switch(config.model_path)
             provider = Provider(
                 "local",
                 self.server.url,
@@ -139,6 +143,23 @@ class Manager:
                 self.last_used = time.monotonic()
         finally:
             self.lock.release()
+
+    async def _note_thinking_switch(self, model_path: str) -> None:
+        """Record whether the loaded model's chat template reads `enable_thinking`, so the
+        composer only offers a thinking switch that does something. Unknown stays unknown."""
+        import httpx
+
+        try:
+            async with httpx.AsyncClient(timeout=3) as client:
+                response = await client.get(
+                    f"{self.server.url.removesuffix('/v1')}/props",
+                    headers={"Authorization": f"Bearer {self.server.key}"},
+                )
+            template = response.json().get("chat_template") if response.is_success else None
+        except (httpx.HTTPError, ValueError, AttributeError):
+            return
+        if isinstance(template, str) and template:
+            self.thinking_templates[model_path] = "enable_thinking" in template
 
     async def _make_room_for(self, model_path: str) -> None:
         """Called with `lock` held: unload the embedding server when RAM is tight."""

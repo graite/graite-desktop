@@ -18,9 +18,10 @@ function setup(content: GraitePartialBlock[]) {
   const editor = BlockNoteEditor.create({ schema, initialContent: content }) as GraiteEditor;
   const moveMedia = vi.fn(async () => {});
   const movePage = vi.fn(async () => {});
+  const moveBlocks = vi.fn<(ids: string[], path: string) => Promise<void>>(async () => {});
   render(
     <MediaContext.Provider
-      value={{ pageId: "source", onTreeChanged: () => {}, moveMedia, movePage }}
+      value={{ pageId: "source", onTreeChanged: () => {}, moveMedia, movePage, moveBlocks }}
     >
       <EditorSurface
         editor={editor}
@@ -35,7 +36,7 @@ function setup(content: GraitePartialBlock[]) {
       </div>
     </MediaContext.Provider>,
   );
-  return { editor, moveMedia, movePage };
+  return { editor, moveMedia, movePage, moveBlocks };
 }
 
 /** Press the handle of `block`, move over `over`, release. jsdom has no layout: stub hit tests. */
@@ -127,4 +128,20 @@ it("a click whose release never arrives does not turn later mouse moves into a d
   fireEvent.pointerUp(window, { clientX: 90, clientY: 90 });
   expect(document.querySelector(".block-drag-ghost")).toBeNull();
   expect(moveMedia).not.toHaveBeenCalled();
+});
+
+it("moves text blocks dropped on a page into that page, and nothing else", () => {
+  const { editor, moveBlocks, moveMedia } = setup([
+    { type: "heading", content: "Ideas" },
+    { type: "tableView", props: { source: "items.csv" } },
+  ]);
+  const target = document.querySelector('[data-testid="destination"]')!;
+  dragHandle(editor, editor.document[0]!.id, target);
+  expect(moveBlocks).toHaveBeenCalledWith([editor.document[0]!.id], "Destination");
+  expect(moveMedia).not.toHaveBeenCalled();
+  // A database table belongs to its page: dropping it on another page does nothing.
+  moveBlocks.mockClear();
+  dragHandle(editor, editor.document[1]!.id, target);
+  expect(moveBlocks).not.toHaveBeenCalled();
+  expect(editor.document.map((b) => b.type).slice(0, 2)).toEqual(["heading", "tableView"]);
 });

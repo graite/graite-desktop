@@ -559,8 +559,9 @@ is temporary UI state. The per-view `show` lists define property order and `hide
 properties a view kind leaves out.
 
 Empty editor paragraphs serialize as `<!-- graite:empty -->`. This unobtrusive Markdown
-comment preserves intentional blank blocks, including consecutive and trailing blocks,
-without inserting visible placeholder text. Ordinary Markdown paragraph spacing is unchanged.
+comment preserves intentional blank blocks, including consecutive ones, without inserting
+visible placeholder text. Empty paragraphs at the end of a page are not written: the editor
+always shows one there. Ordinary Markdown paragraph spacing is unchanged.
 
 ### Page AI settings scope
 

@@ -707,13 +707,20 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             tokens_out += completion_n
             provider.metrics.clear()
 
+        # The caller's choice wins (a spoken turn never waits for thinking); otherwise the
+        # user's setting. The default, "auto" at medium effort, sends nothing at all.
+        think = ctx.thinking
+        if think is None and ctx.config.thinking != "auto":
+            think = ctx.config.thinking == "on"
+        effort = ctx.config.effort if think is not False and ctx.config.effort != "medium" else None
         async with state.models.use(ctx.config) as provider:
             async for item in agent_loop(
                 provider,
                 prompt,
                 registry,
                 max_rounds=max_rounds,
-                thinking=ctx.thinking,
+                thinking=think,
+                effort=effort,
                 context_size=ctx.config.context_size,
             ):
                 if item["type"] == "answer":

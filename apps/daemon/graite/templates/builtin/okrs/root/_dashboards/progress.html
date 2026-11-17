@@ -31,10 +31,10 @@
   .empty { color: var(--graite-muted); font-size: 12px; padding: 10px 0 2px; }
   .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; background: var(--graite-accent); color: var(--graite-muted); font-size: 11px; }
   .ok { color: var(--graite-color-2); }
-  .warn { color: #c0563f; }
+  .warn { color: var(--graite-warn, #c0563f); }
   .bar { height: 6px; border-radius: 3px; background: var(--graite-accent); overflow: hidden; margin-top: 4px; }
   .bar i { display: block; height: 100%; background: var(--graite-fg); opacity: .75; }
-  .bar i.over { background: #c0563f; opacity: 1; }
+  .bar i.over { background: var(--graite-warn, #c0563f); opacity: 1; }
   @media (max-width: 520px) { .kpis { grid-template-columns: 1fr 1fr; } .two { grid-template-columns: 1fr; } }
 </style>
 </head>

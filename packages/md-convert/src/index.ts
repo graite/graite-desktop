@@ -17,5 +17,6 @@ export {
 } from "./markdown";
 export { fromBlocks, hasRawBlocks, toBlocks, toBlocksSafe, toBlocksWithSpans } from "./blocks";
 export type { BlockSpan } from "./blocks";
+export { merge3, minimalSave } from "./minimal";
 export { fromInline, toInline } from "./inline";
 export type * from "./types";

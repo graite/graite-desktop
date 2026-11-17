@@ -218,3 +218,45 @@ def test_moving_into_a_view_page_or_reordering_leaves_bodies_alone(client):
     assert client.get("/api/v1/pages/Board").json()["body"] == board_body
     assert move(client, other, board, "before").status_code == 200
     assert client.get("/api/v1/pages/Other").json()["body"] == ""
+
+
+def test_move_text_appends_to_the_target_and_removes_it_from_the_source(client):
+    parent = page(client, "Notes")
+    child = page(client, "Ideas", parent["path"])
+    saved = client.put(
+        "/api/v1/pages/Notes",
+        json={"body": "Keep this.\n\n- move me\n- and me\n", "base_hash": parent["hash"]},
+    ).json()
+    client.put(
+        "/api/v1/pages/Notes/Ideas",
+        json={"body": "- already here\n\n<!-- graite:empty -->\n", "base_hash": child["hash"]},
+    )
+    request = {
+        "source_id": parent["id"],
+        "target_path": "Notes/Ideas",
+        "text": "- move me\n- and me\n",
+        "body": "Keep this.\n",
+        "base_hash": saved["hash"],
+    }
+    moved = client.post("/api/v1/workspace/move-text", json=request)
+    assert moved.status_code == 200, moved.text
+    source = client.get("/api/v1/pages/Notes").json()
+    assert source["body"] == "Keep this.\n"
+    assert source["hash"] == moved.json()["source_hash"]
+    # The moved bullets continue the list the target ended with.
+    assert client.get("/api/v1/pages/Notes/Ideas").json()["body"] == (
+        "- already here\n- move me\n- and me\n"
+    )
+    # The same request again is stale: nothing is appended twice.
+    assert client.post("/api/v1/workspace/move-text", json=request).status_code == 409
+    assert client.get("/api/v1/pages/Notes/Ideas").json()["body"].count("move me") == 1
+
+
+def test_move_text_refuses_the_same_page_and_missing_targets(client):
+    note = page(client, "Solo")
+    base = {"source_id": note["id"], "text": "x", "body": "", "base_hash": note["hash"]}
+    same = client.post("/api/v1/workspace/move-text", json={**base, "target_path": "Solo"})
+    assert same.status_code == 400
+    missing = client.post("/api/v1/workspace/move-text", json={**base, "target_path": "Nope"})
+    assert missing.status_code == 404
+    assert client.get("/api/v1/pages/Solo").json()["hash"] == note["hash"]

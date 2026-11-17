@@ -32,19 +32,29 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const ICONS = { audio: AudioLines, image: ImageIcon, pdf: FileText, text: FileText, other: File };
+// Kinds a local model can turn into text: OCR for images and PDFs, speech to text for audio.
+const EXTRACTABLE = new Set(["image", "pdf", "audio"]);
 
-/** Every file in this page's `_assets` folder: open it, find it on disk, or move it to the trash. */
+/**
+ * Every file in this page's `_assets` folder: open it, find it on disk, or move it to the
+ * trash. With `onExtract`, images, PDFs and recordings can be ticked and read in one go.
+ */
 export function AttachmentsDialog({
   pageId,
   title,
   open,
   onOpenChange,
+  onExtract,
 }: {
   pageId: string;
   title: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Extract the text of these files onto the page; they are queued and run in turn. */
+  onExtract?: (items: AttachmentInfo[]) => Promise<void>;
 }) {
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [extracting, setExtracting] = useState(false);
   const [all, setAll] = useState<AttachmentInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -64,6 +74,7 @@ export function AttachmentsDialog({
 
   useEffect(() => {
     if (!open) return;
+    setPicked(new Set());
     setLoading(true);
     void load();
     return onDaemonEvent((e) => {
@@ -114,6 +125,27 @@ export function AttachmentsDialog({
   };
 
   const unused = items.filter((i) => !i.referenced).length;
+  const readable = onExtract ? items.filter((i) => EXTRACTABLE.has(i.kind)) : [];
+  const chosen = readable.filter((i) => picked.has(i.file));
+  const images = readable.filter((i) => i.kind === "image");
+  const toggle = (file: string) =>
+    setPicked((before) => {
+      const next = new Set(before);
+      if (!next.delete(file)) next.add(file);
+      return next;
+    });
+  const extract = async () => {
+    if (!onExtract || !chosen.length) return;
+    setExtracting(true);
+    try {
+      await onExtract(chosen);
+      onOpenChange(false);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setExtracting(false);
+    }
+  };
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -147,6 +179,16 @@ export function AttachmentsDialog({
                 const Icon = ICONS[item.kind];
                 return (
                   <li key={item.file} className="flex items-center gap-3 px-3 py-2.5">
+                    {readable.length > 0 && (
+                      <input
+                        type="checkbox"
+                        className="shrink-0"
+                        aria-label={`Select ${item.name}`}
+                        checked={picked.has(item.file)}
+                        disabled={!EXTRACTABLE.has(item.kind) || extracting}
+                        onChange={() => toggle(item.file)}
+                      />
+                    )}
                     <Icon size={18} className="shrink-0 text-muted-foreground" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium" title={item.name}>
@@ -205,6 +247,48 @@ export function AttachmentsDialog({
                 );
               })}
             </ul>
+          )}
+          {!loading && !error && readable.length > 0 && (
+            <div className="flex items-center gap-2 text-xs">
+              <button
+                className="rounded-md border px-2.5 py-1 hover:bg-accent disabled:opacity-50"
+                disabled={extracting}
+                onClick={() =>
+                  setPicked(
+                    chosen.length === readable.length
+                      ? new Set()
+                      : new Set(readable.map((i) => i.file)),
+                  )
+                }
+              >
+                {chosen.length === readable.length ? "Select none" : "Select all"}
+              </button>
+              {images.length > 0 && images.length < readable.length && (
+                <button
+                  className="rounded-md border px-2.5 py-1 hover:bg-accent disabled:opacity-50"
+                  disabled={extracting}
+                  onClick={() => setPicked(new Set(images.map((i) => i.file)))}
+                >
+                  Select images
+                </button>
+              )}
+              <span className="min-w-0 flex-1 text-muted-foreground">
+                {chosen.length
+                  ? "Read one after another on this computer; the text is added to the page."
+                  : "Tick images, PDFs or recordings to read their text in one go."}
+              </span>
+              <button
+                className="shrink-0 rounded-md bg-primary px-3 py-1 font-medium text-primary-foreground disabled:opacity-50"
+                disabled={!chosen.length || extracting}
+                onClick={() => void extract()}
+              >
+                {extracting
+                  ? "Starting…"
+                  : chosen.length
+                    ? `Extract text from ${chosen.length} ${chosen.length === 1 ? "file" : "files"}`
+                    : "Extract text"}
+              </button>
+            </div>
           )}
           {!loading && !error && items.length > 0 && (
             <p className="text-xs text-muted-foreground">

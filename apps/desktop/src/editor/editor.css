@@ -145,6 +145,12 @@
 }
 .bn-editor [data-content-type="table"] .tableWrapper {
   --bn-table-widget-size: 20px;
+  /*
+   * Under the last row: first the horizontal scrollbar (it sits on the wrapper's bottom
+   * edge), then "+ New" below it. BlockNote reserves one strip for both, so they overlapped.
+   */
+  padding-bottom: 12px;
+  margin-bottom: 26px;
 }
 .bn-editor [data-content-type="table"] table {
   width: max-content !important;
@@ -228,9 +234,13 @@
   background: var(--muted) !important;
   color: var(--foreground) !important;
 }
+/* "+ New" is a small button at the bottom-left of the table, not a bar as wide as the table. */
 .bn-extend-button-add-remove-rows {
   justify-content: flex-start;
-  padding-left: 10px !important;
+  width: fit-content !important;
+  height: 22px !important;
+  margin-top: 14px;
+  padding: 0 8px !important;
 }
 
 /* Divider and raw-markdown custom blocks */
@@ -391,8 +401,7 @@
   --bullet-size: 6px;
   --bullet-image: linear-gradient(currentColor, currentColor);
 }
-.bn-block-content[data-content-type="bulletListItem"]::before,
-.bn-block-outer[data-prev-type="bulletListItem"] > .bn-block > .bn-block-content::before {
+.bn-block-content[data-content-type="bulletListItem"]::before {
   /* BlockNote sets the glyph per nesting level with longer selectors. */
   content: "" !important;
   align-self: flex-start;
@@ -402,6 +411,40 @@
   background-repeat: no-repeat;
   background-size: var(--bullet-size) var(--bullet-size);
   background-position: calc(50% - 2px) 50%;
+}
+
+/*
+ * A block that changes type shows its new type at once. BlockNote marks it with data-prev-*
+ * for one render and animates from the old look, so a heading turned into a paragraph by
+ * Backspace was first drawn in the heading's size, and a bullet turned into a paragraph kept
+ * its dot until the next transaction.
+ */
+.bn-editor .bn-block-content,
+.bn-editor .bn-block-content::before {
+  transition: none;
+}
+.bn-block-outer[data-prev-type="heading"]
+  > .bn-block
+  > .bn-block-content:not([data-content-type="heading"]) {
+  font-size: inherit;
+  font-weight: inherit;
+}
+.bn-block-outer[data-prev-type] > .bn-block > .bn-block-content[data-content-type="heading"] {
+  font-size: var(--level);
+  font-weight: bold;
+}
+.bn-block-outer[data-prev-type]
+  > .bn-block
+  > .bn-block-content:not([data-content-type="bulletListItem"]):not(
+    [data-content-type="numberedListItem"]
+  )::before {
+  content: "" !important;
+  background-image: none;
+}
+.bn-block-outer[data-prev-type]
+  > .bn-block
+  > .bn-block-content[data-content-type="numberedListItem"]::before {
+  content: var(--index) "." !important;
 }
 
 [data-page-scroll] {

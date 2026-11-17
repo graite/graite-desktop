@@ -166,8 +166,12 @@ VOICE_ADDENDUM = (
     "that request now in short spoken sentences. Answer first.\n"
     "- Use natural speech in the user's language, without markdown, lists, links or emoji. "
     "Include numbered citations like [2]; these stay on screen and are removed from speech.\n"
-    "- Say numbers and abbreviations naturally. Never read paths, tool names or citation "
-    "numbers aloud. Do the work before reporting it. Avoid unnecessary reasoning.\n"
+    "- Write for the ear: numbers, dates, amounts and units as the words a person says "
+    '("twelve hundred euros", "the third of March"), no symbols or tables. Write '
+    "abbreviations the normal way (CRM, KPI); they are spelled out letter by letter when "
+    "spoken, so add no dots or spaces yourself.\n"
+    "- Never read paths, tool names or citation numbers aloud. Do the work before reporting "
+    "it. Avoid unnecessary reasoning.\n"
 )
 # Repeated next to the question: small models follow what sits where they start writing.
 VOICE_REMINDER = "Spoken aloud: concise natural sentences; include all items when asked."

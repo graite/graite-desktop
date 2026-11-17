@@ -241,31 +241,76 @@ it("keeps an unsaved change when switching sections and saves it once", async ()
   expect(aiMock.save.mock.calls[0][0]).toMatchObject({ gpu_layers: 20, resident: false });
 });
 
-it("offers no way to point at an outside executable", async () => {
+it("asks for whisper-server when none was found, and saves the path with nothing else", async () => {
   render(<ModelsPage onClose={() => {}} initialTab="voice" />);
   await screen.findByText("voices-card");
-  expect(screen.queryByLabelText(/executable/i)).toBeNull();
+  const field = within(panel("Speech")).getByLabelText(/whisper-server executable/);
+  expect(within(panel("Speech")).getByText(/none was found on this computer/)).toBeTruthy();
+  fireEvent.change(field, { target: { value: "/opt/whisper.cpp/whisper-server" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+  await waitFor(() => expect(aiMock.save).toHaveBeenCalledTimes(1));
+  expect(aiMock.save.mock.calls[0][0]).toMatchObject({
+    provider: "local",
+    whisper_binary_path: "/opt/whisper.cpp/whisper-server",
+  });
+  expect(await screen.findByText("Settings saved.")).toBeTruthy();
 });
 
-it("still says so when a stored path overrides the engine Graite installed", async () => {
-  // Set outside the app (an .env, or an older version's Advanced field). Invisible is worse
-  // than read-only: it changes what runs.
+it("hides the whisper-server field when one is on this computer, except in geek mode", async () => {
   aiMock.status.mockResolvedValue({
-    config: {
-      ...CONFIG,
-      whisper_binary_path: "/opt/whisper-server",
-      ocr_binary_path: "/opt/llama-server",
-    },
+    config: CONFIG,
+    hardware: { ram_gb: 32, gpu: null, binary_path: "" },
+    loaded: false,
+    whisper_binary: "/usr/local/bin/whisper-server",
+  });
+  render(<ModelsPage onClose={() => {}} initialTab="voice" />);
+  await screen.findByText("voices-card");
+  expect(screen.queryByLabelText(/whisper-server executable/)).toBeNull();
+  open(/On this computer/);
+  fireEvent.click(await screen.findByRole("switch", { name: "I’m a proper geek" }));
+  open(/Speech/);
+  expect(within(panel("Speech")).getByLabelText(/whisper-server executable/)).toBeTruthy();
+  expect(
+    within(panel("Speech")).getByText(/Found at \/usr\/local\/bin\/whisper-server/),
+  ).toBeTruthy();
+});
+
+it("saves speech settings while the chat model choice is unfinished, and keeps a newer chat model", async () => {
+  // Chat was pointed at a connection without a saved model; meanwhile the composer's model
+  // picker saved another model. Saving the Speech page must do neither harm.
+  aiMock.status.mockResolvedValueOnce({
+    config: { ...CONFIG, provider: "compatible", saved_model_id: null },
+    hardware: { ram_gb: 32, gpu: null, binary_path: "" },
+    loaded: false,
+  });
+  aiMock.status.mockResolvedValue({
+    config: { ...CONFIG, provider: "compatible", saved_model_id: "picked-in-composer" },
     hardware: { ram_gb: 32, gpu: null, binary_path: "" },
     loaded: false,
   });
   render(<ModelsPage onClose={() => {}} initialTab="voice" />);
   await screen.findByText("voices-card");
-  expect(within(panel("Speech")).getByText("/opt/whisper-server")).toBeTruthy();
-  expect(within(panel("Speech")).getByText(/Speech to text runs a build of your own/)).toBeTruthy();
+  fireEvent.change(within(panel("Speech")).getByLabelText(/whisper-server executable/), {
+    target: { value: "/opt/whisper-server" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+  await waitFor(() => expect(aiMock.save).toHaveBeenCalledTimes(1));
+  expect(aiMock.save.mock.calls[0][0]).toMatchObject({
+    saved_model_id: "picked-in-composer",
+    whisper_binary_path: "/opt/whisper-server",
+  });
+});
+
+it("still says so when a stored path overrides the OCR engine Graite installed", async () => {
+  // Set outside the app (an .env). Invisible is worse than read-only: it changes what runs.
+  aiMock.status.mockResolvedValue({
+    config: { ...CONFIG, ocr_binary_path: "/opt/llama-server" },
+    hardware: { ram_gb: 32, gpu: null, binary_path: "" },
+    loaded: false,
+  });
+  render(<ModelsPage onClose={() => {}} initialTab="voice" />);
+  await screen.findByText("voices-card");
   expect(within(panel("Documents")).getByText("/opt/llama-server")).toBeTruthy();
-  // …and no input: it is a statement, not a setting.
-  expect(screen.queryByLabelText(/executable/i)).toBeNull();
 });
 
 it("switches chat to Graite Cloud only when asked, and saves the picked model", async () => {

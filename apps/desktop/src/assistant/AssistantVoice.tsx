@@ -34,7 +34,7 @@ const LANGUAGES: [string, string][] = [
 ];
 
 /** How the assistant sounds: which voice, which language, how lively. Voices are made and
- * tested in Settings → Voice; here one is chosen. */
+ * tested in Settings → Speech; here one is chosen. */
 export function AssistantVoice({
   info,
   onSaved,

@@ -163,7 +163,8 @@ describe("toBlocks / fromBlocks", () => {
       { type: "paragraph", props: {}, content: [], children: [] },
     ]);
     expect(md).toBe(
-      "# Title\n\n<!-- graite:empty -->\n\n[[Atlas]]\n\n- [x] **done**\n\n<!-- graite:empty -->\n",
+      // The empty paragraph at the end is the editor's caret target and is not written.
+      "# Title\n\n<!-- graite:empty -->\n\n[[Atlas]]\n\n- [x] **done**\n",
     );
   });
 });

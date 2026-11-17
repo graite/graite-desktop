@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
@@ -394,3 +395,116 @@ async def test_last_round_answers_instead_of_failing(monkeypatch: pytest.MonkeyP
     events = [e async for e in run(Provider("local", "", "m", ""), [], Stub(), max_rounds=3)]  # type: ignore[arg-type]
     assert events[-1] == {"type": "answer", "text": "Here is what I found."}
     assert seen_tools[-1] == 0  # tools withdrawn on the final round
+
+
+def test_whisper_server_path_is_cleaned_checked_and_kept(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Settings → Speech: the path the user gives is what speech to text runs."""
+    import shutil
+
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    config = client.get("/api/v1/ai/status").json()["config"]
+    assert client.get("/api/v1/ai/status").json()["whisper_binary"] == ""
+    folder = tmp_path / "whisper.cpp" / "build"
+    (folder / "bin").mkdir(parents=True)
+    binary = folder / "bin" / "whisper-server"
+    binary.write_text("#!/bin/sh\n")
+
+    def save(path: str):
+        return client.put("/api/v1/ai/config", json={**config, "whisper_binary_path": path})
+
+    missing = save(str(tmp_path / "nope"))
+    assert missing.status_code == 400 and "There is no file" in missing.json()["detail"]
+    if os.name != "nt":  # Windows has no executable bit: any file there may be run
+        not_runnable = save(str(binary))
+        assert not_runnable.status_code == 400
+        assert "not an executable" in not_runnable.json()["detail"]
+        binary.chmod(0o755)
+    empty_folder = save(str(tmp_path))
+    assert empty_folder.status_code == 400 and "folder without" in empty_folder.json()["detail"]
+    # Nothing was saved by the refused attempts.
+    assert client.get("/api/v1/ai/status").json()["config"]["whisper_binary_path"] == ""
+
+    # Quotes and the build folder are what people paste.
+    saved = save(f'  "{folder}"  ')
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["whisper_binary_path"] == str(binary)
+    status = client.get("/api/v1/ai/status").json()
+    assert status["config"]["whisper_binary_path"] == str(binary)
+    assert status["whisper_binary"] == str(binary)
+
+    # It survives saving other settings, even after the file has gone.
+    binary.unlink()
+    other = client.put(
+        "/api/v1/ai/config",
+        json={**config, "whisper_binary_path": str(binary), "context_size": 4096},
+    )
+    assert other.status_code == 200
+    assert other.json()["whisper_binary_path"] == str(binary)
+    assert client.get("/api/v1/ai/status").json()["whisper_binary"] == ""
+    # Clearing it goes back to the whisper-server on PATH.
+    assert save("").json()["whisper_binary_path"] == ""
+
+
+def test_thinking_and_effort_are_spelled_per_provider() -> None:
+    """D95: one setting, each API's own words for it; the default sends nothing."""
+    messages = [{"role": "user", "content": "hi"}]
+
+    def body(kind: str, url: str, thinking: bool | None, effort: str | None) -> dict:
+        return Provider(kind, url, "m", "k")._body(messages, [], thinking, effort)[1]
+
+    hints = {"thinking", "output_config", "reasoning", "reasoning_effort", "chat_template_kwargs"}
+    for kind, url in (
+        ("anthropic", ""),
+        ("compatible", "http://localhost:1234/v1"),
+        ("compatible", "https://openrouter.ai/api/v1"),
+        ("local", "http://127.0.0.1:1/v1"),
+    ):
+        assert not hints & set(body(kind, url, None, None)), kind
+
+    claude = body("anthropic", "", True, "high")
+    assert claude["thinking"] == {"type": "adaptive", "display": "summarized"}
+    assert claude["output_config"] == {"effort": "high"}
+    # Current Claude models cannot switch thinking off; the least effort is the nearest thing.
+    off = body("anthropic", "", False, "high")
+    assert "thinking" not in off and off["output_config"] == {"effort": "low"}
+
+    router = "https://openrouter.ai/api/v1"
+    assert body("compatible", router, True, "low")["reasoning"] == {"effort": "low"}
+    assert body("compatible", router, False, "high")["reasoning"] == {"effort": "none"}
+
+    server = body("compatible", "http://localhost:1234/v1", True, "high")
+    assert server["chat_template_kwargs"] == {"enable_thinking": True}
+    assert server["reasoning_effort"] == "high"
+
+    local = body("local", "http://127.0.0.1:1/v1", False, "high")
+    assert local["chat_template_kwargs"] == {"enable_thinking": False}
+    assert local["reasoning_budget_tokens"] == 0 and "reasoning_effort" not in local
+    assert Provider("local", "http://127.0.0.1:1/v1", "m", "k").reasoning() == {
+        "toggle": True,
+        "effort": False,
+    }
+
+
+def test_reasoning_settings_save_without_unloading_the_model(client: TestClient) -> None:
+    status = client.get("/api/v1/ai/status").json()
+    assert status["config"]["thinking"] == "auto" and status["config"]["effort"] == "medium"
+    # No model chosen yet: nothing to offer.
+    assert status["reasoning"] == {"toggle": False, "effort": False}
+
+    stopped = []
+
+    async def stop() -> None:
+        stopped.append(1)
+
+    client.app.state.models.server.stop = stop  # type: ignore[method-assign]
+    saved = client.put("/api/v1/ai/reasoning", json={"thinking": "on", "effort": "high"})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["thinking"] == "on" and saved.json()["effort"] == "high"
+    assert client.put("/api/v1/ai/reasoning", json={"effort": "low"}).json()["thinking"] == "on"
+    assert client.put("/api/v1/ai/reasoning", json={"effort": "max"}).status_code == 422
+    assert not stopped
+
+    config(client)  # an OpenAI-compatible server
+    assert client.get("/api/v1/ai/status").json()["reasoning"] == {"toggle": True, "effort": True}

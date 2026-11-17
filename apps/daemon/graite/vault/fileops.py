@@ -2747,6 +2747,47 @@ class FileOps:
 
             return await asyncio.to_thread(move)
 
+    async def move_text(
+        self, source_id: str, target_rel: str, text: str, body: str, base_hash: str
+    ) -> dict[str, str]:
+        """Move text the user dragged out of one page onto another page.
+
+        `text` is appended to the target and `body` (the source without that text) replaces
+        the source, as one step: both pages are locked, the source must still be at
+        `base_hash`, and the target is put back if the source cannot be written.
+        """
+        from contextlib import AsyncExitStack
+
+        source_rel = self.page_by_id(source_id)
+        target_rel = validate_rel(target_rel)
+        if source_rel == target_rel:
+            raise ValueError("Choose another page.")
+        if not text.strip():
+            raise ValueError("There is no text to move.")
+        async with AsyncExitStack() as stack:
+            for rel in sorted((source_rel, target_rel)):
+                await stack.enter_async_context(self._locks[rel])
+
+            def move() -> dict[str, str]:
+                source = self._read_sync(source_rel)
+                target = self._read_sync(target_rel)
+                if self.page_by_id(source_id) != source_rel:
+                    raise ValueError("The source page moved. Try again.")
+                self.page_by_id(target.id)  # Reject linked page folders.
+                if source.hash != base_hash:
+                    raise ConflictError(source.hash, source.body)
+                saved_target = self._write_body_sync(
+                    target_rel, append_markdown(target.body, text), target.hash, "ui"
+                )
+                try:
+                    saved_source = self._write_body_sync(source_rel, body, source.hash, "ui")
+                except Exception:
+                    self._write_body_sync(target_rel, target.body, saved_target.hash, "ui")
+                    raise
+                return {"path": target_rel, "source_hash": saved_source.hash}
+
+            return await asyncio.to_thread(move)
+
     async def set_properties(
         self, page_id: str, values: list[dict[str, Any]], base_hash: str, actor: str = "ui"
     ) -> PageDoc:

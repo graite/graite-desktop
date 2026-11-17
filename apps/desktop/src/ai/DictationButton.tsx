@@ -6,7 +6,7 @@ import { platform } from "@/lib/platform";
 import { AudioRecorder } from "@/lib/platform/audio-recorder";
 
 export const WHISPER_UNAVAILABLE =
-  "Whisper is not loaded. Download the Whisper speech model in Settings → Voice to use dictation.";
+  "Whisper is not loaded. Download the Whisper speech model in Settings → Speech to use dictation.";
 
 export function DictationButton({
   available,

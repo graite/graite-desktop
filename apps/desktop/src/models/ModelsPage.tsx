@@ -1,5 +1,5 @@
 import { ModelSelect } from "./ModelSelect";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowRight,
@@ -101,6 +101,8 @@ export function ModelsPage({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [techMode, setTechMode] = useTechMode();
+  // The config as it was last read from or written to the daemon: a save sends what differs.
+  const loadedRef = useRef<AIConfig | null>(null);
 
   const refreshStore = () =>
     connectionsApi
@@ -119,6 +121,7 @@ export function ModelsPage({
               ? { ...s.config, provider: "compatible" as const }
               : s.config;
           setStatus(s);
+          loadedRef.current = loaded;
           setConfig(loaded);
           if (initialTab === "chat") setSection(chatSection(loaded));
         }
@@ -155,15 +158,29 @@ export function ModelsPage({
   };
   const save = async () => {
     if (!config) return;
-    if (config.provider === "graite") {
-      if (!config.model) throw new Error("Sign in and choose a Graite Cloud model first.");
-    } else if (config.provider !== "local" && !config.saved_model_id) {
-      throw new Error("Choose a saved model on this connection first.");
+    const forChat = MODEL_SECTIONS.includes(section);
+    // Only the settings changed on this page are written. Chat's model can be switched from
+    // the composer while this page is open, and a save here must not put the old one back.
+    const loaded = (loadedRef.current ?? {}) as Record<string, unknown>;
+    const changed = Object.fromEntries(
+      Object.entries(config).filter(
+        ([key, value]) => JSON.stringify(value) !== JSON.stringify(loaded[key]),
+      ),
+    ) as Partial<AIConfig>;
+    const next = { ...(await ai.status()).config, ...changed };
+    // An unfinished chat model choice is no reason to refuse saving speech or search settings.
+    if (forChat || "provider" in changed || "saved_model_id" in changed) {
+      if (next.provider === "graite") {
+        if (!next.model) throw new Error("Sign in and choose a Graite Cloud model first.");
+      } else if (next.provider !== "local" && !next.saved_model_id) {
+        throw new Error("Choose a saved model on this connection first.");
+      }
     }
-    const saved = await ai.save(config);
+    const saved = await ai.save(next);
+    loadedRef.current = saved;
     setConfig(saved);
     setStatus(await ai.status());
-    setSuccess("Settings saved. Your model is ready to check.");
+    setSuccess(forChat ? "Settings saved. Your model is ready to check." : "Settings saved.");
   };
   const draftSection = config ? chatSection(config) : null;
   const savedSection = status ? chatSection(status.config) : null;
@@ -415,7 +432,12 @@ export function ModelsPage({
                   onChoose={() => {}}
                   disabled={!!busy}
                 />
-                <OwnBuild label="Speech to text" path={config.whisper_binary_path} />
+                <WhisperServerField
+                  value={config.whisper_binary_path ?? ""}
+                  found={status?.whisper_binary ?? ""}
+                  always={techMode}
+                  onChange={(whisper_binary_path) => patch({ whisper_binary_path })}
+                />
                 <VoicesCard />
               </>,
             )}
@@ -760,6 +782,49 @@ function OcrEngineNote({ override, onOpenLocal }: { override: string; onOpenLoca
         {ready ? "Manage under On this computer" : "Set up under On this computer"}{" "}
         <ArrowRight size={14} />
       </Button>
+    </div>
+  );
+}
+
+/**
+ * Where speech to text finds whisper-server (whisper.cpp). Graite does not install this
+ * engine yet, so the path is a setting: shown when none was found on this computer, when one
+ * is set, or in geek mode. Saved with "Save settings" and checked by the daemon.
+ */
+function WhisperServerField({
+  value,
+  found,
+  always,
+  onChange,
+}: {
+  value: string;
+  found: string;
+  always: boolean;
+  onChange: (path: string) => void;
+}) {
+  // Stays visible once shown, so it does not vanish while the path is being typed.
+  const [shown] = useState(() => always || !!value || !found);
+  if (!shown && !always && !value && found) return null;
+  return (
+    <div className="ai-engine-note" data-field>
+      <label className="ai-field">
+        whisper-server executable
+        <input
+          value={value}
+          placeholder={found || "/opt/homebrew/bin/whisper-server"}
+          spellCheck={false}
+          autoCapitalize="off"
+          autoCorrect="off"
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <small>
+          {value
+            ? "Speech to text runs this file. Clear the field to use the whisper-server found on this computer."
+            : found
+              ? `Found at ${found}. Give another path only to use a build of your own.`
+              : "Speech to text needs whisper-server from whisper.cpp, and none was found on this computer. Install it (on a Mac: brew install whisper-cpp), then give the full path to whisper-server here and save."}
+        </small>
+      </label>
     </div>
   );
 }

@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -65,6 +66,22 @@ def client_name(headers: dict[str, str]) -> str:
     return re.sub(r"[^a-zA-Z0-9._ -]", "", raw).strip()[:40] or "client"
 
 
+SWITCHED_OFF = "Access for AI apps is switched off in Graite (Settings → AI connectors)."
+# Names Graite uses for its own calls; they are not apps the user connected.
+INTERNAL_CLIENTS = frozenset({"graite-relay", "graite-test"})
+
+
+def enabled(db: Any) -> bool:
+    """Whether AI apps may use Graite at all. On unless switched off in Settings."""
+    row = db.execute("SELECT value FROM meta WHERE key='mcp_enabled'").fetchone()
+    return not row or row[0] != "0"
+
+
+def set_enabled(db: Any, on: bool) -> None:
+    db.execute("INSERT OR REPLACE INTO meta VALUES ('mcp_enabled', ?)", ("1" if on else "0",))
+    db.commit()
+
+
 class McpService:
     """Builds the MCP server for one daemon app. A registry is created per request."""
 
@@ -72,6 +89,9 @@ class McpService:
         self._state = state
         self._settings = settings
         self._scope: tuple[int, ResolvedScope] | None = None
+        # The app that last called a tool and when (epoch seconds), for the settings screen:
+        # "it works" is easiest to believe when Graite says who just used it.
+        self.last_used: tuple[str, float] | None = None
         self.server: Server[Any, Any] = Server(
             "graite", version=__version__, instructions=INSTRUCTIONS
         )
@@ -203,4 +223,11 @@ class McpEndpoint:
                 scope, receive, send
             )
             return
+        state = self._service._state()
+        if not enabled(state.db):
+            await JSONResponse({"detail": SWITCHED_OFF}, status_code=403)(scope, receive, send)
+            return
+        name = client_name(headers)
+        if name not in INTERNAL_CLIENTS:
+            self._service.last_used = (name, time.time())
         await self._service.manager.handle_request(scope, receive, send)

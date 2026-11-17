@@ -28,7 +28,7 @@ from typing import Any
 
 from graite.models.speech import pcm_to_wav
 from graite.voice.bargein import BargeInGuard, ReferenceTrack, judge
-from graite.voice.chunker import SpeechChunker
+from graite.voice.chunker import SpeechChunker, spoken
 from graite.voice.fillers import filler
 from graite.voice.frames import Reframer
 from graite.voice.tts import TTSEngine, Voice
@@ -648,7 +648,7 @@ class VoiceSession:
             while (sentence := await sentences.get()) is not None:
                 chunks: asyncio.Queue[bytes | None] = asyncio.Queue()
                 await ready.put((sentence, chunks))
-                async for chunk in self.tts.synthesize(sentence, voice):
+                async for chunk in self.tts.synthesize(spoken(sentence), voice):
                     chunks.put_nowait(chunk)
                 chunks.put_nowait(None)
         finally:

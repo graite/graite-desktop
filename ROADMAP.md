@@ -6,16 +6,19 @@ list below is the status.
 
 ## Where we are
 
+The current release is **v0.4.1**.
+
 **Shipped**
 
 - M0 scaffold: monorepo, daemon launch contract, Tauri shell, CI on three OSes with a
   PyInstaller sidecar smoke test.
 - M1 vault and editor (part 1): fileops, indexer, pages API, versions, trash, the converter
-  with fixtures, the editor with page links, toggles, tables, checklists, the sidebar tree,
-  save with conflict banner.
+  with fixtures, the editor with page links, toggles, tables, checklists, callouts, the
+  sidebar tree, moving pages between parents, save with conflict banner.
 - M2 models and chat: catalog, downloads, llama-server lifecycle, providers (llama.cpp,
   OpenAI-compatible, Anthropic, OpenRouter), keychain, tools, instruction cascade, streaming
-  chat with persisted conversations, in-app engine installs (D39).
+  chat with persisted conversations, in-app engine installs (D39), starter models chosen by
+  what the computer can run (D60).
 - M3 review queue: propose tools, proposals API, accept/reject/edit/batch/revert, in-page
   decorations, auto-apply opt-in.
 - M4 (most of it): chunk index, hybrid search, retrieval pipeline with citations, chat v2,
@@ -24,20 +27,42 @@ list below is the status.
   views (board, table, list) with properties.
 - M5b personal assistant and voice: assistant definition, memory pages, background loop,
   reflection, realtime voice with VAD, turn detection, barge-in, Chatterbox TTS.
-- MCP server and stdio bridge for local clients (from M8).
+- M6 databases and dashboards: CSV tables, agents that read, query and propose rows,
+  relations and tabs, formula, file and page columns, row pages, charts and HTML dashboards.
+- Templates (D77, D81): CRM, bookkeeping, projects and tasks, OKRs, meetings, hiring, a
+  content calendar, habits, a weekly planner and personal finance, plus examples of AI
+  instructions (D90).
+- M7 (part): signed and notarized macOS builds (D85), packaged builds for Linux and Windows,
+  and self-update for the macOS app and the AppImage (D91).
+- From M8 and M9: the MCP server with a stdio bridge for local clients, and remote access
+  for hosted clients through Graite Cloud.
 
 **In progress / remaining in the milestones above**
 
-- M1 part 2: file watcher merge with 3-way diff, callouts, `graite:` fences beyond views,
-  restore-from-trash UI, versions UI, `NAVIGATION.md`, moving pages between parents,
-  vault-wide link rewrite on rename, editable `rawMarkdown` block, inline `[[` autocomplete.
-- M4: `summarize_page` → `NAVIGATION-DEEP.md`, `read_navigation`, the `Cmd+K` search UI.
+- M1 part 2: file watcher merge with 3-way diff, `graite:` fences beyond views,
+  restore-from-trash UI, versions UI, `NAVIGATION.md`, vault-wide link rewrite on rename,
+  inline `[[` autocomplete.
+- M4: `summarize_page`, `read_navigation`, the `Cmd+K` search UI.
 - M5: video, streaming Range delivery, attachment sync metadata, agent-facing media skills.
 - M5b: live-microphone pass on all three platforms; `whisper-server` as an installable engine.
-- M6 databases and dashboards: phases 1 (CSV tables) and 2a (agents read, query and propose
-  rows), 2b relations and tabs, 3 charts and 4 dashboards shipped; next board and calendar views of tables.
+- M6: board and calendar views of tables.
+- M7: a signed Windows installer and updater, Graite's own signed engine builds and remote
+  catalog, crash and log bundle export, per-component update channels with rollback, a docs
+  site.
 
-**Not started**: M7 packaging and release, M8–M10.
+**Not started**: the rest of M8 (scoped API tokens, the OpenAI-compatible API, webhooks),
+the PWA of M9, and M10.
+
+## 2027 plan
+
+- **Launch-ready (to 31 Dec 2026):** 5-minute onboarding with a hardware-based model
+  recommendation, opening an existing Markdown folder safely side by side with other
+  editors (the file-watcher 3-way merge), a signed Windows installer and auto-updater, the
+  Cmd+K search UI.
+- **Jan – Feb 2027:** a template gallery with one-click install, board and calendar views of
+  tables, a Dutch UI translation and an i18n framework.
+- **Feb – Apr 2027:** the Email tab (spec to follow as an RFC).
+- **Mar – Jun 2027:** M9 remote access and PWA, M10 sync.
 
 ## M0 — Scaffold
 

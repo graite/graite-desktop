@@ -299,3 +299,61 @@ def test_media_move_rolls_back_destination_if_source_write_fails(client, monkeyp
         )
     assert client.get("/api/v1/pages/Media test").json()["body"] == source["body"]
     assert client.get("/api/v1/pages/Rollback destination").json()["body"] == target["body"]
+
+
+def test_batch_ocr_queues_one_job_per_image_and_runs_them_in_turn(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from graite.api import media
+
+    page = client.post("/api/v1/pages", json={"title": "Scans"}).json()
+    files = []
+    for name in ("a.png", "b.png", "c.png"):
+        r = client.post(
+            "/api/v1/media/upload", params={"page_id": page["id"], "name": name}, content=b"png"
+        )
+        files.append({"file": r.json()["file"], "name": name})
+
+    running = 0
+    most = 0
+    order: list[str] = []
+
+    async def recognize(working, model, mmproj, config, progress):  # noqa: ANN001, ANN202
+        nonlocal running, most
+        running += 1
+        most = max(most, running)
+        progress("Reading the page…")
+        await asyncio.sleep(0.05)
+        running -= 1
+        order.append("read")
+        return f"text {len(order)}"
+
+    monkeypatch.setattr(media, "recognize", recognize)
+    item = client.app.state.downloads.items["glm-ocr-q8"]
+    item.status = "installed"
+    monkeypatch.setattr(client.app.state.downloads, "parts", lambda _: ["model", "mmproj"])
+    monkeypatch.setattr(client.app.state.downloads, "file_target", lambda *_: Path("mmproj.gguf"))
+
+    # One unreadable file refuses the whole batch: nothing is half queued.
+    bad = client.post(
+        "/api/v1/media/extract/batch",
+        json={"page_id": page["id"], "files": [*files, {"file": "missing.png", "name": "x"}]},
+    )
+    assert bad.status_code == 404
+    assert client.app.state.media_queue == {}
+
+    r = client.post("/api/v1/media/extract/batch", json={"page_id": page["id"], "files": files})
+    assert r.status_code == 200, r.text
+    jobs = r.json()
+    assert len(jobs) == 3 and len({j["id"] for j in jobs}) == 3
+    # The last one is still waiting its turn: cancelling it means it never starts.
+    cancelled = client.delete(f"/api/v1/media/jobs/{jobs[2]['id']}").json()
+    assert cancelled["status"] == "cancelled"
+    done = [wait_job(client, j["id"]) for j in jobs[:2]]
+    assert [d["status"] for d in done] == ["done", "done"], done
+    assert [d["text"] for d in done] == ["text 1", "text 2"]
+    assert most == 1, "extractions must take the local model one at a time"
+    assert len(order) == 2
+    assert client.get(f"/api/v1/media/jobs/{jobs[2]['id']}").json()["status"] == "cancelled"
+    # A single extraction no longer refuses while another task holds the model.
+    assert not client.app.state.models.lock.locked()

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useModelOptions, type ModelOption } from "@/models/useModelOptions";
 import { DictationButton } from "./DictationButton";
+import { ReasoningControl } from "./ReasoningControl";
 
 export function ComposerModel({
   busy,
@@ -113,6 +114,11 @@ export function ComposerModel({
   const speech = catalog.find((m) => m.id === "whisper-large-v3-turbo-q8");
   return (
     <>
+      <ReasoningControl
+        status={status}
+        disabled={busy || working || saving}
+        onChanged={() => void refresh()}
+      />
       <DropdownMenu
         onOpenChange={(open) => {
           if (open) {

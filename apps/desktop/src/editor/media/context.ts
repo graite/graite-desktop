@@ -5,6 +5,10 @@ export const MediaContext = createContext<{
   navigate?: (path: string) => void;
   onTreeChanged: () => void;
   moveMedia?: (blockId: string, path: string) => Promise<void>;
+  /** Move text blocks (dragged by their handle) to the page at `path`. */
+  moveBlocks?: (blockIds: string[], path: string) => Promise<void>;
+  /** Move the selected text (dragged) to the page at `path`. */
+  moveSelection?: (path: string) => Promise<void>;
   /** Open a table row as a full page (D80). */
   openRow?: (table: string, id: string) => void;
   /** Move the page at `sourcePath` under the page at `targetPath`. */

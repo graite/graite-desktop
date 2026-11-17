@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCreateBlockNote } from "@blocknote/react";
-import { fromBlocks, toBlocksSafe, toBlocksWithSpans } from "@graite/md-convert";
+import { fromBlocks, minimalSave, toBlocksSafe, toBlocksWithSpans } from "@graite/md-convert";
 import {
   FolderOpen,
   MoreHorizontal,
@@ -48,6 +48,7 @@ import { MediaContext } from "./media/context";
 import { EditorSurface } from "./EditorSurface";
 import { useViewSchema } from "./views/useViewSchema";
 import { editorExtensions } from "./reviewDecorations";
+import { isMovableText } from "./textDrag";
 import { useSelectAllStages } from "./useSelectAllStages";
 import { markdownPasteHandler } from "./paste";
 import { Breadcrumbs } from "@/app/Breadcrumbs";
@@ -130,6 +131,15 @@ export function isolateUnloadable(
       } as GraitePartialBlock;
     }
   });
+}
+
+/** The document as canonical Markdown, or null when a block cannot be serialized. */
+export function serializeDocument(editor: GraiteEditor): string | null {
+  try {
+    return fromBlocks(editor.document as unknown as Parameters<typeof fromBlocks>[0]);
+  } catch {
+    return null;
+  }
 }
 
 export function loadBlocks(editor: GraiteEditor, blocks: GraitePartialBlock[]): void {
@@ -281,6 +291,9 @@ export function PageEditor({
     diskBodyRef.current = markdown;
     setBodyVersion((v) => v + 1);
   }, []);
+  // `fromBlocks` of the document as it was when it last matched the disk: a save rewrites only
+  // the lines that differ from it (minimalSave), so untouched Markdown keeps its formatting.
+  const baselineRef = useRef<string | null>(null);
   const syncingRef = useRef(false);
   const dirtyRef = useRef(false);
   // Bumped on every edit, so a save only clears `dirty` when nothing was typed meanwhile.
@@ -367,6 +380,7 @@ export function PageEditor({
       setHasView(hasPageView(editor.document as GraiteBlock[]));
       baseHashRef.current = hash;
       dirtyRef.current = false;
+      baselineRef.current = serializeDocument(editor);
       markDisk(body);
       setConflict(null);
     },
@@ -409,6 +423,17 @@ export function PageEditor({
     }
   }, [tree, editor]);
 
+  /**
+   * What a save writes: the canonical document (`next`) and the text for the file, which keeps
+   * the lines on disk that the user did not edit.
+   */
+  const outgoing = useCallback(() => {
+    const next = fromBlocks(editor.document as unknown as Parameters<typeof fromBlocks>[0]);
+    const baseline = baselineRef.current;
+    const markdown = baseline === null ? next : minimalSave(diskBodyRef.current, baseline, next);
+    return { markdown, next };
+  }, [editor]);
+
   /** Write the editor's content now (queued after any write in flight), if it has changes. */
   const writeBody = useCallback(async () => {
     // A rename moves the folder: wait for it outside the queue (the rename is queued too).
@@ -416,14 +441,15 @@ export function PageEditor({
     return queued(async () => {
       if (!dirtyRef.current) return;
       const edits = editsRef.current;
-      const markdown = fromBlocks(editor.document as unknown as Parameters<typeof fromBlocks>[0]);
+      const { markdown, next } = outgoing();
       const { hash } = await pages.put(pathRef.current, markdown, baseHashRef.current);
       baseHashRef.current = hash;
       if (editsRef.current === edits) dirtyRef.current = false;
+      baselineRef.current = next;
       markDisk(markdown);
       onSaved(hash);
     });
-  }, [editor, onSaved, markDisk, queued]);
+  }, [outgoing, onSaved, markDisk, queued]);
 
   const save = useCallback(async () => {
     try {
@@ -476,10 +502,11 @@ export function PageEditor({
     async (fields: PageProperty[]) => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       return queued(async () => {
-        const markdown = fromBlocks(editor.document as unknown as Parameters<typeof fromBlocks>[0]);
+        const { markdown, next } = outgoing();
         const saved = await pages.put(pathRef.current, markdown, baseHashRef.current);
         baseHashRef.current = saved.hash;
         dirtyRef.current = false;
+        baselineRef.current = next;
         markDisk(markdown);
         const result = await workspace.properties(page.id, fields, saved.hash);
         baseHashRef.current = result.hash;
@@ -487,7 +514,7 @@ export function PageEditor({
         return result;
       });
     },
-    [editor, page.id, onSaved, markDisk, queued],
+    [outgoing, page.id, onSaved, markDisk, queued],
   );
 
   const moveMedia = useCallback(
@@ -503,9 +530,7 @@ export function PageEditor({
       editor.isEditable = false;
       try {
         const result = await queued(async () => {
-          const markdown = fromBlocks(
-            editor.document as unknown as Parameters<typeof fromBlocks>[0],
-          );
+          const { markdown } = outgoing();
           const saved = await pages.put(pathRef.current, markdown, baseHashRef.current);
           baseHashRef.current = saved.hash;
           dirtyRef.current = false;
@@ -522,7 +547,10 @@ export function PageEditor({
         syncingRef.current = false;
         baseHashRef.current = result.source_hash;
         dirtyRef.current = false;
-        markDisk(fromBlocks(editor.document as unknown as Parameters<typeof fromBlocks>[0]));
+        baselineRef.current = fromBlocks(
+          editor.document as unknown as Parameters<typeof fromBlocks>[0],
+        );
+        markDisk(baselineRef.current);
         onSaved(result.source_hash);
         onTreeChanged();
         onNavigate(result.path);
@@ -533,6 +561,157 @@ export function PageEditor({
       }
     },
     [editor, page.id, onSaved, onTreeChanged, onNavigate, markDisk, queued],
+  );
+
+  /**
+   * Move text out of this page onto the page at `targetPath`. `take` removes it from the
+   * editor and returns it as Markdown; the daemon then appends it to the target and writes
+   * this page without it in one step, and the removal is undone if that fails.
+   */
+  const moveText = useCallback(
+    async (targetPath: string, take: () => string | null) => {
+      if (targetPath === pathRef.current) return;
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      await titleCommitRef.current;
+      try {
+        await queued(async () => {
+          // Typed-but-unsaved text goes to disk first, so the move starts from a known hash.
+          if (dirtyRef.current) {
+            const pending = outgoing();
+            const saved = await pages.put(pathRef.current, pending.markdown, baseHashRef.current);
+            baseHashRef.current = saved.hash;
+            baselineRef.current = pending.next;
+            dirtyRef.current = false;
+            markDisk(pending.markdown);
+          }
+          syncingRef.current = true;
+          let text: string | null;
+          try {
+            text = take();
+          } finally {
+            syncingRef.current = false;
+          }
+          if (!text?.trim()) return;
+          const { markdown, next } = outgoing();
+          try {
+            const result = await workspace.moveText(
+              page.id,
+              targetPath,
+              text,
+              markdown,
+              baseHashRef.current ?? "",
+            );
+            baseHashRef.current = result.source_hash;
+            baselineRef.current = next;
+            markDisk(markdown);
+            onSaved(result.source_hash);
+            onTreeChanged();
+            const target = findNode(tree, targetPath);
+            toast.success(`Moved to ${target?.title ?? targetPath}`, {
+              action: { label: "Open", onClick: () => onNavigate(targetPath) },
+            });
+          } catch (e) {
+            syncingRef.current = true;
+            try {
+              editor.undo();
+            } finally {
+              syncingRef.current = false;
+            }
+            throw e;
+          }
+        });
+      } catch (e) {
+        toast.error(`Could not move the text: ${(e as Error).message}`);
+      }
+    },
+    [editor, page.id, tree, outgoing, queued, markDisk, onSaved, onTreeChanged, onNavigate],
+  );
+
+  /** Blocks dragged by their handle onto a page. */
+  const moveBlocks = useCallback(
+    (blockIds: string[], targetPath: string) =>
+      moveText(targetPath, () => {
+        const blocks = blockIds
+          .map((id) => editor.getBlock(id))
+          .filter(Boolean) as unknown as GraiteBlock[];
+        if (!isMovableText(blocks)) {
+          toast.error("Only text can be moved to another page this way.");
+          return null;
+        }
+        const text = fromBlocks(blocks as unknown as Parameters<typeof fromBlocks>[0]);
+        editor.removeBlocks(blocks.map((b) => b.id));
+        return text;
+      }),
+    [editor, moveText],
+  );
+
+  /** The selected text, dragged onto a page. */
+  const moveSelection = useCallback(
+    (targetPath: string) =>
+      moveText(targetPath, () => {
+        const cut = editor.getSelectionCutBlocks().blocks as unknown as GraiteBlock[];
+        if (!isMovableText(cut)) {
+          toast.error("Only text can be moved to another page this way.");
+          return null;
+        }
+        const text = fromBlocks(cut as unknown as Parameters<typeof fromBlocks>[0]);
+        const whole = (editor.getSelection()?.blocks ?? []) as unknown as GraiteBlock[];
+        const before = fromBlocks(whole as unknown as Parameters<typeof fromBlocks>[0]);
+        // Whole blocks are removed; part of a line leaves the rest of the line in place.
+        if (whole.length && before === text) editor.removeBlocks(whole.map((b) => b.id));
+        else editor.transact((tr) => tr.deleteSelection());
+        return text;
+      }),
+    [editor, moveText],
+  );
+
+  /**
+   * Read the text of several attachments in one go (Attachments → Extract text). Each file
+   * gets a job in the daemon's queue and a media block that follows it: the block the file
+   * already has on this page, or a new one at the end. The blocks show the progress and put
+   * the text under the file when their job is done, as for a single "Extract text".
+   */
+  const extractAttachments = useCallback(
+    async (items: { file: string; name: string; kind: string }[]) => {
+      const jobs = await media.extractBatch(
+        page.id,
+        items.map(({ file, name }) => ({ file, name })),
+      );
+      const existing = new Map<string, string>();
+      const collect = (blocks: GraiteBlock[]) => {
+        for (const block of blocks) {
+          if (block.type === "localMedia" && block.props.file)
+            existing.set(block.props.file, block.id);
+          if (block.children?.length) collect(block.children as GraiteBlock[]);
+        }
+      };
+      collect(editor.document as GraiteBlock[]);
+      items.forEach((item, index) => {
+        const job = jobs[index]?.id;
+        if (!job) return;
+        const shown = existing.get(item.file);
+        if (shown) editor.updateBlock(shown, { type: "localMedia", props: { job } });
+        else {
+          const last = editor.document[editor.document.length - 1]!;
+          editor.insertBlocks(
+            [
+              {
+                type: "localMedia",
+                props: { file: item.file, name: item.name, kind: item.kind, job },
+              } as GraitePartialBlock,
+            ],
+            last,
+            "after",
+          );
+        }
+      });
+      toast.success(
+        items.length === 1
+          ? "Reading 1 file. Its text appears under it when it is done."
+          : `Reading ${items.length} files, one after another. Each text appears under its file.`,
+      );
+    },
+    [editor, page.id],
   );
 
   const scheduleSave = useCallback(() => {
@@ -896,6 +1075,7 @@ export function PageEditor({
             title={page.title}
             open={attachmentsOpen}
             onOpenChange={setAttachmentsOpen}
+            onExtract={extractAttachments}
           />
 
           {page.path.includes("/") && (
@@ -916,6 +1096,8 @@ export function PageEditor({
               openRow: onOpenRow,
               onTreeChanged,
               moveMedia,
+              moveBlocks,
+              moveSelection,
               movePage: onMovePage,
             }}
           >

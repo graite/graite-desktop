@@ -1269,7 +1269,9 @@ async def propose_chart(
     "graite.chart(element, spec) draws a chart spec like propose_chart's (or any ECharts "
     "option) that redraws itself; graite.onChange(fn) runs when the data changes; "
     "graite.format(n, currency) formats numbers; CSS variables --graite-fg, --graite-muted, "
-    "--graite-border, --graite-bg and --graite-color-1..9 follow the app's theme. ECharts is "
+    "--graite-border, --graite-bg, --graite-accent and --graite-color-1..9 follow the app's "
+    "light or dark theme: use them for every color and never write white, black or another "
+    "fixed background (the page background is transparent already). ECharts is "
     "loaded as `echarts`. Load the charts-and-dashboards skill for a full example. Giving "
     "the name of an existing dashboard replaces its HTML (read it first).",
 )
@@ -1284,10 +1286,11 @@ async def propose_dashboard(
     ] = True,
 ) -> Any:
     from graite.dashboards import paths as dash_paths
-    from graite.dashboards.validation import check_html
+    from graite.dashboards.validation import check_html, check_theme
 
     text = str(html)
     check_html(text)
+    check_theme(text)
     rel = registry.scoped(page_path)
     target = dash_paths.parse(rel, str(name))
     if "propose_edit" not in registry.allowed and await registry.ops.read_dashboard(
