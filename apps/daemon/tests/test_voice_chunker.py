@@ -117,3 +117,31 @@ def test_fillers_are_already_plain_speech_and_leave_the_chunker_alone() -> None:
     assert chunker.feed("Let me see, ") == []  # half a clause before the model chose a tool
     chunker.reset()  # the tool round
     assert chunker.feed("Atlas has three notes. ") + chunker.flush() == ["Atlas has three notes."]
+
+
+def test_abbreviations_are_spelled_out_for_the_voice_only() -> None:
+    from graite.voice.chunker import spoken
+
+    assert (
+        spoken("Update the CRM before the Q3 review.") == "Update the C.R.M before the Q3 review."
+    )
+    assert spoken("Three KPIs moved; the CEO's note covers them.") == (
+        "Three K.P.I's moved; the C.E.O's note covers them."
+    )
+    assert spoken("De BTW en het KVK-nummer staan op de factuur.") == (
+        "De B.T.W en het K.V.K-nummer staan op de factuur."
+    )
+    # Said as words, capitals for emphasis, Roman numerals and shouting stay as written.
+    for same in (
+        "NASA and NATO met at IKEA.",
+        "Do NOT send it. That is a NO.",
+        "Chapter IV follows chapter III.",
+        "PLEASE READ THIS FIRST",
+        "Graite keeps notes. HTTPServer and iPhone are names.",
+        "Already spelled: C.R.M stays.",
+    ):
+        assert spoken(same) == same
+    # What the chunker hands out, and so what is shown, is untouched.
+    chunker = SpeechChunker()
+    said = [*chunker.feed("The CRM sync is done. "), *chunker.flush()]
+    assert said == ["The CRM sync is done."]

@@ -26,7 +26,7 @@ directly**: every change an agent wants to make is a diff you accept, reject or 
 Cloud models (Claude, OpenAI-compatible servers, OpenRouter) plug into the same interface as an
 optional escape hatch. The product does not depend on them.
 
-> **Status: pre-release (0.1.0).** The source is complete and the app runs on Linux, macOS
+> **Status: v0.4.1.** The source is complete and the app runs on Linux, macOS
 > and Windows. Packaged builds are previews; the macOS build is signed and notarized. Read `ROADMAP.md` for what is shipped,
 > in progress and planned.
 
@@ -89,6 +89,10 @@ whisper.cpp, with no per-token bill. Cloud providers are optional and use your o
 - Hybrid semantic + full-text search over every page, transcript and OCR'd document.
 - A personal assistant with realtime voice, and an MCP server so local clients can work
   through the same write-free tools.
+- Templates that set up a working area in one step: a CRM (companies, contacts, deals and
+  activities, with a deal board), bookkeeping (invoices and receipts with VAT, a profit and
+  loss statement and a balance sheet) and projects (projects, tasks and milestones), each
+  with linked tables, views and a dashboard.
 
 ## Install
 

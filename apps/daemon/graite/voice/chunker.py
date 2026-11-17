@@ -130,3 +130,40 @@ def _split_long(piece: str) -> list[str]:
         parts.append(piece[:cut].strip())
         piece = piece[cut:].strip()
     return [*parts, piece] if piece else parts
+
+
+# Abbreviations are written "CRM" and said "C R M". A voice model reads the written form as a
+# word ("krum"), so letters get dots between them on the way to the voice, and only there:
+# the text on screen keeps the normal spelling.
+_ABBREVIATION = re.compile(r"(?<![\w.])([A-Z]{2,5})(s|'s|’s)?(?![\w])")
+# Written in capitals but said as a word: acronyms people pronounce, and ordinary words in
+# capitals for emphasis, in English and Dutch.
+_SAID_AS_WORDS = frozenset(
+    """
+    NASA NATO NAVO UNESCO UNICEF OPEC FIFA UEFA IKEA COVID AIDS PIN SIM RAM ROM GIF JPEG LASER
+    RADAR SCRUM SWOT ASAP YOLO FOMO OK
+    NOT ALL AND THE YES NO NEW NOW ANY BUT FOR TODO DONE NOTE STOP MUST NEVER WHY HOW WHO ONE TWO
+    ONLY VERY ALSO THIS THAT WITH FROM HAVE WILL WHEN WHAT
+    NIET WEL EN DE HET JA NEE ALLE GEEN NU EEN OOK MAAR VAN VOOR MET
+    """.split()
+)
+_ROMAN = re.compile(r"^(?=[IVXLC])(X{0,3})(IX|IV|V?I{0,3})$")
+
+
+def spoken(text: str) -> str:
+    """`text` the way it should be said: "CRM" becomes "C.R.M", "KPIs" becomes "K.P.I's".
+
+    Left alone: acronyms that are said as words (NASA), words in capitals, Roman numerals,
+    and a sentence written entirely in capitals.
+    """
+    letters = [ch for ch in text if ch.isalpha()]
+    if letters and all(ch.isupper() for ch in letters) and len(text.split()) > 2:
+        return text
+
+    def spell(match: re.Match[str]) -> str:
+        word, plural = match.group(1), match.group(2)
+        if word in _SAID_AS_WORDS or _ROMAN.match(word):
+            return match.group(0)
+        return ".".join(word) + ("'s" if plural else "")
+
+    return _ABBREVIATION.sub(spell, text)
