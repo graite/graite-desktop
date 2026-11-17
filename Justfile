@@ -71,3 +71,7 @@ bench-ask label="run" *args="":
 # Write the synthetic 1,000-page benchmark vault somewhere to look at it
 bench-vault out pages="1000":
     cd apps/daemon && uv run python bench/gen_vault.py {{out}} --pages {{pages}}
+
+# Time Find (GET /api/v1/search) on the synthetic 1,000-page vault; fails over 200 ms
+bench-search label="run" *args="":
+    cd apps/daemon && uv run python bench/search.py --label {{label}} {{args}}

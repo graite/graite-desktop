@@ -6872,6 +6872,118 @@
         "title": "ScopeModel",
         "type": "object"
       },
+      "SearchHit": {
+        "properties": {
+          "heading_path": {
+            "description": "Headings above the best passage of the page.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Heading Path",
+            "type": "array"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "matches": {
+            "description": "How many passages of the page matched.",
+            "title": "Matches",
+            "type": "integer"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "snippet": {
+            "description": "Text around the words that matched; empty for a title hit.",
+            "title": "Snippet",
+            "type": "string"
+          },
+          "start_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Line"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "via": {
+            "description": "What matched: \"title\", \"text\" and/or \"meaning\".",
+            "items": {
+              "type": "string"
+            },
+            "title": "Via",
+            "type": "array"
+          }
+        },
+        "required": [
+          "path",
+          "id",
+          "title",
+          "heading_path",
+          "snippet",
+          "score",
+          "matches",
+          "via"
+        ],
+        "title": "SearchHit",
+        "type": "object"
+      },
+      "SearchResult": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SearchHit"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "semantic": {
+            "description": "Whether vectors took part. False while the embedding model is not loaded: the results are then by words and titles only.",
+            "title": "Semantic",
+            "type": "boolean"
+          },
+          "took_ms": {
+            "title": "Took Ms",
+            "type": "number"
+          }
+        },
+        "required": [
+          "query",
+          "results",
+          "semantic",
+          "took_ms"
+        ],
+        "title": "SearchResult",
+        "type": "object"
+      },
       "Sections": {
         "properties": {
           "context": {
@@ -7802,6 +7914,19 @@
           "ready"
         ],
         "title": "VoiceStatus",
+        "type": "object"
+      },
+      "Warmed": {
+        "properties": {
+          "semantic": {
+            "title": "Semantic",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "semantic"
+        ],
+        "title": "Warmed",
         "type": "object"
       },
       "WorkflowInfo": {
@@ -13175,6 +13300,101 @@
         "summary": "Write Profile",
         "tags": [
           "Profile"
+        ]
+      }
+    },
+    "/api/v1/search": {
+      "get": {
+        "operationId": "search_api_v1_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 400,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "k",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "K",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only this page and the pages under it (a vault path).",
+            "in": "query",
+            "name": "root",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this page and the pages under it (a vault path).",
+              "title": "Root"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/api/v1/search/warm": {
+      "post": {
+        "description": "Load the embedding model so that the searches that follow can use meaning as well as\nwords. Called when the search palette opens; returns at once and loads in the background.",
+        "operationId": "warm_api_v1_search_warm_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Warmed"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Warm",
+        "tags": [
+          "search"
         ]
       }
     },

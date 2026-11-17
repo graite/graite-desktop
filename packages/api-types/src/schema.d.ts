@@ -1722,6 +1722,44 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Search */
+    get: operations["search_api_v1_search_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/search/warm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Warm
+     * @description Load the embedding model so that the searches that follow can use meaning as well as
+     *     words. Called when the search palette opens; returns at once and loads in the background.
+     */
+    post: operations["warm_api_v1_search_warm_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/tables": {
     parameters: {
       query?: never;
@@ -4872,6 +4910,55 @@ export interface components {
       /** Roots */
       roots?: string[];
     };
+    /** SearchHit */
+    SearchHit: {
+      /**
+       * Heading Path
+       * @description Headings above the best passage of the page.
+       */
+      heading_path: string[];
+      /** Icon */
+      icon?: string | null;
+      /** Id */
+      id: string;
+      /**
+       * Matches
+       * @description How many passages of the page matched.
+       */
+      matches: number;
+      /** Path */
+      path: string;
+      /** Score */
+      score: number;
+      /**
+       * Snippet
+       * @description Text around the words that matched; empty for a title hit.
+       */
+      snippet: string;
+      /** Start Line */
+      start_line?: number | null;
+      /** Title */
+      title: string;
+      /**
+       * Via
+       * @description What matched: "title", "text" and/or "meaning".
+       */
+      via: string[];
+    };
+    /** SearchResult */
+    SearchResult: {
+      /** Query */
+      query: string;
+      /** Results */
+      results: components["schemas"]["SearchHit"][];
+      /**
+       * Semantic
+       * @description Whether vectors took part. False while the embedding model is not loaded: the results are then by words and titles only.
+       */
+      semantic: boolean;
+      /** Took Ms */
+      took_ms: number;
+    };
     /** Sections */
     Sections: {
       /**
@@ -5224,6 +5311,11 @@ export interface components {
       missing?: components["schemas"]["Missing"][];
       /** Ready */
       ready: boolean;
+    };
+    /** Warmed */
+    Warmed: {
+      /** Semantic */
+      semantic: boolean;
     };
     /** WorkflowInfo */
     WorkflowInfo: {
@@ -9102,6 +9194,60 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  search_api_v1_search_get: {
+    parameters: {
+      query: {
+        q: string;
+        k?: number;
+        /** @description Only this page and the pages under it (a vault path). */
+        root?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SearchResult"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  warm_api_v1_search_warm_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Warmed"];
         };
       };
     };

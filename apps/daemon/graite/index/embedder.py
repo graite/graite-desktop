@@ -10,6 +10,7 @@ import asyncio
 import json
 import sqlite3
 import time
+from collections import OrderedDict
 from typing import Any
 
 import sqlite_vec
@@ -23,6 +24,7 @@ from graite.models.manager import Manager
 BATCH = 32
 MAX_CHARS = 6000
 HOT_LIMIT = 20
+QUERY_CACHE = 256  # query vectors kept (a few hundred kilobytes)
 
 
 class Embedder:
@@ -37,6 +39,8 @@ class Embedder:
         self.hot_paths: dict[str, float] = {}
         self.state = "idle"
         self.last_error: str | None = None
+        # Query vectors by (model, text), most recently used last.
+        self._queries: OrderedDict[tuple[str, str], list[float]] = OrderedDict()
 
     # ------------------------------------------------------------------ model
 
@@ -140,15 +144,47 @@ class Embedder:
             return await provider.embed([prefix + t[:MAX_CHARS] for t in texts])
 
     async def embed_query(self, text: str) -> list[float] | None:
-        """A query vector, or None when semantic search is not available yet."""
+        """A query vector, or None when semantic search is not available yet.
+
+        Vectors of recent queries are kept: a follow-up question, a search repeated by the
+        model and each keystroke that is retyped cost nothing the second time.
+        """
         item = self.item()
         if item is None or not self.has_vec():
             return None
         model, _ = self.current_model()
         if model != item.id:
             return None
+        key = (item.id, text.strip())
+        cached = self._queries.get(key)
+        if cached is not None:
+            self._queries.move_to_end(key)
+            return cached
         vectors = await self.embed_texts([text], "query", evict_chat=False)
+        self._queries[key] = vectors[0]
+        while len(self._queries) > QUERY_CACHE:
+            self._queries.popitem(last=False)
         return vectors[0]
+
+    def ready_for_queries(self) -> bool:
+        """True when a query can be embedded without loading a model first: Find uses
+        vectors only then, so typing never waits for a model to start."""
+        item = self.item()
+        if item is None or not self.has_vec() or self.current_model()[0] != item.id:
+            return False
+        return self.manager.embedding_loaded() and self.manager.embedding_path == item.local_path
+
+    async def warm(self) -> bool:
+        """Load the embedding model for queries (the palette opened). False when it cannot
+        be loaded now: no model, or loading it would unload the chat model in use."""
+        item = self.item()
+        if item is None or not self.has_vec() or self.current_model()[0] != item.id:
+            return False
+        try:
+            await self.embed_query("warm")
+        except Exception:  # noqa: BLE001 - warming is best effort
+            return False
+        return True
 
     def touch(self, roots: list[str]) -> None:
         """Remember the roots of a conversation as hot without forgetting other chats'."""

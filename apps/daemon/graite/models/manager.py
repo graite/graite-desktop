@@ -19,7 +19,8 @@ from graite.models.config import REQUEST_ONLY, AIConfig, get_key, load_config
 from graite.models.llama_server import LlamaServer
 from graite.models.providers import Provider
 
-EMBEDDING_IDLE_SECONDS = 120
+# Kept loaded between searches: it is small, and Find uses vectors only while it is loaded.
+EMBEDDING_IDLE_SECONDS = 900
 
 
 class EmbeddingBusy(RuntimeError):
