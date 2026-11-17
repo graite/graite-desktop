@@ -1282,6 +1282,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/engines/{engine_id}/newest": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Newest Build
+     * @description Geek mode: the newest upstream build Graite can install (checked on GitHub, with the
+     *     checksums GitHub publishes), or null when there is none it can use.
+     */
+    post: operations["newest_build_api_v1_engines__engine_id__newest_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/engines/{engine_id}/rollback": {
     parameters: {
       query?: never;
@@ -2497,6 +2518,12 @@ export interface components {
        */
       ocr_binary_path: string;
       /**
+       * Ocr Provider
+       * @default auto
+       * @enum {string}
+       */
+      ocr_provider: "auto" | "local" | "graite";
+      /**
        * Provider
        * @default local
        * @enum {string}
@@ -2509,6 +2536,12 @@ export interface components {
       resident: boolean;
       /** Saved Model Id */
       saved_model_id?: string | null;
+      /**
+       * Stt Provider
+       * @default auto
+       * @enum {string}
+       */
+      stt_provider: "auto" | "local" | "graite";
       /**
        * Thinking
        * @default auto
@@ -2540,6 +2573,12 @@ export interface components {
       } | null;
       /** Busy */
       busy: boolean;
+      /**
+       * Cloud Signed In
+       * @description Whether this computer is signed in to Graite Cloud (no network check).
+       * @default false
+       */
+      cloud_signed_in: boolean;
       config: components["schemas"]["AIConfig"];
       /**
        * Embedding Busy
@@ -2561,6 +2600,11 @@ export interface components {
       /** Loaded */
       loaded: boolean;
       /**
+       * Ocr Source
+       * @description Where reading documents (OCR) runs right now; null when unavailable.
+       */
+      ocr_source?: ("local" | "graite") | null;
+      /**
        * Reasoning
        * @description Whether the chat model in use has a thinking switch (`toggle`) and an effort level (`effort`) to offer. The composer hides what is not there.
        */
@@ -2570,8 +2614,13 @@ export interface components {
       /** Runtime Warning */
       runtime_warning?: string | null;
       /**
+       * Speech Source
+       * @description Where speech to text runs right now (models/sources.py); null when neither a local Whisper nor a Graite Cloud sign-in is available.
+       */
+      speech_source?: ("local" | "graite") | null;
+      /**
        * Whisper Binary
-       * @description The whisper-server that speech to text will run: the configured path, else the one on PATH. Empty when there is none.
+       * @description The executable speech to text runs on this computer: the configured whisper-server, else Graite's installed voice engine, else a whisper-server on PATH. Empty when there is none.
        * @default
        */
       whisper_binary: string;
@@ -3489,6 +3538,11 @@ export interface components {
      */
     EngineState: {
       /**
+       * Ahead
+       * @default false
+       */
+      ahead: boolean;
+      /**
        * Custom Path
        * @default
        */
@@ -3766,6 +3820,11 @@ export interface components {
     };
     /** InstallBody */
     InstallBody: {
+      /**
+       * Newest
+       * @default false
+       */
+      newest: boolean;
       /** Variant */
       variant?: string | null;
     };
@@ -4128,6 +4187,39 @@ export interface components {
       label?: string | null;
       /** Model */
       model: string;
+    };
+    /**
+     * NewestBuild
+     * @description What the geek-mode "newest build" row shows.
+     */
+    NewestBuild: {
+      /**
+       * Newer
+       * @default false
+       */
+      newer: boolean;
+      /**
+       * Prerelease
+       * @default false
+       */
+      prerelease: boolean;
+      /**
+       * Published At
+       * @default
+       */
+      published_at: string;
+      /**
+       * Tested
+       * @default false
+       */
+      tested: boolean;
+      /**
+       * Url
+       * @default
+       */
+      url: string;
+      /** Version */
+      version: string;
     };
     /** OptInBody */
     OptInBody: {
@@ -4823,6 +4915,12 @@ export interface components {
        */
       ocr_binary_path: string;
       /**
+       * Ocr Provider
+       * @default auto
+       * @enum {string}
+       */
+      ocr_provider: "auto" | "local" | "graite";
+      /**
        * Provider
        * @default local
        * @enum {string}
@@ -4835,6 +4933,12 @@ export interface components {
       resident: boolean;
       /** Saved Model Id */
       saved_model_id?: string | null;
+      /**
+       * Stt Provider
+       * @default auto
+       * @enum {string}
+       */
+      stt_provider: "auto" | "local" | "graite";
       /**
        * Thinking
        * @default auto
@@ -8043,6 +8147,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["EngineState"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  newest_build_api_v1_engines__engine_id__newest_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        engine_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NewestBuild"] | null;
         };
       };
       /** @description Validation Error */

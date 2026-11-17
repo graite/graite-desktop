@@ -348,38 +348,59 @@
   cursor: pointer;
 }
 .ai-turn-details {
-  margin: 8px 0 0;
-  font-size: 11px;
-  line-height: 1.7;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 6px 0 0;
+  font-size: 10.5px;
+  line-height: 1.5;
   color: var(--muted-foreground);
+  opacity: 0.8;
 }
-.ai-turn-details summary {
-  cursor: pointer;
-  width: fit-content;
+.ai-turn-info {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  color: var(--muted-foreground);
+  opacity: 0.7;
+  cursor: help;
 }
-.ai-turn-details summary:hover {
+.ai-turn-info:hover,
+.ai-turn-info:focus-visible {
+  opacity: 1;
   color: var(--foreground);
 }
-.ai-turn-details dl {
-  margin: 6px 0 0;
+/* The hover card: a compact table of every number the turn recorded. */
+.ai-turn-stats {
+  max-width: 320px;
+  font-size: 11px;
+  line-height: 1.55;
+  text-align: left;
+}
+.ai-turn-stats dl {
   display: grid;
   gap: 1px;
+  margin: 0;
 }
-.ai-turn-details dl > div {
+.ai-turn-stats dl > div {
   display: flex;
   gap: 10px;
 }
-.ai-turn-details dt {
-  flex: 0 0 170px;
+.ai-turn-stats dt {
+  flex: 0 0 104px;
+  opacity: 0.65;
 }
-.ai-turn-details dd {
+.ai-turn-stats dd {
   margin: 0;
-  color: var(--foreground);
 }
-.ai-turn-details ul {
+.ai-turn-stats ul {
   margin: 6px 0 0;
-  padding: 0;
+  padding: 6px 0 0;
   list-style: none;
+  border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  opacity: 0.85;
 }
 .ai-message-actions {
   display: flex;
@@ -1237,4 +1258,25 @@
   border-radius: 4px;
   font-family: inherit;
   font-size: 11px;
+}
+
+/* The narrow composer (the chat beside a page): one row of icons, nothing that wraps or
+   squeezes. Everything else lives in the Chat settings menu. */
+.ai-composer[data-compact] > div {
+  flex-wrap: nowrap;
+}
+.ai-composer[data-compact] .ai-composer-left,
+.ai-composer[data-compact] .ai-composer-right {
+  flex-wrap: nowrap;
+  gap: 2px;
+  min-width: 0;
+}
+.ai-selection-toggle[data-active] {
+  color: var(--foreground);
+  background: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.ai-scope-icon[data-none] {
+  color: var(--muted-foreground);
+  opacity: 0.6;
 }

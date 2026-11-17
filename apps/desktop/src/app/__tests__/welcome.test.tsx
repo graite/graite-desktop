@@ -39,13 +39,15 @@ it("explains how Graite works, greets by name and marks the screenshots still to
     "Tabs and page buttons",
     "Instructions for AI",
     "Reviews",
-    "Your own AI app",
+    "Connect to Claude, ChatGPT or others",
     "Start here",
   ]);
   // The pictures are not bundled yet: each slot says which file it wants and what to show.
   for (const img of screen.getAllByRole("img")) fireEvent.error(img);
-  for (const name of ["overview", "ai-instructions", "review", "claude-add", "claude-connected"])
+  for (const name of ["overview", "ai-instructions", "review"])
     expect(screen.getByText(`Screenshot to add: ${name}-light.png`)).toBeTruthy();
+  // Connecting shows the apps themselves, not screenshots of one app's (translated) screens.
+  expect(screen.getByRole("list", { name: /Claude, ChatGPT, Gemini/ })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: /Open AI connectors/ }));
   expect(props.onSettings).toHaveBeenCalledWith("connectors");
 });

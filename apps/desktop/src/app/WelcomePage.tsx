@@ -4,16 +4,16 @@ import {
   Bot,
   Cpu,
   FilePlus,
-  FolderOpen,
   Inbox,
   MessageSquare,
   MessageSquareHeart,
   Orbit,
-  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 import type { Section } from "@/ai/ConversationList";
 import type { SettingsTab } from "@/settings/sections";
+import { PRINCIPLES } from "./principles";
+import { AiAppIcons } from "@/components/AiAppIcons";
 import { WelcomeShot, type WelcomeShotName } from "./WelcomeShot";
 import "./welcome.css";
 
@@ -44,7 +44,8 @@ function StepCard({ step }: { step: Step }) {
 function Chapter({
   n,
   title,
-  shots,
+  shots = [],
+  visual,
   what,
   why,
   action,
@@ -52,18 +53,24 @@ function Chapter({
   n: number;
   title: string;
   /** One picture, or a few side by side, each with a caption. */
-  shots: [WelcomeShotName, string?][];
+  shots?: [WelcomeShotName, string?][];
+  /** Something to show instead of screenshots. */
+  visual?: ReactNode;
   what: ReactNode;
   why: ReactNode;
   action?: { label: string; onClick: () => void };
 }) {
   return (
     <section className="welcome-chapter" aria-labelledby={`welcome-${n}`}>
-      <div className="welcome-shots" data-count={shots.length}>
-        {shots.map(([name, caption]) => (
-          <WelcomeShot key={name} name={name} caption={caption} />
-        ))}
-      </div>
+      {visual ? (
+        <div className="welcome-visual">{visual}</div>
+      ) : (
+        <div className="welcome-shots" data-count={shots.length}>
+          {shots.map(([name, caption]) => (
+            <WelcomeShot key={name} name={name} caption={caption} />
+          ))}
+        </div>
+      )}
       <div className="welcome-chapter-text">
         <span className="welcome-number">{String(n).padStart(2, "0")}</span>
         <h2 id={`welcome-${n}`}>{title}</h2>
@@ -118,7 +125,7 @@ export function WelcomePage({
     {
       icon: Cpu,
       title: "Choose an AI model",
-      text: "On this computer, Graite Cloud, your own server or an API key.",
+      text: "Graite Cloud, an API key, or local AI on this computer.",
       action: "Open settings",
       onClick: () => onSettings(),
     },
@@ -160,27 +167,15 @@ export function WelcomePage({
         </header>
 
         <div className="welcome-principles">
-          <div>
-            <span>
-              <FolderOpen size={17} />
-            </span>
-            <strong>Your pages are files</strong>
-            <p>Plain Markdown in a folder you choose. They open in any editor.</p>
-          </div>
-          <div>
-            <span>
-              <ShieldCheck size={17} />
-            </span>
-            <strong>You choose where AI runs</strong>
-            <p>On this computer, in the cloud, or in an app like Claude. You decide per page.</p>
-          </div>
-          <div>
-            <span>
-              <Inbox size={17} />
-            </span>
-            <strong>AI suggests, you decide</strong>
-            <p>Changes arrive as proposals. Nothing changes until you accept.</p>
-          </div>
+          {PRINCIPLES.map(({ icon: Icon, title, text }) => (
+            <div key={title}>
+              <span>
+                <Icon size={17} />
+              </span>
+              <strong>{title}</strong>
+              <p>{text}</p>
+            </div>
+          ))}
         </div>
 
         <div className="welcome-chapters">
@@ -225,15 +220,12 @@ export function WelcomePage({
           />
           <Chapter
             n={4}
-            title="Your own AI app"
-            shots={[
-              ["claude-add", "1. Add a custom connector"],
-              ["claude-connected", "2. Graite is connected"],
-            ]}
+            title="Connect to Claude, ChatGPT or others"
+            visual={<AiAppIcons size={44} />}
             what={
               <>
-                Graite as a connector in Claude, ChatGPT or Grok. Sign in to Graite Cloud, turn on
-                remote access, and paste the connector address into the app.
+                Graite as a connector in Claude, ChatGPT or another AI app. Sign in to Graite Cloud,
+                turn on remote access, and paste the connector address into the app.
               </>
             }
             why="You keep the AI app you already use, and it knows your pages. What it changes waits in Reviews too."

@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from graite.models.config import load_config
+from graite.models.engine_versions import NewestBuild
 from graite.models.engines import EngineState
 from graite.models.hardware import detect
 
@@ -21,6 +22,9 @@ class InstallBody(BaseModel):
     # None installs the build Graite recommends for this computer; a variant id is the
     # Advanced choice.
     variant: str | None = None
+    # Geek mode: the newest upstream build found by POST /engines/{id}/newest, instead of the
+    # build this Graite release was tested with.
+    newest: bool = False
 
 
 def _custom(request: Request, engine_id: str) -> str:
@@ -58,10 +62,25 @@ async def install_engine(engine_id: str, body: InstallBody, request: Request) ->
         raise HTTPException(404, "Engine not found.")
     _busy(request)
     try:
-        installer.begin(engine_id, body.variant, await asyncio.to_thread(detect))
+        installer.begin(
+            engine_id, body.variant, await asyncio.to_thread(detect), newest=body.newest
+        )
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     return await _state(request, engine_id)
+
+
+@router.post("/{engine_id}/newest", response_model=NewestBuild | None)
+async def newest_build(engine_id: str, request: Request) -> NewestBuild | None:
+    """Geek mode: the newest upstream build Graite can install (checked on GitHub, with the
+    checksums GitHub publishes), or null when there is none it can use."""
+    installer = request.app.state.engines
+    if engine_id not in installer.engines:
+        raise HTTPException(404, "Engine not found.")
+    try:
+        return await installer.check_newest(engine_id)  # type: ignore[no-any-return]
+    except ValueError as exc:
+        raise HTTPException(502, str(exc)) from exc
 
 
 @router.post("/{engine_id}/cancel", response_model=EngineState)

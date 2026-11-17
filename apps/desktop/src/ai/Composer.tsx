@@ -1,4 +1,4 @@
-import { useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type RefObject } from "react";
 import {
   ArrowUp,
   Plus,
@@ -33,6 +33,25 @@ export const MODES: { id: ChatMode; label: string; hint: string }[] = [
   { id: "act", label: "Act", hint: "Propose changes to your pages for review" },
 ];
 
+/** Below this width the mode, depth, model and thinking buttons fold into one settings menu. */
+export const COMPACT_WIDTH = 460;
+
+/** Whether the element is narrower than `width` (false where it cannot be measured). */
+function useNarrow(ref: RefObject<HTMLElement | null>, width: number): boolean {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      const measured = entry?.contentRect.width ?? 0;
+      if (measured > 0) setNarrow(measured < width);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref, width]);
+  return narrow;
+}
+
 export const ACCEPT = ".pdf,.md,.txt,image/png,image/jpeg,image/webp,image/tiff";
 
 /** The message box: grows to 8 lines then scrolls, takes attachments, picks a mode. */
@@ -58,6 +77,7 @@ export function Composer({
   onSettings,
   settingsVersion,
   onModelChanged,
+  compact: forceCompact,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -82,6 +102,8 @@ export function Composer({
   onSettings?: () => void;
   settingsVersion?: number;
   onModelChanged?: () => void;
+  /** Always fold the settings into one menu; otherwise that happens when the box is narrow. */
+  compact?: boolean;
 }) {
   const [depth, setDepth] = useDepth();
   // `@` in the message opens a list of pages; the one picked is pinned for this question.
@@ -105,6 +127,8 @@ export function Composer({
   const area = useRef<HTMLTextAreaElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const [dropping, setDropping] = useState(false);
+  const form = useRef<HTMLFormElement>(null);
+  const compact = useNarrow(form, COMPACT_WIDTH) || !!forceCompact;
   useAutoGrow(area, value, 8);
   const drop = (event: DragEvent<HTMLFormElement>) => {
     if (busy || disabled || working || !event.dataTransfer.files.length) return;
@@ -114,7 +138,9 @@ export function Composer({
   };
   return (
     <form
+      ref={form}
       className="ai-composer"
+      data-compact={compact || undefined}
       data-dropping={dropping || undefined}
       onSubmit={(e) => {
         e.preventDefault();
@@ -219,7 +245,7 @@ export function Composer({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          {!fixedMode && (
+          {!fixedMode && !compact && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -257,7 +283,7 @@ export function Composer({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {!fixedMode && mode === "ask" && (
+          {!fixedMode && !compact && mode === "ask" && (
             <button
               type="button"
               className="ai-composer-mode ai-composer-depth"
@@ -279,7 +305,7 @@ export function Composer({
           {left}
         </div>
         <div className="ai-composer-right">
-          {!fixedMode && <SearchHelp />}
+          {!fixedMode && !compact && <SearchHelp />}
           <ComposerModel
             contextId={contextId}
             busy={busy || !!disabled}
@@ -290,6 +316,18 @@ export function Composer({
             onSettings={onSettings}
             settingsVersion={settingsVersion}
             onModelChanged={onModelChanged}
+            compact={
+              compact
+                ? {
+                    modes: fixedMode ? undefined : MODES,
+                    mode,
+                    onModeChange,
+                    actEnabled,
+                    depth: fixedMode ? undefined : depth,
+                    onDepthChange: fixedMode ? undefined : setDepth,
+                  }
+                : undefined
+            }
           />
           {busy ? (
             <Button

@@ -1,7 +1,8 @@
 import { ArrowLeft } from "lucide-react";
 import { DaemonStatus } from "@/app/DaemonStatus";
 import { ThemeToggle, VaultMenu } from "@/app/Sidebar";
-import { NAV, type SettingsSection } from "./sections";
+import { useTechMode } from "@/lib/techMode";
+import { visibleNav, type SettingsSection } from "./sections";
 
 /** The sidebar while Settings is open: the same frame as the app's sidebar, with the settings
  * sections where the pages and Studio would be. */
@@ -17,6 +18,7 @@ export function SettingsSidebar({
   onSection: (section: SettingsSection) => void;
   onBack: () => void;
 }) {
+  const [techMode] = useTechMode();
   return (
     <div className="flex h-full flex-col border-r bg-sidebar">
       <div className="flex items-center gap-2 px-3 py-2.5">
@@ -34,7 +36,7 @@ export function SettingsSidebar({
         </button>
       </div>
       <nav className="settings-nav" aria-label="Settings sections">
-        {NAV.map((group, i) => (
+        {visibleNav(techMode, [inUse, section]).map((group, i) => (
           <div key={group.title ?? i} className="settings-nav-group">
             {group.title && <div className="settings-nav-title">{group.title}</div>}
             {group.items.map(({ id, label, icon: Icon, sub }) => (

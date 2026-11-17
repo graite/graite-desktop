@@ -1,4 +1,7 @@
-/** What one answer cost (the daemon's `TurnMetrics`), as one line that opens into the rest. */
+import { Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
+/** What one answer cost (the daemon's `TurnMetrics`): one small line, the rest on hover. */
 export interface TurnMetrics {
   retrieval_ms: number;
   pages: number;
@@ -24,13 +27,13 @@ export function duration(ms: number): string {
   return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
 }
 
-/** The collapsed line: the three numbers that say whether a turn was fast and lean. */
+/** The small line under an answer: how fast it came, how many pages it read, how long it
+ * took. Everything else is behind the ⓘ. */
 export function summary(m: TurnMetrics): string {
   return [
-    m.first_token_ms !== null ? `${duration(m.first_token_ms)} to first word` : "",
-    m.tokens_per_second ? `${m.tokens_per_second.toFixed(0)} tokens/s` : "",
-    `${count(m.context_tokens)} context tokens`,
-    m.pages ? plural(m.pages, "page") : "",
+    m.tokens_per_second ? `${m.tokens_per_second.toFixed(0)} tok/s` : "",
+    m.pages ? `read ${plural(m.pages, "page")}` : "no pages read",
+    duration(m.total_ms),
   ]
     .filter(Boolean)
     .join(" · ");
@@ -42,15 +45,17 @@ export function TurnDetails({ metrics }: { metrics: unknown }) {
   const rows: [string, string][] = [
     ["Finding context", duration(m.retrieval_ms)],
     [
-      "Context given to the model",
-      `about ${count(m.context_tokens)} tokens from ${plural(m.pages, "page")} (${plural(m.chunks, "passage")})`,
+      "Pages read",
+      m.pages
+        ? `${plural(m.pages, "page")}, ${plural(m.chunks, "passage")}, about ${count(m.context_tokens)} tokens`
+        : `none${m.context_tokens ? `; about ${count(m.context_tokens)} tokens from tools` : ""}`,
     ],
   ];
   if (m.prompt_tokens)
     rows.push([
       "Prompt",
       `${count(m.prompt_tokens)} tokens` +
-        (m.cached_tokens ? `, ${count(m.cached_tokens)} reused from the last turn` : "") +
+        (m.cached_tokens ? `, ${count(m.cached_tokens)} reused` : "") +
         (m.prompt_ms ? `, read in ${duration(m.prompt_ms)}` : ""),
     ]);
   if (m.first_token_ms !== null) rows.push(["First word after", duration(m.first_token_ms)]);
@@ -58,7 +63,7 @@ export function TurnDetails({ metrics }: { metrics: unknown }) {
     rows.push([
       "Answer",
       `${count(m.completion_tokens)} tokens` +
-        (m.tokens_per_second ? ` at ${m.tokens_per_second.toFixed(1)} tokens/s` : ""),
+        (m.tokens_per_second ? ` at ${m.tokens_per_second.toFixed(1)} tok/s` : ""),
     ]);
   rows.push(["Total", duration(m.total_ms)]);
   if (m.model_calls > 1 || m.tool_calls)
@@ -67,25 +72,34 @@ export function TurnDetails({ metrics }: { metrics: unknown }) {
       `${plural(m.model_calls, "model call")}, ${plural(m.tool_calls, "tool call")}`,
     ]);
   return (
-    <details className="ai-turn-details">
-      <summary aria-label="Answer details">{summary(m)}</summary>
-      <dl>
-        {rows.map(([label, value]) => (
-          <div key={label}>
-            <dt>{label}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
-      </dl>
-      {m.searches.length > 0 && (
-        <ul aria-label="Searches">
-          {m.searches.map((s, i) => (
-            <li key={i}>
-              Searched “{s.query}” · {plural(s.hits, "hit")} · {duration(s.ms)}
-            </li>
-          ))}
-        </ul>
-      )}
-    </details>
+    <div className="ai-turn-details">
+      <span>{summary(m)}</span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" className="ai-turn-info" aria-label="Answer details">
+            <Info size={11} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" align="start" className="ai-turn-stats">
+          <dl>
+            {rows.map(([label, value]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+          {m.searches.length > 0 && (
+            <ul aria-label="Searches">
+              {m.searches.map((s, i) => (
+                <li key={i}>
+                  “{s.query}” · {plural(s.hits, "hit")} · {duration(s.ms)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </TooltipContent>
+      </Tooltip>
+    </div>
   );
 }

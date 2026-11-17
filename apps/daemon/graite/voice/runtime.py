@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import shutil
 from pathlib import Path
 from typing import Any
 
@@ -82,9 +81,13 @@ class VoiceRuntime:
         )
         need(self._installed("vad") is not None, "vad", "Download the voice activity model.")
         need(self._installed("turn") is not None, "turn", "Download the Smart Turn model.")
-        need(self._installed("speech") is not None, "speech", "Download the Whisper speech model.")
-        whisper = Path(config.whisper_binary_path or shutil.which("whisper-server") or "")
-        need(whisper.is_file(), "whisper_engine", "Set the whisper-server engine.")
+        # Listening runs on this computer when Whisper is installed, else through Graite Cloud.
+        need(
+            self._stt_source(config) is not None,
+            "speech",
+            "Sign in to Graite Cloud, or download the Whisper speech model under Settings → "
+            "Speech.",
+        )
         need(self._installed("tts") is not None, "tts", "Download the Chatterbox voice model.")
         from graite.voice.engines.crispasr import resolve_binary
 
@@ -99,7 +102,7 @@ class VoiceRuntime:
         import psutil
 
         needed = tts.memory_bytes() + HEADROOM
-        speech = self._model_path("speech")
+        speech = self._model_path("speech") if self._stt_source(config) == "local" else None
         if speech is not None and speech.is_file():
             needed += int(speech.stat().st_size * 1.3)
         manager = self.state.models
@@ -134,13 +137,29 @@ class VoiceRuntime:
             raise EngineUnavailable("Download the Smart Turn model first.")
         return SmartTurn(path)
 
-    def make_stt(self, config: Any) -> Any:
-        from graite.models.speech import SpeechServer
+    def _stt_source(self, config: Any) -> str | None:
+        from graite.models.sources import pick_now
+        from graite.models.speech import speech_binary
 
+        local = (
+            self._installed("speech") is not None
+            and speech_binary(config.whisper_binary_path, config.tts_binary_path) is not None
+        )
+        return pick_now(config.stt_provider, local)
+
+    def make_stt(self, config: Any) -> Any:
+        from graite.models.speech import CloudSpeech, SpeechServer
+
+        source = self._stt_source(config)
+        if source == "graite":
+            return CloudSpeech()
         path = self._model_path("speech")
-        if path is None:
-            raise EngineUnavailable("Download the Whisper speech model first.")
-        return SpeechServer(str(path), config.whisper_binary_path)
+        if source is None or path is None:
+            raise EngineUnavailable(
+                "Sign in to Graite Cloud, or download the Whisper speech model under "
+                "Settings → Speech."
+            )
+        return SpeechServer(str(path), config.whisper_binary_path, config.tts_binary_path)
 
     def make_tts(self, config: Any) -> TTSEngine:
         return get_engine(config, self.state.downloads)

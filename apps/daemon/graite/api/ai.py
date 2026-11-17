@@ -7,7 +7,6 @@ import base64
 import hashlib
 import json
 import logging
-import shutil
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -34,6 +33,14 @@ from graite.models.config import (
 from graite.models.downloader import CatalogModel
 from graite.models.hardware import Hardware, detect
 from graite.models.providers import Provider
+from graite.models.sources import (
+    SPEECH_MODEL,
+    ocr_source,
+    signed_in_now,
+    stt_source,
+    unavailable,
+)
+from graite.models.speech import speech_binary, validate_audio
 from graite.retrieval.context import Source
 from graite.retrieval.scope import Scope
 from graite.retrieval.scope import resolve as resolve_scope
@@ -119,8 +126,22 @@ class AIStatus(BaseModel):
     )
     whisper_binary: str = Field(
         default="",
-        description="The whisper-server that speech to text will run: the configured path, "
-        "else the one on PATH. Empty when there is none.",
+        description="The executable speech to text runs on this computer: the configured "
+        "whisper-server, else Graite's installed voice engine, else a whisper-server on PATH. "
+        "Empty when there is none.",
+    )
+    speech_source: Literal["local", "graite"] | None = Field(
+        default=None,
+        description="Where speech to text runs right now (models/sources.py); null when "
+        "neither a local Whisper nor a Graite Cloud sign-in is available.",
+    )
+    ocr_source: Literal["local", "graite"] | None = Field(
+        default=None,
+        description="Where reading documents (OCR) runs right now; null when unavailable.",
+    )
+    cloud_signed_in: bool = Field(
+        default=False,
+        description="Whether this computer is signed in to Graite Cloud (no network check).",
     )
 
 
@@ -150,9 +171,14 @@ async def set_reasoning(body: ReasoningSettings, request: Request) -> AIConfig:
     return await asyncio.to_thread(save_reasoning, request.app.state.db, body.thinking, body.effort)
 
 
-def _whisper_binary(configured: str) -> str:
-    path = Path(configured or shutil.which("whisper-server") or "").expanduser()
-    return str(path) if path.is_file() else ""
+def _installed(downloads: Any, item_id: str) -> bool:
+    item = downloads.items.get(item_id)
+    return bool(item is not None and item.status == "installed")
+
+
+def _whisper_binary(configured: str, engine: str) -> str:
+    path = speech_binary(configured, engine)
+    return str(path) if path is not None else ""
 
 
 @router.get("/status", response_model=AIStatus)
@@ -165,6 +191,9 @@ async def status(request: Request) -> AIStatus:
     except ValueError as exc:
         key, error = "", str(exc)
     row = request.app.state.db.execute("SELECT value FROM meta WHERE key='ai_benchmark'").fetchone()
+    whisper = await asyncio.to_thread(
+        _whisper_binary, config.whisper_binary_path, config.tts_binary_path
+    )
     return AIStatus(
         config=config,
         active=active_model(config, request.app.state.downloads.items),
@@ -178,7 +207,14 @@ async def status(request: Request) -> AIStatus:
         gpu_layers=manager.server.layers,
         runtime_warning=manager.server.warning,
         benchmark=json.loads(row[0]) if row else None,
-        whisper_binary=await asyncio.to_thread(_whisper_binary, config.whisper_binary_path),
+        whisper_binary=whisper,
+        speech_source=await stt_source(
+            config,
+            request.app.state.downloads,
+            local_ready=bool(whisper) and _installed(request.app.state.downloads, SPEECH_MODEL),
+        ),
+        ocr_source=await ocr_source(config, request.app.state.downloads),
+        cloud_signed_in=await asyncio.to_thread(signed_in_now),
         reasoning=_reasoning(config, manager),
     )
 
@@ -1271,33 +1307,47 @@ class SpeechResult(BaseModel):
 
 @router.post("/speech/check", response_model=SpeechResult)
 async def speech_check(request: Request) -> SpeechResult:
-    from graite.models.speech import transcribe
+    from graite.models.speech import transcribe, transcribe_cloud
 
     manager = request.app.state.models
-    if model_busy(request.app.state):
+    downloads = request.app.state.downloads
+    config = load_config(request.app.state.db)
+    item = downloads.items.get(SPEECH_MODEL)
+    local_ready = _installed(downloads, SPEECH_MODEL) and bool(
+        await asyncio.to_thread(_whisper_binary, config.whisper_binary_path, config.tts_binary_path)
+    )
+    where = await stt_source(config, downloads, local_ready=local_ready)
+    if where is None:
+        raise HTTPException(400, unavailable("stt"))
+    if where == "local" and model_busy(request.app.state):
         raise HTTPException(409, "Wait for the current model task to finish.")
-    item = request.app.state.downloads.items.get("whisper-large-v3-turbo-q8")
-    if not item or item.status != "installed":
-        raise HTTPException(400, "Download Whisper Turbo first.")
     audio = bytearray()
     async for chunk in request.stream():
         audio.extend(chunk)
         if len(audio) > 30_000_000:
             raise HTTPException(413, "Use a WAV recording smaller than 30 MB.")
-    # Another request can acquire the model while the audio is uploading.
-    if model_busy(request.app.state):
-        raise HTTPException(409, "Wait for the current model task to finish.")
     try:
+        if where == "graite":
+            validate_audio(bytes(audio))
+            return SpeechResult.model_validate(await transcribe_cloud(bytes(audio)))
+        # Another request can acquire the model while the audio is uploading.
+        if model_busy(request.app.state):
+            raise HTTPException(409, "Wait for the current model task to finish.")
+        assert item is not None
         async with manager.lock:
-            config = load_config(request.app.state.db)
             await manager.server.stop()
             manager.loaded = None
-            result = await transcribe(bytes(audio), item.local_path, config.whisper_binary_path)
+            result = await transcribe(
+                bytes(audio),
+                item.local_path,
+                config.whisper_binary_path,
+                engine_path=config.tts_binary_path,
+            )
             return SpeechResult.model_validate(result)
     except (ValueError, OSError, httpx.HTTPError) as exc:
         raise HTTPException(
             400,
             str(exc)
             if isinstance(exc, ValueError)
-            else "Speech check failed. Check the local engine.",
+            else "Speech check failed. Check the engine in Settings → Speech.",
         ) from exc

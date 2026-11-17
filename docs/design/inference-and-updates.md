@@ -183,7 +183,7 @@ engine). `models/engines.py`:
 
 Still to come (M7): Graite's own signed builds and manifest as designed above (only the
 catalog's URLs change), a signed remote catalog so engines can update without an app release,
-bundling a processor build for offline first runs, and `whisper-server` as a third entry.
+bundling a processor build for offline first runs. (`whisper-server` no longer needs an entry: speech to text runs on the installed `crispasr` with its whisper backend, D104.)
 
 ## Starter chat models (D60)
 

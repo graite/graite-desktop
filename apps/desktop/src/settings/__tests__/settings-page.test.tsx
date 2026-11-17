@@ -104,53 +104,124 @@ const panel = (name: string) =>
 const nav = () => within(screen.getByRole("navigation", { name: "Settings sections" }));
 const open = (name: RegExp) => fireEvent.click(nav().getByRole("button", { name }));
 
-it("has a sidebar of sections grouped by where the AI runs", async () => {
+it("lists Graite Cloud first and Local AI as one tab per task", async () => {
   render(<ModelsPage onClose={() => {}} />);
   await screen.findByText("starter-models");
-  expect(
+  const labels = () =>
     nav()
       .getAllByRole("button")
-      .map((b) => b.textContent?.replace("In use", "").trim()),
-  ).toEqual([
+      .map((b) => b.textContent?.replace("In use", "").trim());
+  expect(labels()).toEqual([
     "General",
-    "On this computer",
-    "Speech",
-    "Search",
-    "Documents",
-    "Your own server",
     "Graite Cloud",
     "AI connectors",
     "API keys",
+    "Chat",
+    "Search",
+    "Documents",
+    "Speech",
   ]);
-  for (const title of ["Local AI", "Graite", "Your AI apps", "Your own keys"])
+  for (const title of ["Graite", "Your AI apps", "Your own keys", "Local AI"])
     expect(nav().getByText(title)).toBeTruthy();
   // Chat runs on this computer, so Settings opens there and marks it.
-  expect(panel("On this computer").hidden).toBe(false);
-  expect(nav().getByRole("button", { name: /On this computer/ }).textContent).toContain("In use");
+  expect(panel("Chat").hidden).toBe(false);
+  expect(nav().getByRole("button", { name: /^Chat/ }).textContent).toContain("In use");
   expect(nav().getByRole("button", { name: /Graite Cloud/ }).textContent).not.toContain("In use");
-  // Beginners see the starter models; engine and full library wait for tech mode.
-  expect(within(panel("On this computer")).getByText("starter-models")).toBeTruthy();
-  expect(within(panel("On this computer")).queryByText("engine:llama")).toBeNull();
-  expect(within(panel("On this computer")).queryByText("library:chat")).toBeNull();
-  expect(within(panel("Speech")).getByText("library:speech,vad,turn,tts")).toBeTruthy();
+  // Beginners see the starter models; engine and full library wait for geek mode.
+  expect(within(panel("Chat")).getByText("starter-models")).toBeTruthy();
+  expect(within(panel("Chat")).queryByText("engine:llama")).toBeNull();
+  expect(within(panel("Chat")).queryByText("library:chat")).toBeNull();
+  // Talking with the assistant needs the local voice engine whichever way speech runs.
+  expect(within(panel("Speech")).getByText("library:vad,turn,tts")).toBeTruthy();
   expect(within(panel("Speech")).getByText("engine:crispasr")).toBeTruthy();
   expect(within(panel("Search")).getByText("library:embedding")).toBeTruthy();
-  expect(within(panel("Documents")).getByText("library:ocr")).toBeTruthy();
   expect(within(panel("AI connectors")).getByText("connectors-card")).toBeTruthy();
   expect(within(panel("General")).getByText("vault-card")).toBeTruthy();
+  // Geek mode lives under General and adds "Your own server" to the sidebar.
+  fireEvent.click(
+    within(panel("General")).getByRole("switch", { name: "I’m a proper geek", hidden: true }),
+  );
+  expect(labels()).toContain("Your own server");
+  expect(within(panel("Chat")).getByText("engine:llama")).toBeTruthy();
+});
+
+it("runs documents and speech in Graite Cloud until local AI is switched on", async () => {
+  aiMock.status.mockResolvedValue({
+    config: { ...CONFIG, ocr_provider: "auto", stt_provider: "auto" },
+    hardware: { ram_gb: 32, gpu: null, binary_path: "" },
+    loaded: false,
+    ocr_source: "graite",
+    speech_source: "graite",
+    cloud_signed_in: true,
+  });
+  render(<ModelsPage onClose={() => {}} initialTab="documents" />);
+  await screen.findByText("voices-card");
+  const documents = within(panel("Documents"));
+  expect(await documents.findByText(/Documents are read through Graite Cloud/)).toBeTruthy();
+  expect(documents.queryByText("library:ocr")).toBeNull();
+  const toggle = documents.getByRole("switch", { name: "Read everything in-house" });
+  // Graite Cloud is offered as a convenience, not a requirement.
+  expect(documents.getByText(/Handy, but optional/)).toBeTruthy();
+  expect(toggle.getAttribute("aria-checked")).toBe("false");
+  fireEvent.click(toggle);
+  expect(documents.getByText("library:ocr")).toBeTruthy();
   // OCR reports the chat engine rather than mounting a second, competing engine card.
-  expect(screen.queryAllByText("engine:llama")).toHaveLength(0);
+  expect(await documents.findByText(/Uses the chat engine — already downloaded/)).toBeTruthy();
+  expect(within(panel("Speech")).queryByText("library:speech")).toBeNull();
   expect(
-    await within(panel("Documents")).findByText(/Uses the chat engine — already downloaded/),
+    within(panel("Speech")).getByText(/Speech to text runs through Graite Cloud/),
   ).toBeTruthy();
-  expect(within(panel("Documents")).getByText("/managed/llama-server")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+  await waitFor(() => expect(aiMock.save).toHaveBeenCalledTimes(1));
+  expect(aiMock.save.mock.calls[0][0]).toMatchObject({ ocr_provider: "local" });
+  expect(aiMock.save.mock.calls[0][0].stt_provider).toBe("auto");
+});
+
+it("offers to sign in when Graite Cloud would do the work but nobody is signed in", async () => {
+  aiMock.status.mockResolvedValue({
+    config: { ...CONFIG, stt_provider: "graite" },
+    hardware: { ram_gb: 32, gpu: null, binary_path: "" },
+    loaded: false,
+    speech_source: null,
+    cloud_signed_in: false,
+  });
+  render(<ModelsPage onClose={() => {}} initialTab="voice" />);
+  await screen.findByText("voices-card");
+  const speech = within(panel("Speech"));
+  fireEvent.click(await speech.findByRole("button", { name: "Sign in to Graite Cloud" }));
+  expect(panel("Graite Cloud").hidden).toBe(false);
+});
+
+it("starts every section at its top", async () => {
+  render(<ModelsPage onClose={() => {}} initialTab="voice" />);
+  await screen.findByText("voices-card");
+  const scroller = screen.getByRole("region", { name: "Settings" });
+  scroller.scrollTop = 500;
+  open(/Documents/);
+  expect(scroller.scrollTop).toBe(0);
+});
+
+it("tells you to refresh the connector's tools after an update", async () => {
+  render(<ModelsPage onClose={() => {}} initialTab="connectors" />);
+  await screen.findByText("connectors-card");
+  expect(within(panel("AI connectors")).getByText(/refresh the tools/)).toBeTruthy();
+  expect(within(panel("AI connectors")).getByText(/Claude, ChatGPT, Gemini/)).toBeTruthy();
+});
+
+it("keeps search on this computer and explains why", async () => {
+  render(<ModelsPage onClose={() => {}} initialTab="search" />);
+  await screen.findByText("index-card");
+  const search = within(panel("Search"));
+  expect(search.queryByRole("switch", { name: "Use local AI on my computer" })).toBeNull();
+  expect(search.getByText(/always runs on this computer/)).toBeTruthy();
+  expect(search.getByText(/Recommended: download the search model/)).toBeTruthy();
 });
 
 it("explains every section the same way before its controls", async () => {
   render(<ModelsPage onClose={() => {}} />);
   await screen.findByText("starter-models");
   for (const name of [
-    "On this computer",
+    "Chat",
     "Your own server",
     "Speech",
     "Search",
@@ -165,7 +236,7 @@ it("explains every section the same way before its controls", async () => {
       expect(section.getByText(question)).toBeTruthy();
   }
   expect(within(panel("Graite Cloud")).getByText(/Zero data retention/)).toBeTruthy();
-  expect(within(panel("On this computer")).getByText("Nothing.")).toBeTruthy();
+  expect(within(panel("Chat")).getByText("Nothing.")).toBeTruthy();
 });
 
 it("goes back to the pages from the sidebar", async () => {
@@ -182,7 +253,7 @@ it("opens on the requested section without microphone settings or tests", async 
   expect(screen.queryByText("microphone-picker")).toBeNull();
   expect(screen.queryByText("voice-test")).toBeNull();
   expect(panel("Speech").hidden).toBe(false);
-  expect(panel("On this computer").hidden).toBe(true);
+  expect(panel("Chat").hidden).toBe(true);
   open(/Search/);
   expect(screen.queryByText("voice-test")).toBeNull();
   expect(panel("Search").hidden).toBe(false);
@@ -217,23 +288,22 @@ it("counts a server on this computer or network as your own server", async () =>
 
 it("keeps an unsaved change when switching sections and saves it once", async () => {
   render(<ModelsPage onClose={() => {}} initialTab="chat" />);
+  await screen.findByText("starter-models");
   expect(screen.queryByLabelText(/GPU layers/)).toBeNull();
-  const advanced = await screen.findByRole("switch", { name: "I’m a proper geek" });
+  const advanced = within(panel("General")).getByRole("switch", {
+    name: "I’m a proper geek",
+    hidden: true,
+  });
   expect(advanced.getAttribute("aria-checked")).toBe("false");
-  // The first thing in the local card, above the starter models.
-  expect(
-    advanced.compareDocumentPosition(screen.getByText("starter-models")) &
-      Node.DOCUMENT_POSITION_FOLLOWING,
-  ).toBeTruthy();
   fireEvent.click(advanced);
   expect(advanced.getAttribute("aria-checked")).toBe("true");
-  expect(within(panel("On this computer")).getByText("engine:llama")).toBeTruthy();
-  expect(within(panel("On this computer")).getByText("library:chat")).toBeTruthy();
+  expect(within(panel("Chat")).getByText("engine:llama")).toBeTruthy();
+  expect(within(panel("Chat")).getByText("library:chat")).toBeTruthy();
   fireEvent.change(await screen.findByLabelText(/GPU layers/), { target: { value: "20" } });
   // Leave and come back: the panels stay mounted, so the draft must survive.
   open(/Speech/);
   open(/Documents/);
-  open(/On this computer/);
+  open(/^Chat/);
   expect((screen.getByLabelText(/GPU layers/) as HTMLInputElement).value).toBe("20");
   fireEvent.click(screen.getByRole("checkbox", { name: /Keep ready for the next question/ }));
   fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
@@ -241,11 +311,35 @@ it("keeps an unsaved change when switching sections and saves it once", async ()
   expect(aiMock.save.mock.calls[0][0]).toMatchObject({ gpu_layers: 20, resident: false });
 });
 
-it("asks for whisper-server when none was found, and saves the path with nothing else", async () => {
+it("switches chat to Graite Cloud from the Chat tab's local switch", async () => {
+  render(<ModelsPage onClose={() => {}} initialTab="chat" />);
+  await screen.findByText("starter-models");
+  const chat = within(panel("Chat"));
+  const toggle = chat.getByRole("switch", { name: "Use local AI on my computer" });
+  expect(toggle.getAttribute("aria-checked")).toBe("true");
+  fireEvent.click(toggle);
+  expect(chat.queryByText("starter-models")).toBeNull();
+  expect(chat.getByText(/Your chats use Graite Cloud once you save/)).toBeTruthy();
+});
+
+it("shows your own whisper-server only in geek mode, without asking anyone to use Homebrew", async () => {
+  aiMock.status.mockResolvedValue({
+    config: CONFIG,
+    hardware: { ram_gb: 32, gpu: null, binary_path: "" },
+    loaded: false,
+    whisper_binary: "/app/bin/crispasr",
+  });
   render(<ModelsPage onClose={() => {}} initialTab="voice" />);
   await screen.findByText("voices-card");
-  const field = within(panel("Speech")).getByLabelText(/whisper-server executable/);
-  expect(within(panel("Speech")).getByText(/none was found on this computer/)).toBeTruthy();
+  expect(screen.queryByLabelText(/Your own whisper-server/)).toBeNull();
+  expect(screen.queryByText(/brew/)).toBeNull();
+  fireEvent.click(
+    within(panel("General")).getByRole("switch", { name: "I’m a proper geek", hidden: true }),
+  );
+  const field = within(panel("Speech")).getByLabelText(/Your own whisper-server/);
+  expect(
+    within(panel("Speech")).getByText(/Speech to text runs \/app\/bin\/crispasr/),
+  ).toBeTruthy();
   fireEvent.change(field, { target: { value: "/opt/whisper.cpp/whisper-server" } });
   fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
   await waitFor(() => expect(aiMock.save).toHaveBeenCalledTimes(1));
@@ -254,25 +348,6 @@ it("asks for whisper-server when none was found, and saves the path with nothing
     whisper_binary_path: "/opt/whisper.cpp/whisper-server",
   });
   expect(await screen.findByText("Settings saved.")).toBeTruthy();
-});
-
-it("hides the whisper-server field when one is on this computer, except in geek mode", async () => {
-  aiMock.status.mockResolvedValue({
-    config: CONFIG,
-    hardware: { ram_gb: 32, gpu: null, binary_path: "" },
-    loaded: false,
-    whisper_binary: "/usr/local/bin/whisper-server",
-  });
-  render(<ModelsPage onClose={() => {}} initialTab="voice" />);
-  await screen.findByText("voices-card");
-  expect(screen.queryByLabelText(/whisper-server executable/)).toBeNull();
-  open(/On this computer/);
-  fireEvent.click(await screen.findByRole("switch", { name: "I’m a proper geek" }));
-  open(/Speech/);
-  expect(within(panel("Speech")).getByLabelText(/whisper-server executable/)).toBeTruthy();
-  expect(
-    within(panel("Speech")).getByText(/Found at \/usr\/local\/bin\/whisper-server/),
-  ).toBeTruthy();
 });
 
 it("saves speech settings while the chat model choice is unfinished, and keeps a newer chat model", async () => {
@@ -288,9 +363,10 @@ it("saves speech settings while the chat model choice is unfinished, and keeps a
     hardware: { ram_gb: 32, gpu: null, binary_path: "" },
     loaded: false,
   });
+  localStorage.setItem("graite.techMode", "1");
   render(<ModelsPage onClose={() => {}} initialTab="voice" />);
   await screen.findByText("voices-card");
-  fireEvent.change(within(panel("Speech")).getByLabelText(/whisper-server executable/), {
+  fireEvent.change(within(panel("Speech")).getByLabelText(/Your own whisper-server/), {
     target: { value: "/opt/whisper-server" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
@@ -304,7 +380,7 @@ it("saves speech settings while the chat model choice is unfinished, and keeps a
 it("still says so when a stored path overrides the OCR engine Graite installed", async () => {
   // Set outside the app (an .env). Invisible is worse than read-only: it changes what runs.
   aiMock.status.mockResolvedValue({
-    config: { ...CONFIG, ocr_binary_path: "/opt/llama-server" },
+    config: { ...CONFIG, ocr_binary_path: "/opt/llama-server", ocr_provider: "local" },
     hardware: { ram_gb: 32, gpu: null, binary_path: "" },
     loaded: false,
   });
@@ -318,9 +394,9 @@ it("switches chat to Graite Cloud only when asked, and saves the picked model", 
   await screen.findByText("pick-graite-fast");
   // Looking at the section does not change which model chat uses.
   const section = within(panel("Graite Cloud"));
-  expect(section.getByText(/Chat uses On this computer now/)).toBeTruthy();
-  fireEvent.click(section.getByRole("button", { name: "Use for chat" }));
-  expect(section.getByText(/Chat uses this once you save/)).toBeTruthy();
+  expect(section.getByText(/Your chats use a model on this computer now/)).toBeTruthy();
+  fireEvent.click(section.getByRole("button", { name: "Chat with Graite Cloud" }));
+  expect(section.getByText(/Your chats use Graite Cloud once you save/)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
   expect(await screen.findByText(/choose a Graite Cloud model first/)).toBeTruthy();
   expect(aiMock.save).not.toHaveBeenCalled();

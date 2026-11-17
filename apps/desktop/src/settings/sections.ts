@@ -3,7 +3,7 @@ import {
   Cloud,
   FileText,
   KeyRound,
-  Monitor,
+  MessageSquare,
   Plug,
   Search,
   Server,
@@ -34,24 +34,40 @@ export interface NavItem {
   icon: LucideIcon;
   /** Shown indented under the item before it. */
   sub?: boolean;
+  /** Only listed with "I'm a proper geek" on (Settings → General). */
+  geek?: boolean;
 }
 
+/** Graite Cloud first: it works for everyone without installing anything. Local AI comes
+ * after, one tab per task, each with its own "Use local AI on my computer" switch. */
 export const NAV: { title?: string; items: NavItem[] }[] = [
   { items: [{ id: "general", label: "General", icon: Settings2 }] },
-  {
-    title: "Local AI",
-    items: [
-      { id: "local", label: "On this computer", icon: Monitor },
-      { id: "voice", label: "Speech", icon: AudioLines, sub: true },
-      { id: "search", label: "Search", icon: Search, sub: true },
-      { id: "documents", label: "Documents", icon: FileText, sub: true },
-      { id: "server", label: "Your own server", icon: Server },
-    ],
-  },
   { title: "Graite", items: [{ id: "graite", label: "Graite Cloud", icon: Cloud }] },
   { title: "Your AI apps", items: [{ id: "connectors", label: "AI connectors", icon: Plug }] },
   { title: "Your own keys", items: [{ id: "keys", label: "API keys", icon: KeyRound }] },
+  {
+    title: "Local AI",
+    items: [
+      { id: "local", label: "Chat", icon: MessageSquare },
+      { id: "search", label: "Search", icon: Search },
+      { id: "documents", label: "Documents", icon: FileText },
+      { id: "voice", label: "Speech", icon: AudioLines },
+      { id: "server", label: "Your own server", icon: Server, geek: true },
+    ],
+  },
 ];
+
+/** The sidebar as shown: geek-only items left out unless geek mode is on, or unless one is
+ * what chat uses (or the section open now), so a setup never becomes unreachable. */
+export function visibleNav(
+  techMode: boolean,
+  keep: (SettingsSection | null)[] = [],
+): { title?: string; items: NavItem[] }[] {
+  return NAV.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => techMode || !item.geek || keep.includes(item.id)),
+  })).filter((group) => group.items.length > 0);
+}
 
 export const SECTIONS: SettingsSection[] = NAV.flatMap((group) => group.items.map((i) => i.id));
 

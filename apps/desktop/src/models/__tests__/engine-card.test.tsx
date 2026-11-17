@@ -7,6 +7,7 @@ const enginesMock = vi.hoisted(() => ({
   cancel: vi.fn(),
   rollback: vi.fn(),
   remove: vi.fn(),
+  newest: vi.fn(),
 }));
 const listeners = vi.hoisted(
   () => [] as ((e: { type: string; data: Record<string, unknown> }) => void)[],
@@ -69,6 +70,7 @@ function card() {
 beforeEach(() => {
   HTMLElement.prototype.scrollIntoView = vi.fn();
   vi.clearAllMocks();
+  localStorage.clear(); // geek mode is remembered app-wide
   listeners.length = 0;
 });
 afterEach(cleanup);
@@ -134,4 +136,39 @@ it("says so and offers a retry when the engine cannot be read, instead of vanish
   enginesMock.list.mockResolvedValue([VOICE]);
   fireEvent.click(screen.getByRole("button", { name: "Try again" }));
   expect(await screen.findByRole("button", { name: /Install · 37 MB/ })).toBeTruthy();
+});
+
+it("offers the newest upstream build only in geek mode, and installs it on request", async () => {
+  const installed = {
+    ...VOICE,
+    installed_version: "v0.8.33",
+    installed_variant: "windows-x64-vulkan",
+  };
+  enginesMock.list.mockResolvedValue([installed]);
+  const { unmount } = card();
+  await screen.findByText("Ready");
+  expect(screen.queryByText("Newest build")).toBeNull();
+  unmount();
+
+  localStorage.setItem("graite.techMode", "1");
+  enginesMock.newest.mockResolvedValue({
+    version: "v0.8.60",
+    published_at: "2026-11-17T10:00:00Z",
+    prerelease: true,
+    url: "https://github.com/x/y/releases/tag/v0.8.60",
+    newer: true,
+    tested: false,
+  });
+  enginesMock.install.mockResolvedValue({ ...installed, status: "downloading", progress: 1 });
+  card();
+  expect(await screen.findByText("Newest build")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Check" }));
+  expect(await screen.findByText(/not yet tested with Graite/)).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Release notes" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /Install v0\.8\.60/ }));
+  await waitFor(() =>
+    expect(enginesMock.install).toHaveBeenCalledWith("crispasr", "windows-x64-vulkan", {
+      newest: true,
+    }),
+  );
 });
