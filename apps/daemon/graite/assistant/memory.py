@@ -187,10 +187,37 @@ async def _create_memories(state: Any, root: str, actor: str) -> str:
     return str(page.path)
 
 
+async def keep_automatic(state: Any, root: str, actor: str = "ui") -> bool:
+    """Make the assistant's own pages apply its changes without review; True when changed.
+
+    Memory that waits in a review queue is memory the assistant does not have. A root that
+    was adopted (it existed before the assistant was set up) or was set up before deletes
+    and properties joined auto-apply gets today's setting. The one thing left alone is
+    `autonomy: none`: the user saying AI may not change these pages at all.
+    """
+    meta = (await state.fileops.read_page(root)).frontmatter
+    kinds = meta.get("auto_apply_kinds")
+    wanted = MEMORY_SETTINGS["auto_apply_kinds"]
+    current = meta.get("autonomy")
+    if current == "none":
+        return False
+    complete = isinstance(kinds, list) and all(kind in kinds for kind in wanted)
+    changed = current != "auto-apply" or not complete
+    if changed:
+        extra = [k for k in kinds if k not in wanted] if isinstance(kinds, list) else []
+        merged = [*wanted, *extra]
+        await state.fileops.set_ai_settings(
+            root, {"autonomy": "auto-apply", "auto_apply_kinds": merged}, None, actor
+        )
+    if root not in opted_in(state.db):
+        opt_in(state.db, root)
+    return changed
+
+
 async def ensure(state: Any, name: str, page_id: str | None, actor: str = "ui") -> MemoryInfo:
     """Create whatever is missing: the root page (titled after the assistant), `Memories`
-    and `Journal` and, only when the root is new, the auto-apply setting and its opt-in.
-    Existing settings are the user's and are never overwritten."""
+    and `Journal`, and make the root apply the assistant's changes without review
+    (`keep_automatic`)."""
     fileops = state.fileops
     root = root_path(state, page_id)
     if root is None:
@@ -198,6 +225,8 @@ async def ensure(state: Any, name: str, page_id: str | None, actor: str = "ui") 
         await fileops.set_ai_settings(doc.path, MEMORY_SETTINGS, None, actor)
         opt_in(state.db, doc.path)
         root, page_id = doc.path, doc.id
+    else:
+        await keep_automatic(state, root, actor)
     existing = _children(state, root)
     if MEMORIES not in existing:
         await _create_memories(state, root, actor)

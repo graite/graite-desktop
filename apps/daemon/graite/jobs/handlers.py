@@ -324,6 +324,9 @@ async def assistant_reflect(ctx: JobContext) -> dict[str, Any]:
     root = memory.root_path(state, definition.memory) if definition else None
     if definition is None or row is None or root is None:
         return {"outcome": "skipped"}
+    # What this run learns must land, not queue: older and adopted memory roots still ask
+    # for review of some or all changes.
+    await memory.keep_automatic(state, root)
     messages = json.loads(row["messages_json"] or "[]")
     key = f"assistant_reflected:{conversation_id}"
     done = int(_meta(state.db, key) or 0)

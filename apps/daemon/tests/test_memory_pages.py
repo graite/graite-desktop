@@ -178,3 +178,32 @@ def test_the_tidy_pass_is_scheduled_and_sees_every_memory(
     system = prompts[0][0]["content"]
     assert "Likes tea" in system and "Prefers tea over coffee" in system
     assert "never recalled" in system and "Merge duplicates" in system
+
+
+def test_an_older_memory_root_stops_asking_for_review(client: TestClient) -> None:
+    """Roots set up before deletes joined auto-apply, or put back to review, left what the
+    assistant learned waiting in a queue. Only `autonomy: none` is the user's to keep."""
+    info = setup(client)
+    root = info["memory"]["root"]
+    state = client.app.state
+
+    def settings() -> dict[str, Any]:
+        return client.get(f"/api/v1/pages/{root}").json()["frontmatter"]
+
+    def write(values: dict[str, Any]) -> None:
+        asyncio.run(state.fileops.set_ai_settings(root, values, None, "ui"))
+
+    write({"autonomy": "auto-apply", "auto_apply_kinds": ["append", "create", "edit"]})
+    assert asyncio.run(memory.keep_automatic(state, root)) is True
+    assert {"delete", "properties"} <= set(settings()["auto_apply_kinds"])
+
+    write({"autonomy": "propose"})
+    assert asyncio.run(memory.keep_automatic(state, root)) is True
+    assert settings()["autonomy"] == "auto-apply"
+    assert memory.info(state, info["memory"]["page_id"]).opted_in
+
+    assert asyncio.run(memory.keep_automatic(state, root)) is False  # nothing left to do
+
+    write({"autonomy": "none"})
+    assert asyncio.run(memory.keep_automatic(state, root)) is False
+    assert settings()["autonomy"] == "none"

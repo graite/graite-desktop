@@ -66,6 +66,9 @@ async def build_turn(
     # capping this whole turn for speech also cuts off page edits and board cards.
     cloud = is_cloud(config)
     root = memory.root_path(state, definition.memory)
+    if root is not None:
+        # "Remember that" in this very turn must apply at once, on old memory roots too.
+        await memory.keep_automatic(state, root)
     scope = effective_scope(definition, root)
     resolved = _resolved_scope(state, scope, cloud=cloud)
     skills = definition.skills or resolved.policy.values.get("skills")
