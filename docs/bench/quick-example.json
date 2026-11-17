@@ -1,0 +1,365 @@
+{
+  "label": "quick",
+  "vault": "example",
+  "pages": 23,
+  "model": "gemma-4-E2B-it-Q4_K_M.gguf",
+  "context_size": 8192,
+  "semantic": true,
+  "date": "2026-11-17",
+  "rows": [
+    {
+      "question": "How many people work in the field at Fernhill?",
+      "page": "Customers/Fernhill",
+      "answer": "There are 40 people in the field at Fernhill [2].\n\nThis is supported by the snapshot for Fernhill, which states they are a landscaping company with 40 people in the field [2].",
+      "error": null,
+      "cited": [
+        "Customers/Fernhill"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 49.87,
+      "metrics": {
+        "retrieval_ms": 23,
+        "pages": 4,
+        "chunks": 5,
+        "context_tokens": 786,
+        "prompt_tokens": 2324,
+        "completion_tokens": 408,
+        "cached_tokens": 0,
+        "prompt_ms": 28700,
+        "first_token_ms": 40659,
+        "total_ms": 41902,
+        "tokens_per_second": 35.3,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "How many people work in the field at Fernhill?",
+            "hits": 16,
+            "ms": 19
+          }
+        ]
+      }
+    },
+    {
+      "question": "Who decides at Fernhill, and what do they care about?",
+      "page": "Customers/Fernhill",
+      "answer": "Ines, the operations lead, decides at Fernhill [2]. She cares about the time lost on doing double work [1, 2].",
+      "error": null,
+      "cited": [
+        "Meetings/2026-11-12 Fernhill check-in",
+        "Customers/Fernhill"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 29.43,
+      "metrics": {
+        "retrieval_ms": 15,
+        "pages": 5,
+        "chunks": 5,
+        "context_tokens": 703,
+        "prompt_tokens": 2018,
+        "completion_tokens": 422,
+        "cached_tokens": 149,
+        "prompt_ms": 16915,
+        "first_token_ms": 27475,
+        "total_ms": 28302,
+        "tokens_per_second": 37.0,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "Who decides at Fernhill, and what do they care about?",
+            "hits": 16,
+            "ms": 14
+          }
+        ]
+      }
+    },
+    {
+      "question": "What was decided about offline mode versus export in the product sync?",
+      "page": "Meetings/2026-11-10 Product sync",
+      "answer": "Offline mode goes ahead of export. This decision was made by Mara [1].",
+      "error": null,
+      "cited": [
+        "Meetings/2026-11-10 Product sync"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 19.91,
+      "metrics": {
+        "retrieval_ms": 15,
+        "pages": 3,
+        "chunks": 5,
+        "context_tokens": 602,
+        "prompt_tokens": 1510,
+        "completion_tokens": 268,
+        "cached_tokens": 149,
+        "prompt_ms": 11994,
+        "first_token_ms": 18556,
+        "total_ms": 18965,
+        "tokens_per_second": 38.4,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "What was decided about offline mode versus export in the product sync?",
+            "hits": 16,
+            "ms": 13
+          }
+        ]
+      }
+    },
+    {
+      "question": "By how much did the onboarding changes cut setup time?",
+      "page": "Meetings/2026-11-10 Product sync",
+      "answer": "The onboarding changes cut setup time from nine minutes to four [1].",
+      "error": null,
+      "cited": [
+        "Meetings/2026-11-10 Product sync"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 28.47,
+      "metrics": {
+        "retrieval_ms": 14,
+        "pages": 4,
+        "chunks": 5,
+        "context_tokens": 716,
+        "prompt_tokens": 2316,
+        "completion_tokens": 297,
+        "cached_tokens": 149,
+        "prompt_ms": 19418,
+        "first_token_ms": 27154,
+        "total_ms": 27551,
+        "tokens_per_second": 36.5,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "By how much did the onboarding changes cut setup time?",
+            "hits": 16,
+            "ms": 13
+          }
+        ]
+      }
+    },
+    {
+      "question": "Who has to estimate the sync conflict screen, and by when?",
+      "page": "Meetings/2026-11-10 Product sync",
+      "answer": "Jonas has to estimate the sync conflict screen by 2026-11-17 [1].",
+      "error": null,
+      "cited": [
+        "Meetings/2026-11-10 Product sync"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 22.34,
+      "metrics": {
+        "retrieval_ms": 15,
+        "pages": 3,
+        "chunks": 5,
+        "context_tokens": 625,
+        "prompt_tokens": 1563,
+        "completion_tokens": 355,
+        "cached_tokens": 149,
+        "prompt_ms": 12254,
+        "first_token_ms": 20706,
+        "total_ms": 21331,
+        "tokens_per_second": 39.1,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "Who has to estimate the sync conflict screen, and by when?",
+            "hits": 16,
+            "ms": 14
+          }
+        ]
+      }
+    },
+    {
+      "question": "What are the success measures for offline mode?",
+      "page": "Product/Feature specs/Offline mode",
+      "answer": "The success measures for offline mode are:\n*   Checklists finished in the field: 35% → 80% [1]\n*   Evening catch-up time reported by pilot teams: 60 minutes → under 10 [1]",
+      "error": null,
+      "cited": [
+        "Product/Feature specs/Offline mode"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 22.98,
+      "metrics": {
+        "retrieval_ms": 13,
+        "pages": 4,
+        "chunks": 5,
+        "context_tokens": 617,
+        "prompt_tokens": 1518,
+        "completion_tokens": 386,
+        "cached_tokens": 149,
+        "prompt_ms": 11884,
+        "first_token_ms": 20327,
+        "total_ms": 21739,
+        "tokens_per_second": 39.1,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "What are the success measures for offline mode?",
+            "hits": 16,
+            "ms": 12
+          }
+        ]
+      }
+    },
+    {
+      "question": "What is out of scope for offline mode?",
+      "page": "Product/Feature specs/Offline mode",
+      "answer": "What is out of scope for offline mode includes:\n\n*   Photos offline; they are waiting for an answer from Fernhill [1].\n*   Editing a template offline [1].",
+      "error": null,
+      "cited": [
+        "Product/Feature specs/Offline mode"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 23.82,
+      "metrics": {
+        "retrieval_ms": 13,
+        "pages": 4,
+        "chunks": 5,
+        "context_tokens": 617,
+        "prompt_tokens": 1518,
+        "completion_tokens": 415,
+        "cached_tokens": 148,
+        "prompt_ms": 11899,
+        "first_token_ms": 21735,
+        "total_ms": 22730,
+        "tokens_per_second": 38.3,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "What is out of scope for offline mode?",
+            "hits": 16,
+            "ms": 12
+          }
+        ]
+      }
+    },
+    {
+      "question": "What did the field study find about failed saves?",
+      "page": "Research/Field study · Working without signal",
+      "answer": "The field study found that a single failed save is enough to lose trust for the day, which was observed with four out of six people [1].",
+      "error": null,
+      "cited": [
+        "Research/Field study · Working without signal"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 26.84,
+      "metrics": {
+        "retrieval_ms": 14,
+        "pages": 4,
+        "chunks": 5,
+        "context_tokens": 663,
+        "prompt_tokens": 1841,
+        "completion_tokens": 410,
+        "cached_tokens": 149,
+        "prompt_ms": 14903,
+        "first_token_ms": 25023,
+        "total_ms": 25819,
+        "tokens_per_second": 37.5,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "What did the field study find about failed saves?",
+            "hits": 16,
+            "ms": 13
+          }
+        ]
+      }
+    },
+    {
+      "question": "How often do sync conflicts occur according to the logs?",
+      "page": "Meetings/2026-11-10 Product sync",
+      "answer": "Sync conflicts are rare in the logs, occurring about one in four hundred edits [1]. Two people changing the same item while offline is also rare in the logs, but daily for a field team [4].",
+      "error": null,
+      "cited": [
+        "Meetings/2026-11-10 Product sync",
+        "Product/Feature specs/Offline mode"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 30.78,
+      "metrics": {
+        "retrieval_ms": 13,
+        "pages": 4,
+        "chunks": 5,
+        "context_tokens": 633,
+        "prompt_tokens": 1844,
+        "completion_tokens": 372,
+        "cached_tokens": 148,
+        "prompt_ms": 15012,
+        "first_token_ms": 23948,
+        "total_ms": 25087,
+        "tokens_per_second": 36.9,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "How often do sync conflicts occur according to the logs?",
+            "hits": 16,
+            "ms": 12
+          }
+        ]
+      }
+    },
+    {
+      "question": "What is Fernhill's next step, and who owns it?",
+      "page": "Customers/Fernhill",
+      "answer": "Fernhill's next steps include:\n\n*   Priya needs to send the offline mode spec to Fernhill by 2026-11-14 [1, 2, 3].\n*   Ines needs to name the three testers by 2026-11-19 [2].",
+      "error": null,
+      "cited": [
+        "Customers/Fernhill",
+        "Meetings/2026-11-12 Fernhill check-in",
+        "Customers"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 34.02,
+      "metrics": {
+        "retrieval_ms": 15,
+        "pages": 5,
+        "chunks": 5,
+        "context_tokens": 735,
+        "prompt_tokens": 1906,
+        "completion_tokens": 625,
+        "cached_tokens": 148,
+        "prompt_ms": 15556,
+        "first_token_ms": 30582,
+        "total_ms": 32535,
+        "tokens_per_second": 36.8,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "What is Fernhill's next step, and who owns it?",
+            "hits": 16,
+            "ms": 14
+          }
+        ]
+      }
+    }
+  ]
+}
