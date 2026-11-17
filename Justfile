@@ -59,3 +59,15 @@ sidecar:
 api-types:
     cd apps/daemon && uv run python -m graite.openapi > openapi.json
     pnpm --filter @graite/api-types generate
+
+# Ask the fixed benchmark questions through the chat pipeline with a local model and record
+# what each turn cost (docs/bench/). Needs a chat model and llama-server installed in Graite.
+#   just bench-ask                 both vaults, label "run"
+#   just bench-ask baseline        both vaults, label "baseline"
+bench-ask label="run" *args="":
+    cd apps/daemon && uv run python bench/ask.py --vault example --label {{label}} {{args}}
+    cd apps/daemon && uv run python bench/ask.py --vault generated --label {{label}} {{args}}
+
+# Write the synthetic 1,000-page benchmark vault somewhere to look at it
+bench-vault out pages="1000":
+    cd apps/daemon && uv run python bench/gen_vault.py {{out}} --pages {{pages}}

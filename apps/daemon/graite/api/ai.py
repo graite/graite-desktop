@@ -296,6 +296,9 @@ class ActivityStep(BaseModel):
     name: str
     status: str
     text: str = ""
+    # How long a tool call took, and for a search how many results it found.
+    ms: int | None = None
+    hits: int | None = None
 
 
 class Message(BaseModel):
@@ -311,6 +314,8 @@ class Message(BaseModel):
     limits: list[str] | None = None
     thinking: str | None = None
     activity: list[ActivityStep] | None = None
+    # What the turn cost (retrieval/metrics.py `TurnMetrics`): shown under the answer.
+    metrics: dict[str, Any] | None = None
     # True when `sources` and `cited` refer to the conversation's shared context set (only
     # the sources new in that turn are listed); False for messages from before that existed.
     context: bool = False
@@ -961,6 +966,8 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
                         message["thinking"] = final["thinking"]
                     if final.get("activity"):
                         message["activity"] = final["activity"]
+                    if final.get("metrics"):
+                        message["metrics"] = final["metrics"]
                     if final.get("proposals"):
                         message["proposals"] = final["proposals"]
                 history.append(message)

@@ -2546,10 +2546,14 @@ export interface components {
     };
     /** ActivityStep */
     ActivityStep: {
+      /** Hits */
+      hits?: number | null;
       /** Id */
       id: string;
       /** Kind */
       kind: string;
+      /** Ms */
+      ms?: number | null;
       /** Name */
       name: string;
       /** Round */
@@ -3907,6 +3911,10 @@ export interface components {
       interrupted: boolean;
       /** Limits */
       limits?: string[] | null;
+      /** Metrics */
+      metrics?: {
+        [key: string]: unknown;
+      } | null;
       /** Mode */
       mode?: string | null;
       /** Proposals */

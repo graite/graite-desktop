@@ -29,6 +29,8 @@ from graite.retrieval import answer as answering
 from graite.retrieval import followup, research
 from graite.retrieval.context import Source, build
 from graite.retrieval.contextset import ContextSet
+from graite.retrieval.metrics import TurnTimer
+from graite.retrieval.metrics import hits as found_hits
 from graite.retrieval.scope import ResolvedScope, Scope
 from graite.retrieval.scope import resolve as resolve_scope
 from graite.retrieval.search import Searcher
@@ -360,6 +362,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
     yield {"type": "run", "run_id": recorder.id}
     query = ctx.search_query or ctx.question
     started = time.monotonic()
+    timer = TurnTimer()
     embedder = getattr(state, "embedder", None)
     searcher = Searcher(state.db, embedder)
     context = ctx.context
@@ -435,7 +438,9 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                 "retrieve", plan.label, question=query[:500], pages=len(scope.paths)
             )
             yield {"type": "status", "text": "Searching your pages…"}
+            search_started = time.monotonic()
             candidates = await searcher.search(query, scope, plan=plan)
+            timer.searched(query, len(candidates), search_started)
             added = context.add_many(build(state.db, candidates, budget))
             recorder.finish_step(
                 step,
@@ -657,6 +662,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             )
         context.keep_only([s.n for s in prompt_sources[:included]])
         context.drop_unseen()
+        timer.retrieved(started, prompt_sources[:included])
 
         def sources_event() -> dict[str, Any]:
             return {
@@ -705,6 +711,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             prompt_n, completion_n = _tokens(provider.metrics)
             tokens_in += prompt_n
             tokens_out += completion_n
+            timer.request_done(provider.metrics)
             provider.metrics.clear()
 
         # The caller's choice wins (a spoken turn never waits for thinking); otherwise the
@@ -728,6 +735,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                     continue
                 if item["type"] == "token":
                     raw += item["text"]
+                    timer.token()
                 elif item["type"] == "thinking":
                     reasoning += item["text"]
                 elif item["type"] == "reset":
@@ -748,6 +756,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                         yield {"type": "activity", "step": activity_step}
                 elif item["type"] == "tool_start":
                     tool_calls += 1
+                    timer.tool_started(item["id"])
                     searched |= item["name"] == "search_vault"
                     tool_args = _tool_input(item["arguments"])
                     tool_steps[item["id"]] = (
@@ -770,8 +779,12 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                 if item["type"] == "tool_end":
                     result = item.get("result")
                     failed = isinstance(result, dict) and bool(result.get("error"))
+                    took = 0
                     if item["id"] in tool_steps:
                         tool_step, tool_args = tool_steps.pop(item["id"])
+                        took = timer.tool_finished(
+                            item["id"], item.get("name", ""), tool_args, result
+                        )
                         recorder.finish_step(
                             tool_step,
                             "failed" if failed else "succeeded",
@@ -779,6 +792,9 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                         )
                     activity_step = next(s for s in activity if s["id"] == item["id"])
                     activity_step["status"] = "failed" if failed else "succeeded"
+                    activity_step["ms"] = took
+                    if activity_step["name"] == "search_vault" and not failed:
+                        activity_step["hits"] = found_hits(result)
                     if failed:
                         activity_step["text"] = (
                             str(result.get("error")) if isinstance(result, dict) else "Tool failed."
@@ -822,6 +838,8 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             clarifying=bool(clarify),
         )
         recorder.finish_step(gen, cited=cited, tool_calls=tool_calls, chars=len(text))
+        measured = timer.finish().to_dict()
+        yield {"type": "metrics", "metrics": measured}
         if clarify:
             yield {"type": "clarify", "question": clarify}
         status = "needs_input" if clarify else "succeeded"
@@ -842,6 +860,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             "activity": activity,
             "proposals": proposals_made,
             "limits": lines,
+            "metrics": measured,
             "run_id": recorder.id,
         }
         recorder.finish(
@@ -858,6 +877,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             if tokens_in or tokens_out
             else None,
             seconds=round(time.monotonic() - started, 2),
+            metrics=measured,
         )
     except BaseException as exc:
         status = "cancelled" if exc.__class__.__name__ == "CancelledError" else "failed"

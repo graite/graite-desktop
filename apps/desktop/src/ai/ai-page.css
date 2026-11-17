@@ -347,6 +347,40 @@
 .ai-limits summary {
   cursor: pointer;
 }
+.ai-turn-details {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--muted-foreground);
+}
+.ai-turn-details summary {
+  cursor: pointer;
+  width: fit-content;
+}
+.ai-turn-details summary:hover {
+  color: var(--foreground);
+}
+.ai-turn-details dl {
+  margin: 6px 0 0;
+  display: grid;
+  gap: 1px;
+}
+.ai-turn-details dl > div {
+  display: flex;
+  gap: 10px;
+}
+.ai-turn-details dt {
+  flex: 0 0 170px;
+}
+.ai-turn-details dd {
+  margin: 0;
+  color: var(--foreground);
+}
+.ai-turn-details ul {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
 .ai-message-actions {
   display: flex;
   gap: 12px;

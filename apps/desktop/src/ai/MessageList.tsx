@@ -7,6 +7,7 @@ import { ChatProposals } from "./ChatProposals";
 import { LimitsCallout, Sources } from "./Sources";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { TaskProgress } from "./TaskProgress";
+import { TurnDetails } from "./TurnDetails";
 
 function Attachments({ message }: { message: ChatMessage }) {
   if (!message.attachments?.length && !message.selection) return null;
@@ -95,6 +96,7 @@ function AssistantMessage({
         label={message.context ? "new" : "all"}
       />
       <LimitsCallout items={message.limits ?? []} excluded={[]} />
+      <TurnDetails metrics={message.metrics} />
       <div className="ai-message-actions">
         <button
           type="button"

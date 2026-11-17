@@ -286,6 +286,17 @@
       },
       "ActivityStep": {
         "properties": {
+          "hits": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hits"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -293,6 +304,17 @@
           "kind": {
             "title": "Kind",
             "type": "string"
+          },
+          "ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ms"
           },
           "name": {
             "title": "Name",
@@ -3994,6 +4016,18 @@
               }
             ],
             "title": "Limits"
+          },
+          "metrics": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metrics"
           },
           "mode": {
             "anyOf": [
