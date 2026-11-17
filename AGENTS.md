@@ -17,6 +17,7 @@ markdown vault, with local models and agents that only ever *propose* changes.
 - `docs/decisions.md` — decisions with rationale. Add a row when you make one.
 - `docs/development.md` — environment, commands, packaging, env vars, releasing.
 - `docs/design/ai-retrieval-and-chat.md` — indexing, retrieval, the chat API, per-page AI settings.
+- `docs/search.md` — how Find, Ask, scopes, @page and Quick/Deep work, for users.
 
 ## Hard rules for code
 

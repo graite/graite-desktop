@@ -89,6 +89,47 @@ export function IndexCard({
         </ModelSelect>
         <small>{state}</small>
       </label>
+      {status && (
+        <dl className="ai-index-facts" aria-label="Index status">
+          <div>
+            <dt>Pages indexed</dt>
+            <dd>{status.pages.toLocaleString("en-US")}</dd>
+          </div>
+          <div>
+            <dt>Page summaries</dt>
+            <dd>
+              {(status.summaries ?? 0).toLocaleString("en-US")} of{" "}
+              {(status.summary_pages ?? 0).toLocaleString("en-US")}
+              {(status.summaries ?? 0) < (status.summary_pages ?? 0)
+                ? " · written by your local model while it is loaded"
+                : ""}
+            </dd>
+          </div>
+          <div>
+            <dt>Last update</dt>
+            <dd>{status.updated_at ? new Date(status.updated_at).toLocaleString() : "Never"}</dd>
+          </div>
+        </dl>
+      )}
+      <label className="ai-field">
+        Context per answer
+        <ModelSelect
+          label="Context per answer"
+          value={config.context_budget_tokens ?? 3000}
+          disabled={disabled}
+          onValueChange={(value) => onPatch({ context_budget_tokens: Number(value) })}
+        >
+          {[1500, 3000, 6000, 12000, 24000].map((n) => (
+            <option key={n} value={n}>
+              {n.toLocaleString("en-US")} tokens{n === 3000 ? " (recommended)" : ""}
+            </option>
+          ))}
+        </ModelSelect>
+        <small>
+          The most text from your pages that one answer may put in front of the model. Smaller is
+          faster on a local model; Deep research may use twice this.
+        </small>
+      </label>
       {status?.failed_pages ? (
         <p className="ai-index-warning">
           {status.failed_pages} page{status.failed_pages === 1 ? "" : "s"} could not be read.

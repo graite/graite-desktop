@@ -10,6 +10,7 @@ import {
   MousePointer2,
   Check,
   Telescope,
+  AtSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAutoGrow } from "@/chat/useAutoGrow";
@@ -22,6 +23,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ComposerModel } from "./ComposerModel";
 import { useDepth } from "./depth";
+import { SearchHelp } from "./SearchHelp";
+import { knownMentionPages, loadMentionPages, mentionAt, mentionMatches } from "./mentions";
 import { AttachmentChips } from "./AttachmentChips";
 
 export const MODES: { id: ChatMode; label: string; hint: string }[] = [
@@ -81,6 +84,23 @@ export function Composer({
   onModelChanged?: () => void;
 }) {
   const [depth, setDepth] = useDepth();
+  // `@` in the message opens a list of pages; the one picked is pinned for this question.
+  const [mention, setMention] = useState<{ start: number; query: string } | null>(null);
+  const [mentionPages, setMentionPages] = useState(knownMentionPages);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const suggestions = mention ? mentionMatches(mention.query, mentionPages) : [];
+  const trackMention = (text: string, cursor: number) => {
+    const next = mentionAt(text, cursor);
+    setMention(next);
+    setMentionIndex(0);
+    if (next) void loadMentionPages().then(setMentionPages);
+  };
+  const pickMention = (page: { title: string }) => {
+    if (!mention) return;
+    const end = mention.start + 1 + mention.query.length;
+    onChange(`${value.slice(0, mention.start)}@${page.title} ${value.slice(end)}`);
+    setMention(null);
+  };
   const [working, setWorking] = useState(false);
   const area = useRef<HTMLTextAreaElement>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -110,14 +130,56 @@ export function Composer({
       onDrop={drop}
     >
       <AttachmentChips attachments={attachments} onRemove={onRemoveAttachment} />
+      {mention && suggestions.length > 0 && (
+        <ul className="ai-mention-list" role="listbox" aria-label="Pages to mention">
+          {suggestions.map((page, i) => (
+            <li
+              key={page.path}
+              role="option"
+              aria-selected={i === mentionIndex}
+              onMouseDown={(e) => {
+                e.preventDefault(); // keep the cursor in the message box
+                pickMention(page);
+              }}
+              onMouseMove={() => setMentionIndex(i)}
+            >
+              <AtSign size={12} />
+              <span>{page.title}</span>
+              {page.breadcrumb && <small>{page.breadcrumb}</small>}
+            </li>
+          ))}
+        </ul>
+      )}
       <textarea
         ref={area}
         aria-label={placeholder}
         placeholder={placeholder}
         value={value}
         rows={1}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          trackMention(e.target.value, e.target.selectionStart ?? e.target.value.length);
+        }}
         onKeyDown={(e) => {
+          if (mention && suggestions.length) {
+            // The page list is open: the arrow keys and Enter belong to it.
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              e.preventDefault();
+              const step = e.key === "ArrowDown" ? 1 : -1;
+              setMentionIndex((i) => (i + step + suggestions.length) % suggestions.length);
+              return;
+            }
+            if (e.key === "Enter" || e.key === "Tab") {
+              e.preventDefault();
+              pickMention(suggestions[mentionIndex] ?? suggestions[0]!);
+              return;
+            }
+            if (e.key === "Escape") {
+              e.preventDefault();
+              setMention(null);
+              return;
+            }
+          }
           if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault();
             // Enter while an answer is streaming (or with an empty box) must keep the draft.
@@ -217,6 +279,7 @@ export function Composer({
           {left}
         </div>
         <div className="ai-composer-right">
+          {!fixedMode && <SearchHelp />}
           <ComposerModel
             contextId={contextId}
             busy={busy || !!disabled}

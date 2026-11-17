@@ -21,8 +21,9 @@ The current release is **v0.4.1**.
   what the computer can run (D60).
 - M3 review queue: propose tools, proposals API, accept/reject/edit/batch/revert, in-page
   decorations, auto-apply opt-in.
-- M4 (most of it): chunk index, hybrid search, retrieval pipeline with citations, chat v2,
-  jobs, cron, live notes, agents and workflows as Markdown, Runs view.
+- M4: chunk index, hybrid search, retrieval pipeline with citations, chat v2, jobs, cron,
+  live notes, agents and workflows as Markdown, Runs view, page summaries with
+  `read_navigation`, Quick answer and Deep research, the Cmd+K search (`docs/search.md`).
 - M5 (part): audio and document uploads, in-app recording, Whisper transcription, OCR, page
   views (board, table, list) with properties.
 - M5b personal assistant and voice: assistant definition, memory pages, background loop,
@@ -42,7 +43,6 @@ The current release is **v0.4.1**.
 - M1 part 2: file watcher merge with 3-way diff, `graite:` fences beyond views,
   restore-from-trash UI, versions UI, `NAVIGATION.md`, vault-wide link rewrite on rename,
   inline `[[` autocomplete.
-- M4: `summarize_page`, `read_navigation`, the `Cmd+K` search UI.
 - M5: video, streaming Range delivery, attachment sync metadata, agent-facing media skills.
 - M5b: live-microphone pass on all three platforms; `whisper-server` as an installable engine.
 - M6: board and calendar views of tables.

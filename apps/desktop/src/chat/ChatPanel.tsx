@@ -1,3 +1,4 @@
+import { mentionedPaths } from "@/ai/mentions";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Highlighter, History, Plus, Settings2, Orbit, X } from "lucide-react";
 import { toast } from "sonner";
@@ -158,6 +159,7 @@ export function ChatPanel({
       scope={scope}
       tree={tree}
       page={path}
+      chips
       onChange={(next) => void changeScope(next)}
       onChoose={() => setScopeOpen(true)}
       disabled={chat.busy}
@@ -173,7 +175,13 @@ export function ChatPanel({
     const attached =
       useSelection && selection.trim() ? { page_path: path, text: selection } : undefined;
     setUseSelection(false);
-    await chat.send(text, { mode, attachments: files.take(), selection: attached, pagePath: path });
+    await chat.send(text, {
+      mode,
+      attachments: files.take(),
+      selection: attached,
+      pagePath: path,
+      pinned: mentionedPaths(text),
+    });
   };
 
   // Send a request handed over by a block once the panel knows whether a model is set up;
