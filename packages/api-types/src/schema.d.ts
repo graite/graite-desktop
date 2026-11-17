@@ -1722,6 +1722,44 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Search */
+    get: operations["search_api_v1_search_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/search/warm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Warm
+     * @description Load the embedding model so that the searches that follow can use meaning as well as
+     *     words. Called when the search palette opens; returns at once and loads in the background.
+     */
+    post: operations["warm_api_v1_search_warm_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/tables": {
     parameters: {
       query?: never;
@@ -2408,6 +2446,11 @@ export interface components {
       /** Connection Id */
       connection_id?: string | null;
       /**
+       * Context Budget Tokens
+       * @default 3000
+       */
+      context_budget_tokens: number;
+      /**
        * Context Size
        * @default 8192
        */
@@ -2433,6 +2476,11 @@ export interface components {
        * @default 2048
        */
       max_output_tokens: number;
+      /**
+       * Max Tool Calls
+       * @default 8
+       */
+      max_tool_calls: number;
       /**
        * Model
        * @default
@@ -2546,10 +2594,14 @@ export interface components {
     };
     /** ActivityStep */
     ActivityStep: {
+      /** Hits */
+      hits?: number | null;
       /** Id */
       id: string;
       /** Kind */
       kind: string;
+      /** Ms */
+      ms?: number | null;
       /** Name */
       name: string;
       /** Round */
@@ -3062,12 +3114,22 @@ export interface components {
     ChatRequest: {
       /** Attachments */
       attachments?: string[];
+      /**
+       * Depth
+       * @description How a question in Ask mode is answered: 'quick' is one search and one model call with no tools; 'deep' researches in several small steps and takes longer. Left out, the model works with its tools as before (the app sends 'quick').
+       */
+      depth?: ("quick" | "deep") | null;
       /** Message */
       message: string;
       /** Mode */
       mode?: ("ask" | "draft" | "act") | null;
       /** Page Path */
       page_path?: string | null;
+      /**
+       * Pinned Paths
+       * @description Pages the user pinned with @ in the message: their text is given to the model first, within the context budget, whatever the search finds.
+       */
+      pinned_paths?: string[];
       /** Replace From */
       replace_from?: number | null;
       selection?: components["schemas"]["Selection"] | null;
@@ -3685,6 +3747,18 @@ export interface components {
       pages: number;
       /** Pending Chunks */
       pending_chunks: number;
+      /**
+       * Summaries
+       * @default 0
+       */
+      summaries: number;
+      /**
+       * Summary Pages
+       * @default 0
+       */
+      summary_pages: number;
+      /** Updated At */
+      updated_at?: string | null;
       /** Vector Model */
       vector_model: string | null;
       /** Worker */
@@ -3900,6 +3974,8 @@ export interface components {
        * @default false
        */
       cut_short: boolean;
+      /** Depth */
+      depth?: string | null;
       /**
        * Interrupted
        * @default false
@@ -3907,8 +3983,14 @@ export interface components {
       interrupted: boolean;
       /** Limits */
       limits?: string[] | null;
+      /** Metrics */
+      metrics?: {
+        [key: string]: unknown;
+      } | null;
       /** Mode */
       mode?: string | null;
+      /** Pinned */
+      pinned?: string[] | null;
       /** Proposals */
       proposals?: string[] | null;
       /** Role */
@@ -4690,6 +4772,11 @@ export interface components {
       /** Connection Id */
       connection_id?: string | null;
       /**
+       * Context Budget Tokens
+       * @default 3000
+       */
+      context_budget_tokens: number;
+      /**
        * Context Size
        * @default 8192
        */
@@ -4715,6 +4802,11 @@ export interface components {
        * @default 2048
        */
       max_output_tokens: number;
+      /**
+       * Max Tool Calls
+       * @default 8
+       */
+      max_tool_calls: number;
       /**
        * Model
        * @default
@@ -4863,6 +4955,55 @@ export interface components {
       kind: "page" | "folder" | "vault" | "none";
       /** Roots */
       roots?: string[];
+    };
+    /** SearchHit */
+    SearchHit: {
+      /**
+       * Heading Path
+       * @description Headings above the best passage of the page.
+       */
+      heading_path: string[];
+      /** Icon */
+      icon?: string | null;
+      /** Id */
+      id: string;
+      /**
+       * Matches
+       * @description How many passages of the page matched.
+       */
+      matches: number;
+      /** Path */
+      path: string;
+      /** Score */
+      score: number;
+      /**
+       * Snippet
+       * @description Text around the words that matched; empty for a title hit.
+       */
+      snippet: string;
+      /** Start Line */
+      start_line?: number | null;
+      /** Title */
+      title: string;
+      /**
+       * Via
+       * @description What matched: "title", "text" and/or "meaning".
+       */
+      via: string[];
+    };
+    /** SearchResult */
+    SearchResult: {
+      /** Query */
+      query: string;
+      /** Results */
+      results: components["schemas"]["SearchHit"][];
+      /**
+       * Semantic
+       * @description Whether vectors took part. False while the embedding model is not loaded: the results are then by words and titles only.
+       */
+      semantic: boolean;
+      /** Took Ms */
+      took_ms: number;
     };
     /** Sections */
     Sections: {
@@ -5216,6 +5357,11 @@ export interface components {
       missing?: components["schemas"]["Missing"][];
       /** Ready */
       ready: boolean;
+    };
+    /** Warmed */
+    Warmed: {
+      /** Semantic */
+      semantic: boolean;
     };
     /** WorkflowInfo */
     WorkflowInfo: {
@@ -9094,6 +9240,60 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  search_api_v1_search_get: {
+    parameters: {
+      query: {
+        q: string;
+        k?: number;
+        /** @description Only this page and the pages under it (a vault path). */
+        root?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SearchResult"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  warm_api_v1_search_warm_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Warmed"];
         };
       };
     };

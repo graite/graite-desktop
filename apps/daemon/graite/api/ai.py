@@ -296,6 +296,9 @@ class ActivityStep(BaseModel):
     name: str
     status: str
     text: str = ""
+    # How long a tool call took, and for a search how many results it found.
+    ms: int | None = None
+    hits: int | None = None
 
 
 class Message(BaseModel):
@@ -305,12 +308,17 @@ class Message(BaseModel):
     mode: str | None = None
     attachments: list[MessageAttachment] | None = None
     selection: Selection | None = None
+    # Pages the user pinned with @ in this message, and "deep" when it was researched.
+    pinned: list[str] | None = None
+    depth: str | None = None
     run_id: str | None = None
     sources: list[dict[str, Any]] | None = None
     cited: list[int] | None = None
     limits: list[str] | None = None
     thinking: str | None = None
     activity: list[ActivityStep] | None = None
+    # What the turn cost (retrieval/metrics.py `TurnMetrics`): shown under the answer.
+    metrics: dict[str, Any] | None = None
     # True when `sources` and `cited` refer to the conversation's shared context set (only
     # the sources new in that turn are listed); False for messages from before that existed.
     context: bool = False
@@ -674,6 +682,57 @@ class ChatRequest(BaseModel):
     attachments: list[str] = Field(default_factory=list)
     selection: Selection | None = None
     replace_from: int | None = Field(default=None, ge=0)
+    pinned_paths: list[str] = Field(
+        default_factory=list,
+        max_length=8,
+        description="Pages the user pinned with @ in the message: their text is given to the "
+        "model first, within the context budget, whatever the search finds.",
+    )
+    depth: Literal["quick", "deep"] | None = Field(
+        default=None,
+        description="How a question in Ask mode is answered: 'quick' is one search and one "
+        "model call with no tools; 'deep' researches in several small steps and takes "
+        "longer. Left out, the model works with its tools as before (the app sends 'quick').",
+    )
+
+
+def _pinned_sources(state: Any, scope: Any, paths: list[str], budget_tokens: int) -> list[Source]:
+    """The text of pages pinned with @, as sources. Each page gets an equal share of half the
+    context budget; a longer page is cut there and the model can read on with read_page."""
+    wanted = [p for p in dict.fromkeys(paths) if scope.contains(p)]
+    if not wanted:
+        return []
+    share = max(400, (budget_tokens * 4 // 2) // len(wanted))
+    out: list[Source] = []
+    for path in wanted:
+        page = state.db.execute(
+            "SELECT id, title, file_hash FROM pages WHERE path=?", (path,)
+        ).fetchone()
+        rows = state.db.execute(
+            "SELECT id, text, start_line, end_line FROM chunks WHERE page_path=? ORDER BY ord",
+            (path,),
+        ).fetchall()
+        if page is None or not rows:
+            continue
+        text = "\n\n".join(r["text"] for r in rows)
+        if len(text) > share:
+            text = text[:share] + "\n[Pinned page shortened to fit; the rest was not read.]"
+        out.append(
+            Source(
+                0,
+                "page",
+                path,
+                page["id"],
+                page["title"],
+                [],
+                text,
+                page["file_hash"],
+                [r["id"] for r in rows],
+                rows[0]["start_line"],
+                rows[-1]["end_line"],
+            )
+        )
+    return out
 
 
 def _attachment_sources(
@@ -797,6 +856,8 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
             context = ContextSet()
     first_turn = not any(m.get("role") == "user" for m in history)
     user_message: dict[str, Any] = {"role": "user", "content": body.message.strip(), "mode": mode}
+    if body.depth == "deep":
+        user_message["depth"] = "deep"
     if attachment_meta:
         user_message["attachments"] = attachment_meta
     if body.selection is not None:
@@ -828,7 +889,13 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
         resolved=resolved,
         context=context,
         feedback=state.proposals.undelivered_rejections(conversation_id),
+        depth=body.depth,
     )
+    pinned = _pinned_sources(state, resolved, body.pinned_paths, config.context_budget_tokens)
+    if pinned:
+        ctx.extra_sources = [*pinned, *ctx.extra_sources]
+        ctx.preferred_paths = [s.page_path for s in pinned if s.page_path]
+        user_message["pinned"] = ctx.preferred_paths
     is_assistant = row["kind"] == "assistant"
     if is_assistant:
         from graite.assistant.service import build_turn
@@ -863,15 +930,22 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
                 await queue.put({"type": "status", "text": fallback})
                 state.events.publish("model_status", {"message": fallback})
             completed = False
+            answered = ""
             async for item in answer_turn(ctx):
                 await queue.put(item)
                 if item["type"] == "answer":
                     completed = True
+                    answered = item["text"]
             if completed and first_turn and not is_assistant:
                 from graite.agent.titles import chat_title
 
                 await queue.put({"type": "status", "text": "Naming your chat…"})
-                title = await chat_title(state.models, config, body.message.strip())
+                # A lean turn lends its system prompt, so the title comes from the cached
+                # prefix instead of a prompt of its own.
+                shared = (
+                    {"system": ctx.system_prompt, "answer": answered} if ctx.system_prompt else {}
+                )
+                title = await chat_title(state.models, config, body.message.strip(), **shared)
         except asyncio.CancelledError:
             await queue.put({"type": "cancelled"})
             raise
@@ -961,6 +1035,8 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
                         message["thinking"] = final["thinking"]
                     if final.get("activity"):
                         message["activity"] = final["activity"]
+                    if final.get("metrics"):
+                        message["metrics"] = final["metrics"]
                     if final.get("proposals"):
                         message["proposals"] = final["proposals"]
                 history.append(message)
@@ -1134,6 +1210,11 @@ class IndexStatus(BaseModel):
     worker: str
     last_error: str | None
     jobs: dict[str, int]
+    # The vault map: pages with text, and how many of them have an up-to-date summary.
+    summary_pages: int = 0
+    summaries: int = 0
+    # When a page was last indexed (ISO time), or None for an empty vault.
+    updated_at: str | None = None
 
 
 @router.get("/index/status", response_model=IndexStatus)

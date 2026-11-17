@@ -38,7 +38,18 @@ export function summarize(steps: ActivityStep[]): string {
     // A failed step's text is its error, which the expanded list shows.
     return group[0].text && group[0].status !== "failed" ? `${label} ${group[0].text}` : label;
   });
+  // Deep research: its steps are named by the daemon; the line says how much was done.
+  const searches = steps.filter((s) => s.kind === "step" && s.name.startsWith("Searching"));
+  if (searches.length) parts.unshift(`Researched with ${searches.length} searches`);
   if (!parts.length && steps.some((s) => s.kind === "thinking")) return "Thought";
+  return parts.join(" · ");
+}
+
+/** "6 hits · 120 ms" for a search, "120 ms" for another timed step. */
+export function stepCost(step: ActivityStep): string {
+  const parts = [];
+  if (typeof step.hits === "number") parts.push(`${step.hits} ${step.hits === 1 ? "hit" : "hits"}`);
+  if (typeof step.ms === "number") parts.push(`${step.ms} ms`);
   return parts.join(" · ");
 }
 
@@ -125,6 +136,7 @@ export function TaskProgress({
                     : TOOL_DONE_LABELS[step.name]) ?? step.name}
                 </span>
                 {step.text && <small>{step.text}</small>}
+                {stepCost(step) && <small className="ai-step-cost">{stepCost(step)}</small>}
               </div>
             ),
           )}

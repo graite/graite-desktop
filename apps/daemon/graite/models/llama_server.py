@@ -20,6 +20,37 @@ from graite.proc import NO_WINDOW
 log = logging.getLogger("graite.models")
 
 
+_FLAGS: dict[tuple[str, float], str] = {}
+
+
+def supports(binary: str, flag: str, env: dict[str, str] | None = None) -> bool:
+    """Whether this llama-server build knows `flag`, from its own `--help` (asked once per
+    build). False when it cannot be asked: an unknown flag would stop the server starting."""
+    import subprocess
+
+    try:
+        key = (binary, Path(binary).stat().st_mtime)
+    except OSError:
+        return False
+    if key not in _FLAGS:
+        try:
+            done = subprocess.run(  # noqa: S603 - the engine the user installed or chose
+                [binary, "--help"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=15,
+                env=env,
+                creationflags=NO_WINDOW,
+                check=False,
+            )
+            _FLAGS[key] = done.stdout + done.stderr
+        except (OSError, subprocess.SubprocessError):
+            _FLAGS[key] = ""
+    return flag in _FLAGS[key]
+
+
 class UnsupportedModelError(ValueError):
     """The selected runtime predates this model architecture."""
 
@@ -108,6 +139,9 @@ class LlamaServer:
             sock.bind(("127.0.0.1", 0))
             port = sock.getsockname()[1]
         self.url = f"http://127.0.0.1:{port}/v1"
+        reuse = not embedding and await asyncio.to_thread(
+            supports, str(binary), "--cache-reuse", env
+        )
         self.process = await asyncio.create_subprocess_exec(
             str(binary),
             "-m",
@@ -130,6 +164,9 @@ class LlamaServer:
             str(self.layers),
             "--parallel",
             "1",
+            # Let a turn reuse the cached prompt of the last one even when text was inserted
+            # before the shared part (D102). Older builds do not know the flag.
+            *(["--cache-reuse", "256"] if reuse else []),
             env=env,
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.PIPE,

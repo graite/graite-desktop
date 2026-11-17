@@ -512,3 +512,60 @@ def test_conversations_saved_before_the_context_set_still_load(client: TestClien
     saved = client.get("/api/v1/ai/conversations/legacy").json()
     assert saved["context"] == [] and saved["messages"][1]["context"] is False
     assert saved["messages"][1]["thinking"] is None
+
+
+def test_a_turn_reports_what_it_cost(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """D100: retrieval time, context size, time to first token and speed, per turn."""
+    config(client)
+    monkeypatch.setattr("keyring.get_password", lambda *_: "")
+    pricing = page(client, "Pricing")
+    client.put(
+        f"/api/v1/pages/{pricing['path']}",
+        json={
+            "body": "# Decision\n\nWe decided on 20 euro per seat.\n",
+            "base_hash": pricing["hash"],
+        },
+    )
+
+    async def fake(self: Provider, messages: Any, tools: Any) -> AsyncIterator[dict[str, Any]]:
+        yield {"content": "Twenty euro "}
+        yield {"content": "per seat [1]."}
+        # What llama-server reports at the end of a request.
+        self.metrics.update(
+            {"prompt_n": 40, "cache_n": 900, "predicted_n": 6, "predicted_per_second": 41.37}
+        )
+
+    monkeypatch.setattr(Provider, "chat", fake)
+    c = client.post("/api/v1/ai/conversations", json={"scope": {"kind": "vault"}}).json()
+    response = client.post(
+        f"/api/v1/ai/conversations/{c['id']}/messages",
+        json={"message": "What did we decide about the price per seat?"},
+    )
+    events = events_of(response.text)
+    kinds = [e["type"] for e in events]
+    assert kinds.index("metrics") < kinds.index("answer")
+    m = next(e for e in events if e["type"] == "metrics")["metrics"]
+    assert m["pages"] == 1 and m["chunks"] == 1
+    assert 5 <= m["context_tokens"] <= 40  # one short passage, estimated
+    assert m["prompt_tokens"] == 40 and m["completion_tokens"] == 6 and m["cached_tokens"] == 900
+    assert m["tokens_per_second"] == 41.4 and m["model_calls"] == 1 and m["tool_calls"] == 0
+    assert m["first_token_ms"] is not None and 0 <= m["first_token_ms"] <= m["total_ms"]
+    assert m["retrieval_ms"] <= m["total_ms"]
+    assert [(s["query"], s["hits"]) for s in m["searches"]] == [
+        ("What did we decide about the price per seat?", 1)
+    ]
+    # Stored with the answer (the details line survives a reload) and on the run.
+    last = client.get(f"/api/v1/ai/conversations/{c['id']}").json()["messages"][-1]
+    assert last["metrics"] == m
+    run = client.app.state.db.execute(
+        "SELECT output_json FROM runs WHERE id=?", (last["run_id"],)
+    ).fetchone()
+    assert json.loads(run["output_json"])["metrics"]["prompt_tokens"] == 40
+
+
+def test_estimate_tokens_is_stable_and_cheap() -> None:
+    from graite.retrieval.metrics import estimate_tokens
+
+    assert estimate_tokens("") == 0
+    assert estimate_tokens("abcd") == 1 and estimate_tokens("abcde") == 2
+    assert estimate_tokens("x" * 4000) == 1000

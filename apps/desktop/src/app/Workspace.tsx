@@ -18,6 +18,7 @@ import { Sidebar } from "./Sidebar";
 import { ModelsPage, type SettingsTab } from "@/models/ModelsPage";
 import { SECTIONS } from "@/settings/sections";
 import { ChatPanel, type ChatRequest } from "@/chat/ChatPanel";
+import { SearchPalette } from "@/search/SearchPalette";
 import { useAssistant } from "@/assistant/useAssistant";
 import { AIPage } from "@/ai/AIPage";
 import type { DaemonInfo } from "@/lib/platform";
@@ -100,6 +101,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
   const [chatOpen, setChatOpen] = useState(false);
   // A request for the page's AI from a block, sent (or drafted) when the panel opens.
   const [aiRequest, setAiRequest] = useState<ChatRequest | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const aiRequestId = useRef(0);
   useEffect(() => {
     const onAsk = (e: Event) => {
@@ -168,6 +170,10 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
         const next = closeTab(tabsRef.current, active, active);
         setTabs(next.tabs);
         setSelectedPath(next.active);
+      } else if (e.key.toLowerCase() === "k" && !e.shiftKey) {
+        // Find a page by title or text, from anywhere in the app.
+        e.preventDefault();
+        setSearchOpen((open) => !open);
       } else if (e.key === "Tab" && e.ctrlKey && tabsRef.current.length > 1) {
         e.preventDefault();
         setSelectedPath(cycleTab(tabsRef.current, active, e.shiftKey ? -1 : 1));
@@ -680,6 +686,20 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
             request={aiRequest}
           />
         )}
+      <SearchPalette
+        open={searchOpen}
+        tree={tree}
+        onOpenPage={navigatePage}
+        onClose={() => setSearchOpen(false)}
+        onAsk={
+          activePage
+            ? (question) => {
+                setChatOpen(true);
+                setAiRequest({ id: ++aiRequestId.current, prompt: question, mode: "ask" });
+              }
+            : undefined
+        }
+      />
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
       {modelsOpen && (
         <ModelsPage

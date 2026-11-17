@@ -31,6 +31,7 @@ export function ScopeMenu({
   onChoose,
   disabled,
   indexing = 0,
+  chips = false,
 }: {
   scope: Scope;
   tree: TreeNode[];
@@ -42,6 +43,8 @@ export function ScopeMenu({
   disabled?: boolean;
   /** Sections still waiting to be indexed. */
   indexing?: number;
+  /** In a page's chat: the three usual scopes as chips, with the menu for the rest. */
+  chips?: boolean;
 }) {
   const choice = choiceOf(scope, page);
   const label = useMemo(
@@ -64,7 +67,20 @@ export function ScopeMenu({
       {choice === key && <Check size={14} />}
     </DropdownMenuItem>
   );
-  return (
+  const chip = (key: Choice, text: string, hint: string, next: Scope) => (
+    <button
+      type="button"
+      aria-pressed={choice === key}
+      title={hint}
+      disabled={disabled}
+      onClick={() => onChange(next)}
+    >
+      {text}
+    </button>
+  );
+  // With chips, the menu only names a choice the chips cannot show (chosen pages, none).
+  const named = !chips || !page || choice === "chosen" || choice === "none";
+  const menu = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
@@ -75,8 +91,8 @@ export function ScopeMenu({
           data-none={choice === "none" || undefined}
           disabled={disabled}
         >
-          {choice === "none" ? <Ban size={12} /> : <Files size={12} />}
-          <span>{label}</span>
+          {named && (choice === "none" ? <Ban size={12} /> : <Files size={12} />)}
+          {named && <span>{label}</span>}
           <ChevronDown size={12} />
         </button>
       </DropdownMenuTrigger>
@@ -109,5 +125,27 @@ export function ScopeMenu({
         {item("none", Ban, "Deselect all", "Answer without your pages", () => onChange(NO_PAGES))}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+  if (!chips || !page) return menu;
+  return (
+    <span className="ai-scope-chips" role="group" aria-label="Where the AI may search">
+      {chip("page", "This page", "Search only the page you are on", {
+        kind: "page",
+        roots: [page],
+        excluded: [],
+      })}
+      {chip("subpages", "+ subpages", "Search this page and the pages under it", {
+        kind: "folder",
+        roots: [page],
+        excluded: [],
+      })}
+      {chip(
+        "all",
+        "Everywhere",
+        "May search all your pages. It searches; it does not read them all.",
+        ALL_PAGES,
+      )}
+      {menu}
+    </span>
   );
 }

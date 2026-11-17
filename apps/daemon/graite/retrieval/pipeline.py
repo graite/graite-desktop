@@ -27,8 +27,11 @@ from graite.models.config import AIConfig, is_cloud
 from graite.profile import first_name
 from graite.retrieval import answer as answering
 from graite.retrieval import followup, research
+from graite.retrieval import lean as lean_mode
 from graite.retrieval.context import Source, build
 from graite.retrieval.contextset import ContextSet
+from graite.retrieval.metrics import TurnTimer
+from graite.retrieval.metrics import hits as found_hits
 from graite.retrieval.scope import ResolvedScope, Scope
 from graite.retrieval.scope import resolve as resolve_scope
 from graite.retrieval.search import Searcher
@@ -91,6 +94,13 @@ class TurnContext:
     reply_language: str | None = None  # a language code; spoken turns follow the speaker
     user_name: str | None = None
     thinking: bool | None = None
+    # How a plain question in chat is answered (retrieval/lean.py): "quick" is one search
+    # and one model call, "deep" is research in small steps. None keeps the tool loop, which
+    # agents, the assistant and requests that change pages always use.
+    depth: Literal["quick", "deep"] | None = None
+    # Set by a lean turn: its system prompt, so a follow-up request (the chat title) can
+    # start from the same cached prefix.
+    system_prompt: str = ""
     # "auto" searches the vault before answering. "on_demand" searches nothing and gives the
     # model the page tree instead, so it opens what the turn actually needs — the assistant
     # talks about far more than the notes, and a spoken "hi" should not cost a vault search.
@@ -360,6 +370,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
     yield {"type": "run", "run_id": recorder.id}
     query = ctx.search_query or ctx.question
     started = time.monotonic()
+    timer = TurnTimer()
     embedder = getattr(state, "embedder", None)
     searcher = Searcher(state.db, embedder)
     context = ctx.context
@@ -422,6 +433,19 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             plan.max_rounds = min(plan.max_rounds, 3)
         decision = followup.decide(query, ctx.history, context.texts())
         budget = answering.source_budget(ctx.config.context_size, ctx.task or ctx.question)
+        # Interactive chat, as opposed to an agent run or the assistant.
+        chat = not ctx.is_agent and ctx.persona is None
+        lean = (
+            ctx.depth
+            if chat
+            and ctx.mode == "ask"
+            and ctx.retrieve == "auto"
+            and not lean_mode.wants_change(ctx.question)
+            else None
+        )
+        # One budget for retrieved context, in tokens (D102); Deep research gets twice it.
+        token_budget = ctx.config.context_budget_tokens * (2 if lean == "deep" else 1)
+        budget = min(budget, token_budget * 4)
         candidates = []
         retrieved = False
         if ctx.retrieve == "on_demand":
@@ -429,13 +453,42 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             recorder.finish_step(step, reused=len(context))
             is_weak = False
             max_rounds = 2
+        elif lean == "deep" and decision.retrieve:
+            # The searches happen step by step once the model is loaded (see below).
+            retrieved = True
+            is_weak = False
+            max_rounds = 1
+        elif lean == "quick" and decision.retrieve:
+            retrieved = True
+            step = recorder.step("retrieve", "quick", question=query[:500], pages=len(scope.paths))
+            yield {"type": "status", "text": "Searching your pages…"}
+            search_started = time.monotonic()
+            candidates = await searcher.search(
+                query, scope, k=lean_mode.QUICK_PASSAGES + 3, plan=plan
+            )
+            timer.searched(query, len(candidates), search_started)
+            added = context.add_many(
+                lean_mode.passages(candidates, token_budget, lean_mode.QUICK_PASSAGES)
+            )
+            recorder.finish_step(
+                step,
+                candidates=len(candidates),
+                sources=[s.to_dict(snippet_chars=80) for s in context.sources if s.n in added],
+                semantic=searcher.semantic_available,
+            )
+            is_weak = research.weak(
+                candidates, plan, semantic_available=searcher.semantic_available
+            )
+            max_rounds = 1
         elif decision.retrieve:
             retrieved = True
             step = recorder.step(
                 "retrieve", plan.label, question=query[:500], pages=len(scope.paths)
             )
             yield {"type": "status", "text": "Searching your pages…"}
+            search_started = time.monotonic()
             candidates = await searcher.search(query, scope, plan=plan)
+            timer.searched(query, len(candidates), search_started)
             added = context.add_many(build(state.db, candidates, budget))
             recorder.finish_step(
                 step,
@@ -459,7 +512,6 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
         index_status = embedder.status() if embedder is not None else {}
         # Agents and the assistant follow their definition's mode (Ask = report only);
         # interactive chat may propose in every mode, narrowed per mode.
-        chat = not ctx.is_agent and ctx.persona is None
         groups = ctx.groups or (chat_groups_for(ctx.mode) if chat else groups_for(ctx.mode))
         registry = Registry(state.fileops, scope, searcher=searcher, groups=groups)
         narrow = MODE_TOOLS.get(ctx.mode)
@@ -559,8 +611,11 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                 budget,
                 preferred_paths=ctx.preferred_paths,
                 first=data_numbers,
-                earlier=4 if data_numbers else None,
+                # A lean turn that searched brings little along from earlier turns.
+                earlier=4 if data_numbers else 2 if lean and retrieved else None,
             )
+            if lean:
+                prompt_sources = lean_mode.trim(prompt_sources, token_budget)
         if ctx.persona is not None and ctx.memory_root:
             # These notes already have their own budgeted memory section. Duplicating them
             # as old search hits used to outweigh the current request and its corrections.
@@ -590,7 +645,39 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
         can_propose = "propose" in groups and bool(registry.allowed & propose_names)
         # The assistant may know the user under its own name for them; otherwise the profile's.
         user_name = ctx.user_name or first_name()
-        if ctx.is_agent:
+        page_notes: list[str] = []
+        if lean:
+            # A short system prompt that is the same for every call of the conversation,
+            # then the last turns, then this turn's evidence and question (lean.py).
+            page_notes = [
+                i["text"]
+                for i in prompt_policy.instructions
+                if i["source"] not in {x["source"] for x in scope.policy.instructions}
+            ]
+            prompt = [
+                {
+                    "role": "system",
+                    "content": lean_mode.system_prompt(
+                        scope.policy.instructions,
+                        answering._user_line(user_name),
+                        scope.scope.kind == "none",
+                    ),
+                },
+                *lean_mode.history_messages(ctx.history, 4000),
+                {
+                    "role": "user",
+                    "content": lean_mode.user_message(
+                        ctx.question,
+                        prompt_sources,
+                        weak=is_weak,
+                        page_path=ctx.page_path,
+                        page_instructions=page_notes,
+                    ),
+                },
+            ]
+            included = len(prompt_sources)
+            ctx.system_prompt = prompt[0]["content"]
+        elif ctx.is_agent:
             prompt, included = answering.agent_messages(
                 prompt_policy,
                 prompt_sources,
@@ -644,19 +731,20 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             )
         # Only claim the passages the model was actually given: anything gathered this turn
         # that did not fit was never shown and is dropped; older ones stay citable.
-        if ctx.page_path:
+        if ctx.page_path and not lean:
             prompt[0]["content"] += (
                 f"\n## Current page\nThe user is working on [[{ctx.page_path}]]. "
                 "Requests for a board, table, list or content on this page belong in its body. "
                 "Use its direct children for cards; create a separate board page only when "
                 "the user explicitly requests one. Read the page before changing it.\n"
             )
-        if catalog and {"read_rows", "run_query_ro"} & registry.allowed:
+        if catalog and not lean and {"read_rows", "run_query_ro"} & registry.allowed:
             prompt[0]["content"] += databases_section(
                 catalog, data_numbers, min(2400, max(600, budget // 10))
             )
         context.keep_only([s.n for s in prompt_sources[:included]])
         context.drop_unseen()
+        timer.retrieved(started, prompt_sources[:included])
 
         def sources_event() -> dict[str, Any]:
             return {
@@ -677,16 +765,20 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
         # What the retrieval plan asked for names the step; what the loop is given is the
         # round count recorded on it. They are not the same thing.
         deep = max_rounds > 2
-        if groups & {"read", "search", "propose"}:
+        if lean:
+            max_rounds = 1  # no tool loop: the evidence is already in the message
+        elif groups & {"read", "search", "propose"}:
             # Look something up, act on it, then answer: two rounds cannot cover that, and an
             # on-demand turn does all of its reading here.
             max_rounds = max(max_rounds, 6)
         if ctx.is_agent:
             max_rounds = max(max_rounds, 8)  # unattended: read, propose, then a report
-        if can_propose:
+        if can_propose and not lean:
             max_rounds = max(max_rounds, 12)
         gen = recorder.step(
-            "research" if deep else "generate", included=included, rounds=max_rounds
+            "research" if deep or lean == "deep" else "generate",
+            included=included,
+            rounds=max_rounds,
         )
         yield {"type": "status", "text": "Preparing your model…"}
         answer_text = ""
@@ -698,6 +790,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
         proposals_made: list[str] = []
         tokens_in = tokens_out = 0
         tool_steps: dict[str, tuple[int, dict[str, Any]]] = {}
+        recorder_steps: dict[str, int] = {}
         activity: list[dict[str, Any]] = []
 
         def take_tokens() -> None:
@@ -705,6 +798,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             prompt_n, completion_n = _tokens(provider.metrics)
             tokens_in += prompt_n
             tokens_out += completion_n
+            timer.request_done(provider.metrics)
             provider.metrics.clear()
 
         # The caller's choice wins (a spoken turn never waits for thinking); otherwise the
@@ -714,11 +808,52 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             think = ctx.config.thinking == "on"
         effort = ctx.config.effort if think is not False and ctx.config.effort != "medium" else None
         async with state.models.use(ctx.config) as provider:
+            if lean == "deep" and retrieved:
+                # Research in small steps, each with a context of its own; the answer is
+                # then written from the notes, never from the whole pile of passages.
+                gathered = lean_mode.Research()
+
+                def number(found: list[Source]) -> list[Source]:
+                    numbers = set(context.add_many(found))
+                    return [s for s in context.sources if s.n in numbers]
+
+                async for event in lean_mode.research(
+                    provider=provider,
+                    system=prompt[0]["content"],
+                    question=ctx.question,
+                    search=lambda q: searcher.search(q, scope, k=lean_mode.DEEP_PASSAGES + 2),
+                    add_sources=number,
+                    budget_tokens=token_budget,
+                    timer=timer,
+                    options={"thinking": False},
+                    out=gathered,
+                ):
+                    shown = event["step"]
+                    activity[:] = [a for a in activity if a["id"] != shown["id"]] + [shown]
+                    if shown["status"] == "running":
+                        recorder_steps[shown["id"]] = recorder.step("step", shown["name"])
+                    elif shown["id"] in recorder_steps:
+                        recorder.finish_step(
+                            recorder_steps.pop(shown["id"]), summary=shown["text"][:300]
+                        )
+                    yield event
+                tool_calls += gathered.searched
+                timer.metrics.chunks = len(gathered.sources)
+                timer.metrics.pages = len({s.page_path for s in gathered.sources})
+                prompt[-1]["content"] = lean_mode.user_message(
+                    ctx.question,
+                    [],
+                    notes=gathered.notes,
+                    page_path=ctx.page_path,
+                    page_instructions=page_notes,
+                )
+                yield sources_event()
             async for item in agent_loop(
                 provider,
                 prompt,
                 registry,
                 max_rounds=max_rounds,
+                max_tool_calls=None if ctx.is_agent else ctx.config.max_tool_calls,
                 thinking=think,
                 effort=effort,
                 context_size=ctx.config.context_size,
@@ -728,6 +863,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                     continue
                 if item["type"] == "token":
                     raw += item["text"]
+                    timer.token()
                 elif item["type"] == "thinking":
                     reasoning += item["text"]
                 elif item["type"] == "reset":
@@ -748,6 +884,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                         yield {"type": "activity", "step": activity_step}
                 elif item["type"] == "tool_start":
                     tool_calls += 1
+                    timer.tool_started(item["id"])
                     searched |= item["name"] == "search_vault"
                     tool_args = _tool_input(item["arguments"])
                     tool_steps[item["id"]] = (
@@ -760,7 +897,13 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                         "kind": "tool",
                         "name": item["name"],
                         "status": "running",
-                        "text": str(tool_args.get("summary") or tool_args.get("path") or ""),
+                        # What the step was about: a change's summary, a page, or the
+                        # words searched for ("Searched “invoice Q3” · 6 hits · 120 ms").
+                        "text": str(
+                            tool_args.get("summary")
+                            or tool_args.get("path")
+                            or (f"“{tool_args['query']}”" if tool_args.get("query") else "")
+                        ),
                     }
                     activity.append(activity_step)
                     yield {"type": "activity", "step": dict(activity_step)}
@@ -770,8 +913,12 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                 if item["type"] == "tool_end":
                     result = item.get("result")
                     failed = isinstance(result, dict) and bool(result.get("error"))
+                    took = 0
                     if item["id"] in tool_steps:
                         tool_step, tool_args = tool_steps.pop(item["id"])
+                        took = timer.tool_finished(
+                            item["id"], item.get("name", ""), tool_args, result
+                        )
                         recorder.finish_step(
                             tool_step,
                             "failed" if failed else "succeeded",
@@ -779,6 +926,9 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                         )
                     activity_step = next(s for s in activity if s["id"] == item["id"])
                     activity_step["status"] = "failed" if failed else "succeeded"
+                    activity_step["ms"] = took
+                    if activity_step["name"] == "search_vault" and not failed:
+                        activity_step["hits"] = found_hits(result)
                     if failed:
                         activity_step["text"] = (
                             str(result.get("error")) if isinstance(result, dict) else "Tool failed."
@@ -822,6 +972,8 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             clarifying=bool(clarify),
         )
         recorder.finish_step(gen, cited=cited, tool_calls=tool_calls, chars=len(text))
+        measured = timer.finish().to_dict()
+        yield {"type": "metrics", "metrics": measured}
         if clarify:
             yield {"type": "clarify", "question": clarify}
         status = "needs_input" if clarify else "succeeded"
@@ -842,6 +994,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             "activity": activity,
             "proposals": proposals_made,
             "limits": lines,
+            "metrics": measured,
             "run_id": recorder.id,
         }
         recorder.finish(
@@ -858,6 +1011,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
             if tokens_in or tokens_out
             else None,
             seconds=round(time.monotonic() - started, 2),
+            metrics=measured,
         )
     except BaseException as exc:
         status = "cancelled" if exc.__class__.__name__ == "CancelledError" else "failed"

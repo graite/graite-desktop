@@ -44,6 +44,13 @@ class AIConfig(BaseModel):
     # "auto" sends nothing and leaves it to the model's own default.
     thinking: Literal["auto", "on", "off"] = "auto"
     effort: Literal["low", "medium", "high"] = "medium"
+    # The most retrieved text one turn may put in front of the model, in tokens (D102):
+    # passages and tool results together. Lowest-ranked material is left out first. Deep
+    # research may use twice this. Small on purpose: a 4-8B local model reads a few hundred
+    # tokens a second, so every thousand tokens is seconds of waiting before the first word.
+    context_budget_tokens: int = Field(default=3000, ge=500, le=64000)
+    # How many tool calls one chat turn may make before it has to answer.
+    max_tool_calls: int = Field(default=8, ge=1, le=64)
 
     @model_validator(mode="after")
     def valid_url(self) -> AIConfig:
@@ -289,7 +296,9 @@ def initialize(db: sqlite3.Connection, token: str) -> None:
 
 
 # Settings that only change what is sent with a request: no engine restart is needed for them.
-REQUEST_ONLY = frozenset({"max_output_tokens", "thinking", "effort"})
+REQUEST_ONLY = frozenset(
+    {"max_output_tokens", "thinking", "effort", "context_budget_tokens", "max_tool_calls"}
+)
 
 
 def save_reasoning(db: sqlite3.Connection, thinking: str | None, effort: str | None) -> AIConfig:

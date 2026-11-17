@@ -1,3 +1,4 @@
+import { mentionedPaths } from "@/ai/mentions";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Settings2, Orbit } from "lucide-react";
@@ -177,7 +178,7 @@ export function AIPage({
       return;
     }
     setDraft("");
-    await chat.send(text, { mode, attachments: files.take() });
+    await chat.send(text, { mode, attachments: files.take(), pinned: mentionedPaths(text) });
   };
 
   const turnIntoPage = async (message: ChatMessage) => {

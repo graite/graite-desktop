@@ -147,8 +147,13 @@ async def run(
     thinking: bool | None = None,
     effort: str | None = None,
     context_size: int | None = None,
+    max_tool_calls: int | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
+    """Run the tool loop. `registry` may be None when `max_rounds` is 1: a single round has
+    no tools. After `max_tool_calls` tool calls the next round is the last, so a turn cannot
+    keep reading for ever."""
     rounds = max(1, max_rounds)
+    executed = 0
     options: dict[str, Any] = {} if thinking is None else {"thinking": thinking}
     if effort:
         options["effort"] = effort
@@ -161,7 +166,9 @@ async def run(
         content = reasoning = ""
         reasoning_details: dict[int, dict[str, Any]] = {}
         truncated = False
-        last_round = round_index == rounds - 1
+        last_round = round_index == rounds - 1 or (
+            max_tool_calls is not None and executed >= max_tool_calls
+        )
         schemas = [] if last_round else registry.schemas()
         if context_size and compact_results(messages, schemas, context_size, provider.max_tokens):
             yield {"type": "status", "text": "Keeping earlier results concise while continuing…"}
@@ -253,6 +260,7 @@ async def run(
         if len(calls) > 16:
             raise ValueError("The model requested too many tools at once.")
         ordered = [calls[k] for k in sorted(calls)]
+        executed += len(ordered)
         # A clarification is a pause, not an invitation to execute the other calls in a batch.
         questions = [c for c in ordered if c["function"]["name"] == "request_clarification"]
         if questions:

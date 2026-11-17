@@ -347,6 +347,40 @@
 .ai-limits summary {
   cursor: pointer;
 }
+.ai-turn-details {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--muted-foreground);
+}
+.ai-turn-details summary {
+  cursor: pointer;
+  width: fit-content;
+}
+.ai-turn-details summary:hover {
+  color: var(--foreground);
+}
+.ai-turn-details dl {
+  margin: 6px 0 0;
+  display: grid;
+  gap: 1px;
+}
+.ai-turn-details dl > div {
+  display: flex;
+  gap: 10px;
+}
+.ai-turn-details dt {
+  flex: 0 0 170px;
+}
+.ai-turn-details dd {
+  margin: 0;
+  color: var(--foreground);
+}
+.ai-turn-details ul {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
 .ai-message-actions {
   display: flex;
   gap: 12px;
@@ -1114,4 +1148,93 @@
 }
 .ai-scope-menu[data-none] {
   color: var(--tag-orange);
+}
+
+.ai-composer {
+  position: relative;
+}
+.ai-mention-list {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: calc(100% + 4px);
+  z-index: 20;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 240px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--popover);
+  box-shadow: 0 8px 24px -12px rgb(0 0 0 / 30%);
+}
+.ai-mention-list li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.ai-mention-list li[aria-selected="true"] {
+  background: var(--accent);
+}
+.ai-mention-list small {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-scope-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.ai-scope-chips button[aria-pressed] {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.ai-scope-chips button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.ai-composer .ai-composer-depth[aria-pressed="true"] {
+  color: var(--foreground);
+}
+
+.ai-search-help {
+  width: 340px;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.ai-search-help h3 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.ai-search-help dt {
+  font-weight: 600;
+  margin-top: 8px;
+}
+.ai-search-help dd {
+  margin: 0;
+  color: var(--muted-foreground);
+}
+.ai-search-help p {
+  margin-top: 10px;
+  color: var(--muted-foreground);
+}
+.ai-search-help kbd {
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
 }

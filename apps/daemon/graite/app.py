@@ -36,6 +36,7 @@ from graite.api import assistant as assistant_api
 from graite.api import engines as engines_api
 from graite.api import mcp as mcp_api
 from graite.api import profile as profile_api
+from graite.api import search as search_api
 from graite.api import templates as templates_api
 from graite.api import voice as voice_api
 from graite.api.auth import BearerAuthMiddleware
@@ -48,7 +49,7 @@ from graite.index import db
 from graite.index.embedder import Embedder
 from graite.jobs.cron import Cron
 from graite.jobs.handlers import HANDLERS
-from graite.jobs.queue import PRIORITY_BULK, PRIORITY_HOT, JobQueue
+from graite.jobs.queue import PRIORITY_BULK, PRIORITY_HOT, PRIORITY_SUMMARY, JobQueue
 from graite.jobs.worker import Worker
 from graite.mcp import runtime
 from graite.mcp.server import McpEndpoint, McpService
@@ -103,6 +104,8 @@ def create_app(settings: Settings) -> FastAPI:
             app.state.media_jobs[job.id] = job
         # Extraction id -> the id of its `media_extract` job in the queue, while it is queued.
         app.state.media_queue = {}
+        # Fire-and-forget tasks keep a reference here until they finish.
+        app.state.background_tasks = set()
         set_store(Store(settings.app_dir / "connections.json"))
         set_profile_store(ProfileStore(settings.app_dir / "profile.json"))
         set_cloud(CloudSession(settings.cloud_url, settings.app_dir))
@@ -128,6 +131,13 @@ def create_app(settings: Settings) -> FastAPI:
             )
             app.state.queue.enqueue(
                 "embed", key="embed", priority=PRIORITY_HOT if hot else PRIORITY_BULK
+            )
+            # One-line summaries for the vault map, lowest priority, redone per changed page.
+            app.state.queue.enqueue(
+                "summarize_page",
+                {"preemptible": True},
+                key="summarize_page",
+                priority=PRIORITY_SUMMARY,
             )
 
         app.state.fileops.on_indexed = on_indexed
@@ -221,6 +231,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(trash.router, prefix=API_PREFIX)
     app.include_router(templates_api.router, prefix=API_PREFIX)
     app.include_router(mcp_api.router, prefix=API_PREFIX)
+    app.include_router(search_api.router, prefix=API_PREFIX)
     app.include_router(events.router)
     # MCP over streamable HTTP, behind the same bearer token. A plain route, not a mount:
     # clients POST to `/mcp` exactly and a mount would redirect them to `/mcp/`.

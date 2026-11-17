@@ -1593,3 +1593,21 @@
   line-height: 1.5;
   color: var(--muted-foreground);
 }
+
+.ai-index-facts {
+  display: grid;
+  gap: 2px;
+  margin: 10px 0 14px;
+  font-size: 12px;
+}
+.ai-index-facts > div {
+  display: flex;
+  gap: 10px;
+}
+.ai-index-facts dt {
+  flex: 0 0 130px;
+  color: var(--muted-foreground);
+}
+.ai-index-facts dd {
+  margin: 0;
+}

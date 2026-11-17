@@ -1,3 +1,4 @@
+import { chatDepth } from "./depth";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Proposal } from "@/lib/review";
 import {
@@ -37,7 +38,7 @@ export const TOOL_LABELS: Record<string, string> = {
 
 /** The same tools once a step has finished, for the compact list of completed steps. */
 export const TOOL_DONE_LABELS: Record<string, string> = {
-  search_vault: "Searched your pages",
+  search_vault: "Searched",
   list_children: "Listed subpages",
   read_page: "Read",
   load_skill: "Loaded a skill",
@@ -63,6 +64,8 @@ export interface SendOptions {
   attachments?: string[];
   selection?: { page_path: string; text: string };
   pagePath?: string;
+  /** Pages pinned with @ in the message. */
+  pinned?: string[];
 }
 
 function asContext(sources: Source[], previous: ContextEntry[], turn: number): ContextEntry[] {
@@ -235,6 +238,9 @@ export function useChatStream(options: {
             attachments: opts.attachments,
             selection: opts.selection,
             page_path: opts.pagePath,
+            // Draft and Act always work with tools; a question is quick unless Deep is on.
+            depth: (opts.mode ?? "ask") === "ask" ? chatDepth() : undefined,
+            pinned_paths: opts.pinned?.length ? opts.pinned : undefined,
           },
           controller.signal,
           (event) => handle(event, id),

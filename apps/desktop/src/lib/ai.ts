@@ -90,6 +90,7 @@ export type AIEvent =
   | { type: "tool_end"; name: string; result: unknown }
   | { type: "sources"; sources: Source[]; new?: number[] }
   | { type: "limits"; items: string[]; excluded_local_only: string[]; pending_chunks: number }
+  | { type: "metrics"; metrics: Record<string, unknown> }
   | { type: "clarify"; question: string }
   | { type: "proposal"; proposal: import("./review").Proposal }
   | {
@@ -114,6 +115,10 @@ export interface SendBody {
   attachments?: string[];
   selection?: { page_path: string; text: string };
   replace_from?: number;
+  /** Ask mode only: one search and one model call, or research in several small steps. */
+  depth?: "quick" | "deep";
+  /** Pages the user pinned with @: given to the model first, whatever the search finds. */
+  pinned_paths?: string[];
 }
 
 const enc = encodeURIComponent;

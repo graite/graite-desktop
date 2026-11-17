@@ -1,0 +1,361 @@
+{
+  "label": "baseline",
+  "vault": "generated",
+  "pages": 1000,
+  "model": "gemma-4-E2B-it-Q4_K_M.gguf",
+  "context_size": 8192,
+  "semantic": true,
+  "date": "2026-11-17",
+  "rows": [
+    {
+      "question": "When does the Brightwater Dairy contract renew, and at what monthly price?",
+      "page": "Customers/Brightwater Dairy",
+      "answer": "The Brightwater Dairy contract renews on 3 March 2027 at a monthly price of 1,850 euros [1].",
+      "error": null,
+      "cited": [
+        "Customers/Brightwater Dairy"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 64.1,
+      "metrics": {
+        "retrieval_ms": 49,
+        "pages": 7,
+        "chunks": 8,
+        "context_tokens": 1599,
+        "prompt_tokens": 5702,
+        "completion_tokens": 160,
+        "cached_tokens": 0,
+        "prompt_ms": 56241,
+        "first_token_ms": 62187,
+        "total_ms": 63211,
+        "tokens_per_second": 29.9,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "When does the Brightwater Dairy contract renew, and at what monthly price?",
+            "hits": 24,
+            "ms": 16
+          }
+        ]
+      }
+    },
+    {
+      "question": "Which invoice to Halden Freight is overdue, and by how many days?",
+      "page": "Invoices/Invoice 2026-0317",
+      "answer": "Invoice 2026-0317 to Halden Freight is 46 days overdue [1].",
+      "error": null,
+      "cited": [
+        "Invoices/Invoice 2026-0317"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 67.96,
+      "metrics": {
+        "retrieval_ms": 26,
+        "pages": 12,
+        "chunks": 12,
+        "context_tokens": 1566,
+        "prompt_tokens": 5886,
+        "completion_tokens": 261,
+        "cached_tokens": 0,
+        "prompt_ms": 58473,
+        "first_token_ms": 66657,
+        "total_ms": 67510,
+        "tokens_per_second": 28.9,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "Which invoice to Halden Freight is overdue, and by how many days?",
+            "hits": 40,
+            "ms": 18
+          }
+        ]
+      }
+    },
+    {
+      "question": "What did the pricing review decide about the Team plan?",
+      "page": "Meetings/2026-09-22 Pricing review",
+      "answer": "The decision made during the pricing review was to raise the Team plan from 12 to 14 euros per seat starting from January 1 [1].",
+      "error": null,
+      "cited": [
+        "Meetings/2026-09-22 Pricing review"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 67.52,
+      "metrics": {
+        "retrieval_ms": 24,
+        "pages": 10,
+        "chunks": 10,
+        "context_tokens": 1567,
+        "prompt_tokens": 5826,
+        "completion_tokens": 275,
+        "cached_tokens": 0,
+        "prompt_ms": 57815,
+        "first_token_ms": 65977,
+        "total_ms": 67091,
+        "tokens_per_second": 29.7,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "What did the pricing review decide about the Team plan?",
+            "hits": 24,
+            "ms": 15
+          }
+        ]
+      }
+    },
+    {
+      "question": "What is blocking the Lantern migration?",
+      "page": "Projects/Lantern migration",
+      "answer": "The Lantern migration is blocked until the customer exports 2.3 terabytes of archives [1].",
+      "error": null,
+      "cited": [
+        "Projects/Lantern migration"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 58.55,
+      "metrics": {
+        "retrieval_ms": 32,
+        "pages": 9,
+        "chunks": 11,
+        "context_tokens": 1546,
+        "prompt_tokens": 5654,
+        "completion_tokens": 69,
+        "cached_tokens": 0,
+        "prompt_ms": 55827,
+        "first_token_ms": 57533,
+        "total_ms": 58213,
+        "tokens_per_second": 29.1,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "What is blocking the Lantern migration?",
+            "hits": 24,
+            "ms": 11
+          }
+        ]
+      }
+    },
+    {
+      "question": "Who signs large orders at Northgate Mills, and above which amount?",
+      "page": "People/Odile Marchetti",
+      "answer": "Odile Marchetti leads procurement at Northgate Mills and signs every order above 5,000 euros [1].",
+      "error": null,
+      "cited": [
+        "People/Odile Marchetti"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 69.2,
+      "metrics": {
+        "retrieval_ms": 23,
+        "pages": 13,
+        "chunks": 13,
+        "context_tokens": 1627,
+        "prompt_tokens": 5800,
+        "completion_tokens": 185,
+        "cached_tokens": 0,
+        "prompt_ms": 57315,
+        "first_token_ms": 62620,
+        "total_ms": 63462,
+        "tokens_per_second": 30.1,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "Who signs large orders at Northgate Mills, and above which amount?",
+            "hits": 24,
+            "ms": 15
+          }
+        ]
+      }
+    },
+    {
+      "question": "What did interview round 7 find about exporting to spreadsheets?",
+      "page": "Research/Interview round 7",
+      "answer": "Seven of nine interviewed planners said they export to a spreadsheet every Friday [1].",
+      "error": null,
+      "cited": [
+        "Research/Interview round 7"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 64.66,
+      "metrics": {
+        "retrieval_ms": 24,
+        "pages": 11,
+        "chunks": 11,
+        "context_tokens": 1552,
+        "prompt_tokens": 5780,
+        "completion_tokens": 173,
+        "cached_tokens": 0,
+        "prompt_ms": 58020,
+        "first_token_ms": 63268,
+        "total_ms": 63807,
+        "tokens_per_second": 29.9,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "What did interview round 7 find about exporting to spreadsheets?",
+            "hits": 24,
+            "ms": 15
+          }
+        ]
+      }
+    },
+    {
+      "question": "Which depots take part in the Quarry dashboard pilot?",
+      "page": "Projects/Quarry dashboard",
+      "answer": "The Quarry dashboard pilot starts with two depots: Velden and Roermond [1].",
+      "error": null,
+      "cited": [
+        "Projects/Quarry dashboard"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 74.43,
+      "metrics": {
+        "retrieval_ms": 23,
+        "pages": 8,
+        "chunks": 12,
+        "context_tokens": 1596,
+        "prompt_tokens": 5728,
+        "completion_tokens": 248,
+        "cached_tokens": 0,
+        "prompt_ms": 65640,
+        "first_token_ms": 73391,
+        "total_ms": 74014,
+        "tokens_per_second": 29.6,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "Which depots take part in the Quarry dashboard pilot?",
+            "hits": 24,
+            "ms": 14
+          }
+        ]
+      }
+    },
+    {
+      "question": "What does Tessel Marine need before signing for a second year?",
+      "page": "Customers/Tessel Marine",
+      "answer": "Tessel Marine needs tide tables in the mobile app before they sign for a second year [1].",
+      "error": null,
+      "cited": [
+        "Customers/Tessel Marine"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 64.7,
+      "metrics": {
+        "retrieval_ms": 28,
+        "pages": 7,
+        "chunks": 10,
+        "context_tokens": 1636,
+        "prompt_tokens": 5740,
+        "completion_tokens": 130,
+        "cached_tokens": 0,
+        "prompt_ms": 59675,
+        "first_token_ms": 63582,
+        "total_ms": 64250,
+        "tokens_per_second": 28.5,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "What does Tessel Marine need before signing for a second year?",
+            "hits": 24,
+            "ms": 19
+          }
+        ]
+      }
+    },
+    {
+      "question": "How did the first response time change after the shared inbox moved?",
+      "page": "Meetings/2026-10-06 Support retro",
+      "answer": "The median first response time dropped from 9 hours to 2 hours after the shared inbox moved [1].",
+      "error": null,
+      "cited": [
+        "Meetings/2026-10-06 Support retro"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 67.07,
+      "metrics": {
+        "retrieval_ms": 25,
+        "pages": 11,
+        "chunks": 11,
+        "context_tokens": 1601,
+        "prompt_tokens": 5786,
+        "completion_tokens": 252,
+        "cached_tokens": 0,
+        "prompt_ms": 57988,
+        "first_token_ms": 65868,
+        "total_ms": 66627,
+        "tokens_per_second": 29.2,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "How did the first response time change after the shared inbox moved?",
+            "hits": 24,
+            "ms": 16
+          }
+        ]
+      }
+    },
+    {
+      "question": "Why was invoice 2026-0288 credited?",
+      "page": "Invoices/Invoice 2026-0288",
+      "answer": "Invoice 2026-0288 was credited in full because the Almere shipment arrived damaged [1].",
+      "error": null,
+      "cited": [
+        "Invoices/Invoice 2026-0288"
+      ],
+      "retrieved_right": true,
+      "cited_right": true,
+      "answered": true,
+      "wall_s": 67.24,
+      "metrics": {
+        "retrieval_ms": 25,
+        "pages": 10,
+        "chunks": 11,
+        "context_tokens": 1631,
+        "prompt_tokens": 5932,
+        "completion_tokens": 125,
+        "cached_tokens": 0,
+        "prompt_ms": 62501,
+        "first_token_ms": 65933,
+        "total_ms": 66800,
+        "tokens_per_second": 29.1,
+        "model_calls": 1,
+        "tool_calls": 0,
+        "searches": [
+          {
+            "query": "Why was invoice 2026-0288 credited?",
+            "hits": 24,
+            "ms": 16
+          }
+        ]
+      }
+    }
+  ]
+}
