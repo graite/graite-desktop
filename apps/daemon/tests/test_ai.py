@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
@@ -415,9 +416,11 @@ def test_whisper_server_path_is_cleaned_checked_and_kept(
 
     missing = save(str(tmp_path / "nope"))
     assert missing.status_code == 400 and "There is no file" in missing.json()["detail"]
-    not_runnable = save(str(binary))
-    assert not_runnable.status_code == 400 and "not an executable" in not_runnable.json()["detail"]
-    binary.chmod(0o755)
+    if os.name != "nt":  # Windows has no executable bit: any file there may be run
+        not_runnable = save(str(binary))
+        assert not_runnable.status_code == 400
+        assert "not an executable" in not_runnable.json()["detail"]
+        binary.chmod(0o755)
     empty_folder = save(str(tmp_path))
     assert empty_folder.status_code == 400 and "folder without" in empty_folder.json()["detail"]
     # Nothing was saved by the refused attempts.
