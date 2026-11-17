@@ -18,9 +18,11 @@ from pydantic import BaseModel, Field
 
 from graite.jobs.queue import PRIORITY_INTERACTIVE
 from graite.media.decode import AUDIO, IMAGES, MAX_BYTES, MIMES, audio_wav, page_count, render_page
-from graite.media.ocr import recognize
+from graite.media.ocr import recognize, recognize_cloud
 from graite.models.config import load_config
-from graite.models.speech import readable_transcript, transcribe
+from graite.models.sources import OCR_MODEL, SPEECH_MODEL, ocr_source, stt_source, unavailable
+from graite.models.speech import readable_transcript, speech_binary, transcribe, transcribe_cloud
+from graite.vault import policy
 from graite.vault.fileops import FileOps
 from graite.vault.models import PageDoc
 
@@ -131,58 +133,47 @@ async def run_extraction(state: Any, payload: ExtractRequest, job: Extraction) -
     several files queue up and take the local model one after another."""
     ops: FileOps = state.fileops
     try:
-        async with state.models.lock:
-            # Resolve by stable page id after queueing (the user may rename the page).
-            path = ops.attachment_path(payload.page_id, payload.file)
-            if not path.is_file():
-                raise ValueError("The local attachment is missing.")
-            speech = path.suffix.lower() in AUDIO
-            item = state.downloads.items["whisper-large-v3-turbo-q8" if speech else "glm-ocr-q8"]
-            if item.status != "installed":
-                raise ValueError(
-                    "Download "
-                    + ("Whisper Turbo" if speech else "GLM-OCR")
-                    + " under Settings → Documents first."
-                )
-            await state.models.server.stop()
-            state.models.loaded = None
-            config = load_config(state.db)
-            # A private working copy keeps multi-page OCR stable while its page is renamed.
-            with tempfile.TemporaryDirectory(prefix="graite-media-") as directory:
-                working = Path(directory) / ("source" + path.suffix.lower())
-                await asyncio.to_thread(shutil.copyfile, path, working)
-                if speech:
-                    job.progress = "Preparing audio…"
-                    audio = await asyncio.to_thread(audio_wav, working)
-                    job.progress = "Transcribing on device…"
-                    result = await transcribe(
-                        audio, item.local_path, config.whisper_binary_path, max_seconds=3600
-                    )
-                    text = readable_transcript(str(result["text"]))
-                    if not text.strip():
-                        raise ValueError("No speech was detected in this recording.")
-                else:
-                    files = state.downloads.parts(item)
-                    text = await recognize(
-                        working,
-                        item.local_path,
-                        str(state.downloads.file_target(item, files[1])),
-                        config,
-                        lambda message: setattr(job, "progress", message),
-                    )
-            title = ("Transcript" if speech else "Document text") + " · " + payload.name
-            if payload.output == "page":
-                # A new page only: generation never overwrites the user's page or a result.
-                source = quote("../_assets/" + payload.file)
-                clean_title = title.replace("\n", " ")
-                label = payload.name.replace("[", "").replace("]", "").replace("\n", " ")
-                body = f"# {clean_title}\n\nSource: [{label}]({source})\n\n{text.strip()}\n"
-                job.page = await ops.create_media_page(payload.page_id, title, body)
-            else:
-                # The editor inserts this under the file. `_assets` holds what the user
-                # attached, not a second copy of text that ends up in page.md anyway.
-                job.text = text.strip()
-            job.title, job.status, job.progress = title, "done", "Saved locally"
+        # Resolve by stable page id after queueing (the user may rename the page).
+        path = ops.attachment_path(payload.page_id, payload.file)
+        if not path.is_file():
+            raise ValueError("The local attachment is missing.")
+        speech = path.suffix.lower() in AUDIO
+        config = load_config(state.db)
+        source = await (
+            stt_source(config, state.downloads, local_ready=_speech_ready(config, state.downloads))
+            if speech
+            else ocr_source(config, state.downloads)
+        )
+        if source is None:
+            raise ValueError(unavailable("stt" if speech else "ocr"))
+        if source == "graite" and not _cloud_allowed(state, payload.page_id):
+            raise ValueError(
+                "This page is kept on this computer, so Graite Cloud may not read its files. "
+                "Turn on “Use local AI on my computer” under Settings → "
+                + ("Speech" if speech else "Documents")
+                + "."
+            )
+        if source == "graite":
+            text = await _extract_cloud(path, speech, job)
+        else:
+            async with state.models.lock:
+                text = await _extract_local(state, path, speech, config, job)
+        title = ("Transcript" if speech else "Document text") + " · " + payload.name
+        if payload.output == "page":
+            # A new page only: generation never overwrites the user's page or a result.
+            link = quote("../_assets/" + payload.file)
+            clean_title = title.replace("\n", " ")
+            label = payload.name.replace("[", "").replace("]", "").replace("\n", " ")
+            body = f"# {clean_title}\n\nSource: [{label}]({link})\n\n{text.strip()}\n"
+            job.page = await ops.create_media_page(payload.page_id, title, body)
+        else:
+            # The editor inserts this under the file. `_assets` holds what the user
+            # attached, not a second copy of text that ends up in page.md anyway.
+            job.text = text.strip()
+        job.title, job.status = title, "done"
+        job.progress = (
+            "Saved locally" if source == "local" else "Read by Graite Cloud, saved locally"
+        )
     except asyncio.CancelledError:
         job.status, job.progress = "cancelled", "Cancelled"
         raise
@@ -191,7 +182,7 @@ async def run_extraction(state: Any, payload: ExtractRequest, job: Extraction) -
         job.error = (
             str(exc)
             if isinstance(exc, (ValueError, HTTPException))
-            else "The local model could not finish. Check the file and engine in Settings."
+            else "The model could not finish. Check the file and the engine in Settings."
         )
     except Exception:
         log.exception("Media extraction failed")
@@ -414,3 +405,82 @@ async def move_media(request: Request, payload: MoveMediaRequest) -> dict[str, s
         raise HTTPException(400, str(exc)) from exc
     except FileNotFoundError as exc:
         raise HTTPException(404, "The page or media file no longer exists.") from exc
+
+
+def _cloud_allowed(state: Any, page_id: str) -> bool:
+    rel = state.fileops.page_by_id(page_id)
+    return policy.resolve(state.settings.vault, state.db, rel).cloud_allowed
+
+
+def _speech_ready(config: Any, downloads: Any) -> bool:
+    item = downloads.items.get(SPEECH_MODEL)
+    if item is None or item.status != "installed":
+        return False
+    return speech_binary(config.whisper_binary_path, config.tts_binary_path) is not None
+
+
+async def _with_copy(path: Path, work: Any) -> str:
+    # A private working copy keeps multi-page OCR stable while its page is renamed.
+    with tempfile.TemporaryDirectory(prefix="graite-media-") as directory:
+        working = Path(directory) / ("source" + path.suffix.lower())
+        await asyncio.to_thread(shutil.copyfile, path, working)
+        return str(await work(working))
+
+
+async def _extract_cloud(path: Path, speech: bool, job: Extraction) -> str:
+    async def work(working: Path) -> str:
+        if speech:
+            job.progress = "Preparing audio…"
+            audio = await asyncio.to_thread(audio_wav, working)
+            job.progress = "Transcribing with Graite Cloud…"
+            result = await transcribe_cloud(audio)
+            text = readable_transcript(str(result["text"]))
+            if not text.strip():
+                raise ValueError("No speech was detected in this recording.")
+            return text
+        return await recognize_cloud(working, lambda message: setattr(job, "progress", message))
+
+    return await _with_copy(path, work)
+
+
+async def _extract_local(state: Any, path: Path, speech: bool, config: Any, job: Extraction) -> str:
+    item = state.downloads.items[SPEECH_MODEL if speech else OCR_MODEL]
+    if item.status != "installed":
+        raise ValueError(
+            "Download "
+            + (
+                "Whisper Turbo under Settings → Speech"
+                if speech
+                else "GLM-OCR under Settings → Documents"
+            )
+            + " first."
+        )
+    await state.models.server.stop()
+    state.models.loaded = None
+
+    async def work(working: Path) -> str:
+        if speech:
+            job.progress = "Preparing audio…"
+            audio = await asyncio.to_thread(audio_wav, working)
+            job.progress = "Transcribing on device…"
+            result = await transcribe(
+                audio,
+                item.local_path,
+                config.whisper_binary_path,
+                engine_path=config.tts_binary_path,
+                max_seconds=3600,
+            )
+            text = readable_transcript(str(result["text"]))
+            if not text.strip():
+                raise ValueError("No speech was detected in this recording.")
+            return text
+        files = state.downloads.parts(item)
+        return await recognize(
+            working,
+            item.local_path,
+            str(state.downloads.file_target(item, files[1])),
+            config,
+            lambda message: setattr(job, "progress", message),
+        )
+
+    return await _with_copy(path, work)

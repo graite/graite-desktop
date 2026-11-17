@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Check, Download, Loader2 } from "lucide-react";
+import { Check, Download, FlaskConical, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { engines, megabytes, variantSize, type EngineState } from "@/lib/engines";
+import { engines, megabytes, variantSize, type EngineState, type NewestBuild } from "@/lib/engines";
+import { useTechMode } from "@/lib/techMode";
 import { ModelSelect } from "./ModelSelect";
 import { useEngine } from "./useEngine";
 
@@ -29,6 +30,7 @@ export function EngineCard({
 }) {
   const { state, error: loadError, refresh, setState } = useEngine(engineId, onChanged);
   const [variant, setVariant] = useState("");
+  const [techMode] = useTechMode();
   // A failed lookup used to make the whole card disappear with no explanation.
   if (!state) {
     return (
@@ -173,6 +175,7 @@ export function EngineCard({
             ? `Installed ${state.installed_version} (${state.installed_variant}).`
             : "Not installed."}{" "}
           This version of Graite was tested with {state.version}.
+          {state.ahead && " You are running a newer build than that."}
           {/* An override set outside the app would otherwise look like Graite's own build. */}
           {state.custom_path ? (
             <>
@@ -189,6 +192,97 @@ export function EngineCard({
           )}
         </small>
       </details>
+      {techMode && (
+        <NewestBuildRow
+          engineId={engineId}
+          state={state}
+          disabled={!!disabled || working}
+          onInstall={(variantId) =>
+            void run(() => engines.install(engineId, variantId, { newest: true }))
+          }
+        />
+      )}
     </section>
+  );
+}
+
+/**
+ * Geek mode only: the newest upstream build, before Graite has tested it. Checked on request,
+ * installed through the same download, checksum, trial run and roll back as Graite's own pick.
+ */
+function NewestBuildRow({
+  engineId,
+  state,
+  disabled,
+  onInstall,
+}: {
+  engineId: string;
+  state: EngineState;
+  disabled: boolean;
+  onInstall: (variant: string | undefined) => void;
+}) {
+  const [checking, setChecking] = useState(false);
+  const [found, setFound] = useState<NewestBuild | null | undefined>(undefined);
+  const check = async () => {
+    setChecking(true);
+    try {
+      setFound(await engines.newest(engineId));
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setChecking(false);
+    }
+  };
+  const date = found?.published_at ? new Date(found.published_at).toLocaleDateString() : "";
+  const installedIt = !!found && found.version === state.installed_version;
+  return (
+    <div className="ai-engine-newest">
+      <div>
+        <strong>
+          <FlaskConical size={14} /> Newest build
+        </strong>
+        <small>
+          {found === undefined
+            ? "Want the latest from upstream, before Graite has tested it? Check here."
+            : found === null
+              ? "No newer build Graite can install right now."
+              : installedIt
+                ? `${found.version} is installed: you are on the newest build.`
+                : !found.newer
+                  ? `${found.version}${date ? ` (${date})` : ""} is the newest, and what you have is as new or newer.`
+                  : `${found.version}${date ? ` from ${date}` : ""}${
+                      found.prerelease ? ", a pre-release" : ""
+                    }${found.tested ? ", tested with this version of Graite" : ", not yet tested with Graite"}. Checked against the checksums GitHub publishes; roll back any time.`}
+          {found?.url && (
+            <>
+              {" "}
+              <a href={found.url} target="_blank" rel="noreferrer">
+                Release notes
+              </a>
+            </>
+          )}
+        </small>
+      </div>
+      {found && found.newer && !installedIt ? (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={disabled}
+          onClick={() => onInstall(state.installed_variant ?? undefined)}
+        >
+          <Download size={14} /> Install {found.version}
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={disabled || checking}
+          onClick={() => void check()}
+        >
+          {checking ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+          {found === undefined ? "Check" : "Check again"}
+        </Button>
+      )}
+    </div>
   );
 }

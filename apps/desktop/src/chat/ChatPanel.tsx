@@ -4,7 +4,8 @@ import { Check, Highlighter, History, Plus, Settings2, Orbit, X } from "lucide-r
 import { toast } from "sonner";
 import { ai, toScope, type ChatMode, type Conversation, type Scope } from "@/lib/ai";
 import type { TreeNode } from "@/lib/api";
-import { ALL_PAGES } from "@/lib/scope";
+/** This page and the pages nested under it: where a page's chat starts. */
+const pageScope = (path: string): Scope => ({ kind: "folder", roots: [path], excluded: [] });
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -65,7 +66,8 @@ export function ChatPanel({
   const [modelVersion, setModelVersion] = useState(0);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selected, setSelected] = useState<Conversation | null>(null);
-  const [scope, setScope] = useState<Scope>(ALL_PAGES);
+  // A page's chat starts with that page and the pages nested under it.
+  const [scope, setScope] = useState<Scope>(() => pageScope(path));
   const [scopeOpen, setScopeOpen] = useState(false);
   const [mode, setMode] = useState<ChatMode>("ask");
   const [draft, setDraft] = useState("");
@@ -118,6 +120,8 @@ export function ChatPanel({
         if (items[0]) {
           setSelected(items[0]);
           setScope(toScope(items[0].scope));
+        } else {
+          setScope(pageScope(path));
         }
       })
       .catch((e: Error) => live && chat.setError(e.message))
@@ -159,7 +163,7 @@ export function ChatPanel({
       scope={scope}
       tree={tree}
       page={path}
-      chips
+      iconOnly
       onChange={(next) => void changeScope(next)}
       onChoose={() => setScopeOpen(true)}
       disabled={chat.busy}
@@ -249,7 +253,7 @@ export function ChatPanel({
               setSelected(null);
               chat.setMessages([]);
               setAttachments([]);
-              setScope(ALL_PAGES);
+              setScope(pageScope(path));
             }}
           >
             <Plus size={16} />
@@ -343,6 +347,7 @@ export function ChatPanel({
           </details>
         )}
         <Composer
+          compact
           contextId={selected?.id ?? "new"}
           onSettings={onSettings}
           settingsVersion={settingsVersion}
@@ -364,13 +369,18 @@ export function ChatPanel({
             selection.trim() ? (
               <button
                 type="button"
-                className="ai-selection-chip"
+                className="ai-composer-icon ai-selection-toggle"
                 data-active={useSelection || undefined}
                 aria-pressed={useSelection}
+                aria-label={useSelection ? "Using your selection" : "Use your selection"}
+                title={
+                  useSelection
+                    ? "Asking about the text you selected. Click to ask about the page instead."
+                    : "Ask about the text you selected in the page"
+                }
                 onClick={() => setUseSelection((on) => !on)}
               >
-                <Highlighter size={12} />
-                {useSelection ? "Using selection" : "Use selection"}
+                <Highlighter size={16} />
               </button>
             ) : null
           }

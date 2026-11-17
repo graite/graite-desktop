@@ -33,6 +33,12 @@ class AIConfig(BaseModel):
     whisper_binary_path: str = ""
     ocr_binary_path: str = ""
     tts_binary_path: str = ""  # crispasr (GGML Chatterbox), the assistant's voice
+    # Where reading documents (OCR) and listening (speech to text) run: "local" on this
+    # computer, "graite" through Graite Cloud. "auto" (the default, and what rows written
+    # before the switch existed read as) uses the local model when it is installed, else
+    # Graite Cloud when signed in. See models/sources.py.
+    ocr_provider: Literal["auto", "local", "graite"] = "auto"
+    stt_provider: Literal["auto", "local", "graite"] = "auto"
     model_path: str = ""
     context_size: int = Field(default=8192, ge=2048, le=131072)
     gpu_layers: int = Field(default=-1, ge=-1, le=999)
@@ -297,7 +303,15 @@ def initialize(db: sqlite3.Connection, token: str) -> None:
 
 # Settings that only change what is sent with a request: no engine restart is needed for them.
 REQUEST_ONLY = frozenset(
-    {"max_output_tokens", "thinking", "effort", "context_budget_tokens", "max_tool_calls"}
+    {
+        "max_output_tokens",
+        "thinking",
+        "effort",
+        "context_budget_tokens",
+        "max_tool_calls",
+        "ocr_provider",
+        "stt_provider",
+    }
 )
 
 

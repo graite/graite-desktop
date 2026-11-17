@@ -22,14 +22,6 @@ export const WELCOME_SHOTS = {
     capture:
       "A page with open proposals: the review bar at the top and a proposed change shown in the page with Accept and Reject.",
   },
-  "claude-add": {
-    alt: "Claude: the dialog that adds a custom connector, with a name and an address",
-    capture: "Claude → Connectors → Add custom connector, with the dialog open and empty.",
-  },
-  "claude-connected": {
-    alt: "Claude: Graite connected, with its address and the tools Claude may use",
-    capture: "Claude → Connectors → Graite, connected. No account details in the picture.",
-  },
 } as const;
 
 export type WelcomeShotName = keyof typeof WELCOME_SHOTS;

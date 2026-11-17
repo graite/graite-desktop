@@ -9,12 +9,13 @@ import {
   FileText,
   KeyRound,
   Loader2,
-  Monitor,
+  MessageSquare,
   Plug,
   Search,
   Server,
   Settings2,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ai, type AIConfig, type AIStatus } from "@/lib/ai";
@@ -73,6 +74,19 @@ const KEY_PRESETS = [
   { label: "OpenRouter", url: OPENROUTER_URL },
 ];
 
+/** Where chat's model is, in words: "Your chats use …". */
+const CHAT_SOURCE: Record<SettingsSection, string> = {
+  general: "another model",
+  local: "a model on this computer",
+  documents: "a model on this computer",
+  voice: "a model on this computer",
+  search: "a model on this computer",
+  server: "your own server",
+  graite: "Graite Cloud",
+  connectors: "another model",
+  keys: "your API key",
+};
+
 const ownServer = (connection: Connection) => isOwnNetwork(hostOf(connection.base_url));
 
 /** Settings: a sidebar of sections, each explaining what it is for before its controls. The
@@ -103,6 +117,13 @@ export function ModelsPage({
   const [techMode, setTechMode] = useTechMode();
   // The config as it was last read from or written to the daemon: a save sends what differs.
   const loadedRef = useRef<AIConfig | null>(null);
+  // Each section starts at its top: whichever of the two scrolls (with or without its own
+  // sidebar) goes back up when the section changes.
+  const rootRef = useRef<HTMLElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    for (const element of [rootRef.current, contentRef.current]) if (element) element.scrollTop = 0;
+  }, [section]);
 
   const refreshStore = () =>
     connectionsApi
@@ -210,6 +231,13 @@ export function ModelsPage({
   const activeHost = hostOf(
     store.connections.find((c) => c.id === config?.connection_id)?.base_url ?? config?.base_url,
   );
+  // "auto" (never switched) follows what is in use: local when its model is installed.
+  const documentsLocal =
+    config?.ocr_provider === "local" ||
+    (config?.ocr_provider === "auto" && status?.ocr_source === "local");
+  const speechLocal =
+    config?.stt_provider === "local" ||
+    (config?.stt_provider === "auto" && status?.speech_source === "local");
   const panel = (id: SettingsSection, children: ReactNode) => (
     <div
       className="settings-panel"
@@ -224,17 +252,18 @@ export function ModelsPage({
   const chatUse = (id: SettingsSection, switchTo?: () => void, how?: string) =>
     draftSection === id ? (
       <p className="settings-in-use" role="status">
-        <Check size={15} /> Chat uses this{savedSection === id ? "" : " once you save"}.
+        <Check size={15} /> Your chats use {CHAT_SOURCE[id]}
+        {savedSection === id ? "" : " once you save"}.
       </p>
     ) : (
       <div className="settings-in-use" data-off>
         <span>
-          Chat uses {draftSection ? sectionLabel(draftSection) : "another model"} now.
+          Your chats use {draftSection ? CHAT_SOURCE[draftSection] : "another model"} now.
           {how ? ` ${how}` : ""}
         </span>
         {switchTo && (
           <Button variant="outline" size="sm" disabled={!!busy} onClick={switchTo}>
-            Use for chat
+            Chat with {CHAT_SOURCE[id]}
           </Button>
         )}
       </div>
@@ -250,242 +279,25 @@ export function ModelsPage({
   );
   return (
     <section
+      ref={rootRef}
       className="ai-settings"
       aria-label="Settings"
       data-own-sidebar={!sidebarHost || undefined}
     >
       {sidebarHost ? createPortal(sidebar, sidebarHost) : <aside>{sidebar}</aside>}
-      <div className="ai-settings-content">
+      <div className="ai-settings-content" ref={contentRef}>
         {error && (
           <div role="alert" className="ai-notice ai-error">
             {error}
           </div>
         )}
-        {panel("general", <GeneralSection />)}
+        {panel("general", <GeneralSection techMode={techMode} onTechMode={setTechMode} />)}
         {!config ? (
           section !== "general" && (
             <p>{error ? "Reopen Settings to try again." : "Checking your setup…"}</p>
           )
         ) : (
           <>
-            {panel(
-              "local",
-              <>
-                <Explainer
-                  icon={Monitor}
-                  title="On this computer"
-                  lede="Run an AI model on your own machine."
-                  why="Private and free. Nothing you write leaves this computer, and it works offline."
-                  need="Enough memory for the model. Graite shows which ones fit."
-                  leaves="Nothing."
-                />
-                {chatUse("local", () =>
-                  patch({ provider: "local", saved_model_id: null, connection_id: null }),
-                )}
-                <fieldset className="ai-setup-card" disabled={!!busy}>
-                  <div className="ai-tech-mode">
-                    <span>
-                      <label htmlFor="ai-tech-mode-switch">
-                        <strong>I’m a proper geek</strong>
-                      </label>
-                      <small id="ai-tech-mode-hint">
-                        I know my GGUFs from my quants. Show me every knob for local models: any
-                        model from Hugging Face or disk, engine builds, context size, GPU layers, or
-                        my own llama-server.
-                      </small>
-                    </span>
-                    <Switch
-                      id="ai-tech-mode-switch"
-                      checked={techMode}
-                      aria-describedby="ai-tech-mode-hint"
-                      onCheckedChange={setTechMode}
-                    />
-                  </div>
-                  {techMode && (
-                    <EngineCard
-                      engineId="llama"
-                      disabled={!!busy}
-                      onChanged={() =>
-                        void ai
-                          .status()
-                          .then(setStatus)
-                          .catch(() => undefined)
-                      }
-                    />
-                  )}
-                  <StarterModels
-                    hardware={status?.hardware}
-                    selectedPath={config.model_path}
-                    disabled={!!busy}
-                    onChoose={chooseModel}
-                    showInstalled={!techMode}
-                  />
-                  {techMode && (
-                    <ModelLibrary
-                      selectedPath={config.model_path}
-                      disabled={!!busy}
-                      onChoose={chooseModel}
-                    />
-                  )}
-                  <label className="ai-check">
-                    <input
-                      type="checkbox"
-                      checked={config.resident}
-                      onChange={(e) => patch({ resident: e.target.checked })}
-                    />
-                    <span>
-                      <strong>Keep ready for the next question</strong>
-                      <small>Turn off to release memory after 10 minutes without a question.</small>
-                    </span>
-                  </label>
-                  {techMode && (
-                    <div className="ai-advanced-fields">
-                      <div className="ai-field-row">
-                        <label className="ai-field">
-                          Context size
-                          <ModelSelect
-                            label="Context size"
-                            value={config.context_size}
-                            onValueChange={(value) => patch({ context_size: Number(value) })}
-                          >
-                            {[2048, 4096, 8192, 16384, 32768].map((n) => (
-                              <option key={n} value={n}>
-                                {n.toLocaleString()} tokens
-                              </option>
-                            ))}
-                          </ModelSelect>
-                        </label>
-                        <label className="ai-field">
-                          GPU layers
-                          <input
-                            type="number"
-                            min={-1}
-                            max={999}
-                            value={config.gpu_layers}
-                            onChange={(e) => patch({ gpu_layers: Number(e.target.value) })}
-                          />
-                          <small>−1 chooses automatically · 0 uses CPU</small>
-                        </label>
-                      </div>
-                      <label className="ai-field">
-                        Your own llama-server
-                        <input
-                          value={config.binary_path}
-                          placeholder="Leave empty to use Graite’s build"
-                          spellCheck={false}
-                          onChange={(e) => patch({ binary_path: e.target.value.trim() })}
-                        />
-                        <small>
-                          Full path to a llama-server executable you built or installed. Graite runs
-                          it instead of its own build.
-                        </small>
-                      </label>
-                    </div>
-                  )}
-                </fieldset>
-              </>,
-            )}
-            {panel(
-              "server",
-              <>
-                <Explainer
-                  icon={Server}
-                  title="Your own server"
-                  lede="Use models you already run with Ollama, LM Studio or llama.cpp."
-                  why="Keep the setup you have, or use a stronger machine in your own network."
-                  need="The server’s address, ending in /v1."
-                  leaves="Only what you ask, to that address. A server on this computer keeps everything here."
-                />
-                {chatUse("server", undefined, "Pick a saved model below to use it for chat.")}
-                <fieldset className="ai-setup-card" disabled={!!busy}>
-                  {status?.keychain_error && <p className="ai-error">{status.keychain_error}</p>}
-                  <ConnectionsCard
-                    kind="compatible"
-                    filter={ownServer}
-                    presets={SERVER_PRESETS}
-                    connections={store.connections}
-                    models={store.models}
-                    activeModelId={activeModelId}
-                    disabled={!!busy}
-                    onChanged={connectionAdded}
-                    onPick={pickSaved}
-                  />
-                </fieldset>
-              </>,
-            )}
-            {panel(
-              "voice",
-              <>
-                <Explainer
-                  icon={AudioLines}
-                  title="Speech"
-                  lede="Talk to your assistant and hear it answer."
-                  why="Think out loud or dictate notes instead of typing."
-                  need="A one-time download of the speech models below."
-                  leaves="Nothing. Your voice becomes text on this computer."
-                />
-                <EngineCard engineId="crispasr" disabled={!!busy} />
-                <ModelLibrary
-                  kind="utilities"
-                  roles={["speech", "vad", "turn", "tts"]}
-                  selectedPath=""
-                  onChoose={() => {}}
-                  disabled={!!busy}
-                />
-                <WhisperServerField
-                  value={config.whisper_binary_path ?? ""}
-                  found={status?.whisper_binary ?? ""}
-                  always={techMode}
-                  onChange={(whisper_binary_path) => patch({ whisper_binary_path })}
-                />
-                <VoicesCard />
-              </>,
-            )}
-            {panel(
-              "search",
-              <>
-                <Explainer
-                  icon={Search}
-                  title="Search"
-                  lede="How AI finds the right passage without reading every page."
-                  why="Faster answers, fewer tokens, and every answer shows its sources."
-                  need="A small search model. Without it, keyword search still works."
-                  leaves="Nothing. The index lives in your vault."
-                />
-                <IndexCard config={config} onPatch={patch} disabled={!!busy} />
-                <ModelLibrary
-                  kind="utilities"
-                  roles={["embedding"]}
-                  selectedPath=""
-                  onChoose={() => {}}
-                  disabled={!!busy}
-                />
-              </>,
-            )}
-            {panel(
-              "documents",
-              <>
-                <Explainer
-                  icon={FileText}
-                  title="Documents"
-                  lede="Turn scanned PDFs and images into text."
-                  why="A scan is only a picture. Once read, you can search it and ask about it."
-                  need="The chat engine from “On this computer” and a document model."
-                  leaves="Nothing."
-                />
-                <OcrEngineNote
-                  override={config.ocr_binary_path || ""}
-                  onOpenLocal={() => setSection("local")}
-                />
-                <ModelLibrary
-                  kind="utilities"
-                  roles={["ocr"]}
-                  selectedPath=""
-                  onChoose={() => {}}
-                  disabled={!!busy}
-                />
-              </>,
-            )}
             {panel(
               "graite",
               <>
@@ -541,6 +353,12 @@ export function ModelsPage({
                   leaves="Only the pages the app asks for. Its changes wait for your review."
                 />
                 <ConnectorsCard onOpenAccount={() => setSection("graite")} />
+                <p className="settings-note settings-note-card">
+                  <strong>After a Graite update, refresh the tools.</strong> New versions can add or
+                  change what Graite offers your AI app. If something is missing or acts oddly, open
+                  the connectors (or apps) settings in Claude, ChatGPT, Gemini or your other app,
+                  find Graite, and sync or reconnect it.
+                </p>
               </>,
             )}
             {panel(
@@ -588,6 +406,328 @@ export function ModelsPage({
                     presets={KEY_PRESETS}
                     urlPlaceholder="https://api.openai.com/v1"
                     keyOptional={false}
+                    connections={store.connections}
+                    models={store.models}
+                    activeModelId={activeModelId}
+                    disabled={!!busy}
+                    onChanged={connectionAdded}
+                    onPick={pickSaved}
+                  />
+                </fieldset>
+              </>,
+            )}
+            {panel(
+              "local",
+              <>
+                <Explainer
+                  icon={MessageSquare}
+                  title="Chat"
+                  lede="Ask about your pages, write with AI, and let agents do routine work."
+                  why="Running chat on your own machine is private and free, and works offline."
+                  need="Enough memory for the model. Graite shows which ones fit."
+                  leaves={
+                    config.provider === "local"
+                      ? "Nothing."
+                      : "With local AI off, your question and the passages it needs go to the model chat uses. Pages marked “Local models only” or “No AI” are never sent."
+                  }
+                />
+                <LocalSwitch
+                  id="local-chat"
+                  checked={config.provider === "local"}
+                  disabled={!!busy}
+                  hint="Run the chat model here instead of in the cloud."
+                  onChange={(on) =>
+                    patch(
+                      on
+                        ? { provider: "local", saved_model_id: null, connection_id: null }
+                        : {
+                            provider: "graite",
+                            model: "",
+                            saved_model_id: null,
+                            connection_id: null,
+                          },
+                    )
+                  }
+                />
+                {config.provider !== "local" ? (
+                  <div className="settings-in-use" data-off>
+                    <span>
+                      Your chats use {draftSection ? CHAT_SOURCE[draftSection] : "another model"}
+                      {savedSection === draftSection ? "" : " once you save"}.
+                    </span>
+                    {draftSection && draftSection !== "local" && (
+                      <Button variant="outline" size="sm" onClick={() => setSection(draftSection)}>
+                        Open {sectionLabel(draftSection)}
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <fieldset className="ai-setup-card" disabled={!!busy}>
+                    {techMode && (
+                      <EngineCard
+                        engineId="llama"
+                        disabled={!!busy}
+                        onChanged={() =>
+                          void ai
+                            .status()
+                            .then(setStatus)
+                            .catch(() => undefined)
+                        }
+                      />
+                    )}
+                    <StarterModels
+                      hardware={status?.hardware}
+                      selectedPath={config.model_path}
+                      disabled={!!busy}
+                      onChoose={chooseModel}
+                      showInstalled={!techMode}
+                    />
+                    {techMode && (
+                      <ModelLibrary
+                        selectedPath={config.model_path}
+                        disabled={!!busy}
+                        onChoose={chooseModel}
+                      />
+                    )}
+                    <label className="ai-check">
+                      <input
+                        type="checkbox"
+                        checked={config.resident}
+                        onChange={(e) => patch({ resident: e.target.checked })}
+                      />
+                      <span>
+                        <strong>Keep ready for the next question</strong>
+                        <small>
+                          Turn off to release memory after 10 minutes without a question.
+                        </small>
+                      </span>
+                    </label>
+                    {techMode && (
+                      <div className="ai-advanced-fields">
+                        <div className="ai-field-row">
+                          <label className="ai-field">
+                            Context size
+                            <ModelSelect
+                              label="Context size"
+                              value={config.context_size}
+                              onValueChange={(value) => patch({ context_size: Number(value) })}
+                            >
+                              {[2048, 4096, 8192, 16384, 32768].map((n) => (
+                                <option key={n} value={n}>
+                                  {n.toLocaleString()} tokens
+                                </option>
+                              ))}
+                            </ModelSelect>
+                          </label>
+                          <label className="ai-field">
+                            GPU layers
+                            <input
+                              type="number"
+                              min={-1}
+                              max={999}
+                              value={config.gpu_layers}
+                              onChange={(e) => patch({ gpu_layers: Number(e.target.value) })}
+                            />
+                            <small>−1 chooses automatically · 0 uses CPU</small>
+                          </label>
+                        </div>
+                        <label className="ai-field">
+                          Your own llama-server
+                          <input
+                            value={config.binary_path}
+                            placeholder="Leave empty to use Graite’s build"
+                            spellCheck={false}
+                            onChange={(e) => patch({ binary_path: e.target.value.trim() })}
+                          />
+                          <small>
+                            Full path to a llama-server executable you built or installed. Graite
+                            runs it instead of its own build.
+                          </small>
+                        </label>
+                      </div>
+                    )}
+                  </fieldset>
+                )}
+              </>,
+            )}
+            {panel(
+              "search",
+              <>
+                <Explainer
+                  icon={Search}
+                  title="Search"
+                  lede="How AI finds the right passage without reading every page."
+                  why={
+                    <ul>
+                      <li>
+                        Graite turns each passage of your pages into a list of numbers that captures
+                        its meaning, so it finds “holiday plans” when you ask about “vacation”.
+                      </li>
+                      <li>
+                        This always runs on this computer: private, free, and it works offline.
+                      </li>
+                      <li>
+                        Only the few passages that matter go to the chat model, so answers are
+                        faster, cost fewer tokens and show their sources.
+                      </li>
+                    </ul>
+                  }
+                  need="A small search model (about 100 MB). Without it, keyword search still works."
+                  leaves="Nothing. The index lives in your vault."
+                />
+                <div className="ai-privacy settings-recommend">
+                  <Sparkles size={19} />
+                  <p>
+                    <strong>Recommended: download the search model below.</strong> It is small, runs
+                    on this computer and makes finding things much faster and smarter than keywords
+                    alone. Nothing to sign up for, and your pages stay here.
+                  </p>
+                </div>
+                <IndexCard config={config} onPatch={patch} disabled={!!busy} />
+                <ModelLibrary
+                  kind="utilities"
+                  roles={["embedding"]}
+                  selectedPath=""
+                  onChoose={() => {}}
+                  disabled={!!busy}
+                />
+              </>,
+            )}
+            {panel(
+              "documents",
+              <>
+                <Explainer
+                  icon={FileText}
+                  title="Documents"
+                  lede="Turn scanned PDFs and images into text."
+                  why="A scan is only a picture. Once read, you can search it and ask about it."
+                  need={
+                    documentsLocal
+                      ? "The chat engine and a document model, both downloaded below."
+                      : "Graite Cloud can read documents for you with a free account. Handy, but optional: switch on reading in-house below and nothing leaves this computer."
+                  }
+                  leaves={
+                    documentsLocal
+                      ? "Nothing."
+                      : "The pages you ask to read, to Graite Cloud, which keeps nothing. Up to 20 pages at a time; longer files are sent in parts."
+                  }
+                />
+                <LocalSwitch
+                  id="local-documents"
+                  checked={documentsLocal}
+                  disabled={!!busy}
+                  label="Read everything in-house"
+                  hint="Your scans never leave the building: GLM-OCR reads every page right here, on this computer."
+                  onChange={(on) => patch({ ocr_provider: on ? "local" : "graite" })}
+                />
+                {documentsLocal ? (
+                  <>
+                    <OcrEngineNote
+                      override={config.ocr_binary_path || ""}
+                      onOpenLocal={() => setSection("local")}
+                    />
+                    <ModelLibrary
+                      kind="utilities"
+                      roles={["ocr"]}
+                      selectedPath=""
+                      onChoose={() => {}}
+                      disabled={!!busy}
+                    />
+                  </>
+                ) : (
+                  <CloudNote
+                    signedIn={!!status?.cloud_signed_in}
+                    what="Documents are read"
+                    onOpenCloud={() => setSection("graite")}
+                  />
+                )}
+              </>,
+            )}
+            {panel(
+              "voice",
+              <>
+                <Explainer
+                  icon={AudioLines}
+                  title="Speech"
+                  lede="Dictate, transcribe recordings, and talk with your assistant."
+                  why="Think out loud or dictate notes instead of typing."
+                  need={
+                    speechLocal
+                      ? "A one-time download of the speech model below."
+                      : "A free Graite account. Nothing to install."
+                  }
+                  leaves={
+                    speechLocal
+                      ? "Nothing. Your voice becomes text on this computer."
+                      : "Your recording, to Graite Cloud, which turns it into text and keeps nothing. Up to one hour per recording."
+                  }
+                />
+                <LocalSwitch
+                  id="local-speech"
+                  checked={speechLocal}
+                  disabled={!!busy}
+                  hint="Turn speech into text here with Whisper, instead of in the cloud."
+                  onChange={(on) => patch({ stt_provider: on ? "local" : "graite" })}
+                />
+                {speechLocal ? (
+                  <ModelLibrary
+                    kind="utilities"
+                    roles={["speech"]}
+                    selectedPath=""
+                    onChoose={() => {}}
+                    disabled={!!busy}
+                  />
+                ) : (
+                  <CloudNote
+                    signedIn={!!status?.cloud_signed_in}
+                    what="Speech to text runs"
+                    onOpenCloud={() => setSection("graite")}
+                  />
+                )}
+                <div className="ai-section-heading">
+                  <h2>Talking with your assistant</h2>
+                  <span>Always on this computer</span>
+                </div>
+                <p className="settings-note">
+                  Hearing when you start and stop talking, and your assistant’s own voice, run on
+                  this computer.
+                </p>
+                <EngineCard engineId="crispasr" disabled={!!busy} />
+                <ModelLibrary
+                  kind="utilities"
+                  roles={["vad", "turn", "tts"]}
+                  selectedPath=""
+                  onChoose={() => {}}
+                  disabled={!!busy}
+                />
+                {techMode && (
+                  <WhisperServerField
+                    value={config.whisper_binary_path ?? ""}
+                    found={status?.whisper_binary ?? ""}
+                    onChange={(whisper_binary_path) => patch({ whisper_binary_path })}
+                  />
+                )}
+                <VoicesCard />
+              </>,
+            )}
+            {panel(
+              "server",
+              <>
+                <Explainer
+                  icon={Server}
+                  title="Your own server"
+                  lede="Use models you already run with Ollama, LM Studio or llama.cpp."
+                  why="Keep the setup you have, or use a stronger machine in your own network."
+                  need="The server’s address, ending in /v1."
+                  leaves="Only what you ask, to that address. A server on this computer keeps everything here."
+                />
+                {chatUse("server", undefined, "Pick a saved model below to use it for chat.")}
+                <fieldset className="ai-setup-card" disabled={!!busy}>
+                  {status?.keychain_error && <p className="ai-error">{status.keychain_error}</p>}
+                  <ConnectionsCard
+                    kind="compatible"
+                    filter={ownServer}
+                    presets={SERVER_PRESETS}
                     connections={store.connections}
                     models={store.models}
                     activeModelId={activeModelId}
@@ -684,8 +824,14 @@ const THEMES: [ThemeChoice, string][] = [
   ["system", "Same as my computer"],
 ];
 
-/** General: who you are, how Graite looks, and where this vault lives. */
-function GeneralSection() {
+/** General: who you are, how Graite looks, where this vault lives, and the geek switch. */
+function GeneralSection({
+  techMode,
+  onTechMode,
+}: {
+  techMode: boolean;
+  onTechMode: (on: boolean) => void;
+}) {
   const me = useProfile();
   const theme = useThemeChoice();
   const [name, setName] = useState<string | null>(null);
@@ -748,12 +894,33 @@ function GeneralSection() {
       </section>
       <VaultCard />
       <UpdateCard />
+      <section className="settings-card" aria-label="Advanced settings">
+        <h2>Advanced settings</h2>
+        <div className="ai-tech-mode">
+          <span>
+            <label htmlFor="ai-tech-mode-switch">
+              <strong>I’m a proper geek</strong>
+            </label>
+            <small id="ai-tech-mode-hint">
+              I know my GGUFs from my quants. Show me every knob for local AI: any model from
+              Hugging Face or disk, engine builds, context size, GPU layers, my own engines and my
+              own server.
+            </small>
+          </span>
+          <Switch
+            id="ai-tech-mode-switch"
+            checked={techMode}
+            aria-describedby="ai-tech-mode-hint"
+            onCheckedChange={onTechMode}
+          />
+        </div>
+      </section>
     </>
   );
 }
 
-/** Documents: OCR runs on the chat engine, so this only reports whether that engine is there
- * and sends the user to "On this computer" to set it up. */
+/** Documents: local OCR runs on the chat engine, so this only reports whether that engine is
+ * there and sends the user to Chat to set it up. */
 function OcrEngineNote({ override, onOpenLocal }: { override: string; onOpenLocal: () => void }) {
   const { state, error } = useEngine("llama");
   if (override.trim()) return <OwnBuild label="OCR" path={override} />;
@@ -779,39 +946,32 @@ function OcrEngineNote({ override, onOpenLocal }: { override: string; onOpenLoca
         )}
       </div>
       <Button variant="ghost" size="sm" onClick={onOpenLocal}>
-        {ready ? "Manage under On this computer" : "Set up under On this computer"}{" "}
-        <ArrowRight size={14} />
+        {ready ? "Manage under Chat" : "Set up under Chat"} <ArrowRight size={14} />
       </Button>
     </div>
   );
 }
 
 /**
- * Where speech to text finds whisper-server (whisper.cpp). Graite does not install this
- * engine yet, so the path is a setting: shown when none was found on this computer, when one
- * is set, or in geek mode. Saved with "Save settings" and checked by the daemon.
+ * Geek mode only: a whisper-server of your own instead of Graite's voice engine, which runs
+ * Whisper by default. Saved with "Save settings" and checked by the daemon.
  */
 function WhisperServerField({
   value,
   found,
-  always,
   onChange,
 }: {
   value: string;
   found: string;
-  always: boolean;
   onChange: (path: string) => void;
 }) {
-  // Stays visible once shown, so it does not vanish while the path is being typed.
-  const [shown] = useState(() => always || !!value || !found);
-  if (!shown && !always && !value && found) return null;
   return (
     <div className="ai-engine-note" data-field>
       <label className="ai-field">
-        whisper-server executable
+        Your own whisper-server
         <input
           value={value}
-          placeholder={found || "/opt/homebrew/bin/whisper-server"}
+          placeholder="Leave empty to use Graite’s voice engine"
           spellCheck={false}
           autoCapitalize="off"
           autoCorrect="off"
@@ -819,12 +979,72 @@ function WhisperServerField({
         />
         <small>
           {value
-            ? "Speech to text runs this file. Clear the field to use the whisper-server found on this computer."
+            ? "Speech to text runs this file. Clear the field to use Graite’s voice engine."
             : found
-              ? `Found at ${found}. Give another path only to use a build of your own.`
-              : "Speech to text needs whisper-server from whisper.cpp, and none was found on this computer. Install it (on a Mac: brew install whisper-cpp), then give the full path to whisper-server here and save."}
+              ? `Speech to text runs ${found}. Give a path only to use a whisper.cpp build of your own.`
+              : "Speech to text runs on Graite’s voice engine once it is installed above."}
         </small>
       </label>
+    </div>
+  );
+}
+
+/** The "Use local AI on my computer" switch at the top of Chat, Documents and Speech. Off
+ * (the default for most people) means Graite Cloud does the work. */
+function LocalSwitch({
+  id,
+  checked,
+  disabled,
+  label = "Use local AI on my computer",
+  hint,
+  onChange,
+}: {
+  id: string;
+  checked: boolean;
+  disabled?: boolean;
+  label?: string;
+  hint: string;
+  onChange: (on: boolean) => void;
+}) {
+  return (
+    <div className="ai-tech-mode ai-local-switch">
+      <span>
+        <label htmlFor={id}>
+          <strong>{label}</strong>
+        </label>
+        <small id={`${id}-hint`}>{hint}</small>
+      </span>
+      <Switch
+        id={id}
+        checked={checked}
+        disabled={disabled}
+        aria-describedby={`${id}-hint`}
+        onCheckedChange={onChange}
+      />
+    </div>
+  );
+}
+
+/** With local AI off: who does the work, or what is missing for it. */
+function CloudNote({
+  signedIn,
+  what,
+  onOpenCloud,
+}: {
+  signedIn: boolean;
+  what: string;
+  onOpenCloud: () => void;
+}) {
+  return signedIn ? (
+    <p className="settings-in-use" role="status">
+      <Cloud size={15} /> {what} through Graite Cloud, free with your account.
+    </p>
+  ) : (
+    <div className="settings-in-use" data-off>
+      <span>{what} through Graite Cloud once you sign in, or turn on local AI above.</span>
+      <Button variant="outline" size="sm" onClick={onOpenCloud}>
+        Sign in to Graite Cloud
+      </Button>
     </div>
   );
 }

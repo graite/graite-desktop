@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import {
   Check,
   Cloud,
@@ -10,10 +10,9 @@ import {
   MailWarning,
   ShieldCheck,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { onDaemonEvent } from "@/lib/api";
-import { cloud, type CloudModel, type CloudStatus } from "@/lib/cloud";
+import { cloud, type CloudModel } from "@/lib/cloud";
+import { useCloudSignIn } from "@/lib/useCloudSignIn";
 import "./cloud.css";
 
 const time = (iso: string) =>
@@ -36,76 +35,14 @@ export function GraiteCloudCard({
   /** False while chat uses another model: signing in must not switch the chat model. */
   autoPick?: boolean;
 }) {
-  const [status, setStatus] = useState<CloudStatus | null>(null);
-  const [models, setModels] = useState<CloudModel[]>([]);
-  const [waiting, setWaiting] = useState<string | null>(null); // the sign-in URL
-  const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
-
-  // Requests can finish after the card is gone (leaving Settings, a test ending).
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-  const refresh = useCallback(async () => {
-    try {
-      const next = await cloud.status();
-      const offered = next.signed_in ? await cloud.models() : [];
-      if (!mounted.current) return;
-      setStatus(next);
-      if (next.signed_in) setWaiting(null);
-      setModels(offered);
-      setError("");
-    } catch (e) {
-      if (mounted.current) setError((e as Error).message);
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-    // The browser flow ends in the daemon; it tells every window.
-    return onDaemonEvent((event) => {
-      if (event.type === "cloud_status") void refresh();
-    });
-  }, [refresh]);
+  const { status, models, waiting, error, copied, signIn, copyLink, signOut, cancel } =
+    useCloudSignIn({ loadModels: true });
 
   // One model for everyone: select it, so saving just works.
   const offered = models.find((m) => m.available) ?? null;
   useEffect(() => {
     if (autoPick && offered && offered.id !== activeModel) onPick(offered);
   }, [autoPick, offered, activeModel, onPick]);
-
-  const signIn = async (signup: boolean) => {
-    setError("");
-    try {
-      const started = await cloud.login(signup);
-      setWaiting(started.url);
-      if (!started.opened) setError("Your browser didn’t open. Copy the link and open it there.");
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
-  const copyLink = async () => {
-    if (!waiting) return;
-    try {
-      await navigator.clipboard.writeText(waiting);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      toast.error("Could not copy. Select the text and copy it by hand.");
-    }
-  };
-  const signOut = async () => {
-    try {
-      await cloud.logout();
-      await refresh();
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
 
   const today = status?.today;
   const percent = today?.percent_used ?? null;
@@ -150,7 +87,7 @@ export function GraiteCloudCard({
                 {copied ? <Check size={14} /> : <Copy size={14} />}{" "}
                 {copied ? "Copied" : "Copy link"}
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setWaiting(null)}>
+              <Button variant="ghost" size="sm" onClick={cancel}>
                 Cancel
               </Button>
             </div>

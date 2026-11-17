@@ -271,3 +271,146 @@ def test_a_build_made_on_this_computer_wins_until_the_user_picks_another(tmp_pat
     assert installer.installed("crispasr")[0] == engine.variants[0].id  # type: ignore[index]
     (home / "variant").write_text("local\n")
     assert installer.installed("crispasr")[0] == "local"  # type: ignore[index]
+
+
+# --------------------------------------------------------------------- newest build (geek mode)
+
+
+def release(tag: str, names: dict[str, bytes], *, repo: str = "x/y", digest: bool = True) -> dict:
+    return {
+        "tag_name": tag,
+        "draft": False,
+        "prerelease": True,
+        "published_at": "2026-11-17T10:00:00Z",
+        "html_url": f"https://github.com/{repo}/releases/tag/{tag}",
+        "assets": [
+            {
+                "name": name,
+                "size": len(data),
+                "browser_download_url": f"https://github.com/{repo}/releases/download/{tag}/{name}",
+                **({"digest": "sha256:" + hashlib.sha256(data).hexdigest()} if digest else {}),
+            }
+            for name, data in names.items()
+        ],
+    }
+
+
+def pinned(version: str, names: list[str]) -> Engine:
+    return Engine(
+        id="llama",
+        name="Chat engine",
+        binary="llama-server",
+        version=version,
+        repo="x/y",
+        license="MIT",
+        purpose="Runs your models.",
+        variants=[
+            Variant(
+                id=name.split(".")[0],
+                os="linux",
+                arch="arm64",
+                backend="cuda" if "cuda" in name else "cpu",
+                label=name,
+                archives=[
+                    Archive(
+                        url=f"https://github.com/x/y/releases/download/{version}/{name}",
+                        sha256="0" * 64,
+                        size=1,
+                    )
+                ],
+            )
+            for name in names
+        ],
+    )
+
+
+def test_the_newest_release_maps_onto_known_builds_with_github_checksums() -> None:
+    from graite.models.engine_releases import map_release
+
+    engine = pinned("b100", ["llama-b100-cpu.tar.gz", "llama-b100-cuda-13.3-arm64.tar.gz"])
+    mapped = map_release(
+        engine,
+        release(
+            "b200", {"llama-b200-cpu.tar.gz": b"cpu", "llama-b200-cuda-13.5-arm64.tar.gz": b"gpu"}
+        ),
+    )
+    assert mapped is not None and mapped.version == "b200"
+    urls = [v.archives[0].url for v in mapped.variants]
+    # The CUDA build moved on to 13.5 and is still found.
+    assert urls[1].endswith("/b200/llama-b200-cuda-13.5-arm64.tar.gz")
+    assert mapped.variants[0].archives[0].sha256 == hashlib.sha256(b"cpu").hexdigest()
+
+
+def test_files_without_a_checksum_or_from_elsewhere_are_never_used() -> None:
+    from graite.models.engine_releases import map_release
+
+    engine = pinned("b100", ["llama-b100-cpu.tar.gz"])
+    assert (
+        map_release(engine, release("b200", {"llama-b200-cpu.tar.gz": b"x"}, digest=False)) is None
+    )
+    assert (
+        map_release(engine, release("b200", {"llama-b200-cpu.tar.gz": b"x"}, repo="evil/y")) is None
+    )
+    # A notes-only release (llama.cpp's v1.0.0 carries just nightly-tag.txt).
+    assert map_release(engine, release("v1.0.0", {"nightly-tag.txt": b"b200"})) is None
+
+
+def test_versions_order_by_number_and_a_newer_build_is_not_pushed_back_down() -> None:
+    from graite.models.engine_versions import is_newer
+
+    assert is_newer("b12475", "b12359") and not is_newer("b12359", "b12475")
+    assert is_newer("v0.8.54", "v0.8.33") and not is_newer("v0.8.9", "v0.8.33")
+
+
+@POSIX_ONLY
+async def test_geek_mode_installs_the_newest_build_and_can_roll_back(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data = tarball({"crispasr": SCRIPT})
+    engine = fake_engine("v1", data).model_copy(update={"repo": "x/y"})
+    installer = EngineInstaller(tmp_path / "app")
+    installer.engines = {engine.id: engine}
+    serve(monkeypatch, {engine.variants[0].archives[0].url: data})
+    await installer.install(engine, engine.variants[0])
+
+    newer = tarball({"crispasr": SCRIPT + b"# v2\n"})
+    name = "engine.tar.gz"
+    variant = engine.variants[0]
+    pinned_engine = engine.model_copy(
+        update={
+            "variants": [
+                variant.model_copy(
+                    update={
+                        "archives": [
+                            Archive(
+                                url=f"https://github.com/x/y/releases/download/v1/{name}",
+                                sha256="0" * 64,
+                                size=1,
+                            )
+                        ]
+                    }
+                )
+            ]
+        }
+    )
+    installer.engines = {engine.id: pinned_engine}
+    from graite.models import engine_releases
+
+    async def fake_newest(engine: Engine, **_: object) -> tuple[Engine, dict]:
+        rel = release("v2", {name: newer})
+        mapped = engine_releases.map_release(engine, rel)
+        assert mapped is not None
+        return mapped, rel
+
+    monkeypatch.setattr(engine_releases, "newest", fake_newest)
+    found = await installer.check_newest("crispasr")
+    assert found is not None and found.version == "v2" and found.newer and found.prerelease
+    serve(monkeypatch, {f"https://github.com/x/y/releases/download/v2/{name}": newer})
+    installer.begin("crispasr", None, HARDWARE, newest=True)
+    await installer.tasks["crispasr"]
+    state = installer.state("crispasr", HARDWARE)
+    # Ahead of the tested build: no "Update" that would take it back to v1.
+    assert state.installed_version == "v2" and state.ahead and not state.update_available
+    assert state.previous_version == "v1"
+    await installer.rollback("crispasr")
+    assert installer.installed("crispasr")[1] == "v1"  # type: ignore[index]

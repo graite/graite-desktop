@@ -1,5 +1,6 @@
 import { afterEach, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { TurnDetails, duration, summary, type TurnMetrics } from "../TurnDetails";
 
 afterEach(cleanup);
@@ -23,22 +24,28 @@ const METRICS: TurnMetrics = {
 it("formats durations and the one-line summary", () => {
   expect(duration(120)).toBe("120 ms");
   expect(duration(1240)).toBe("1.2 s");
-  expect(summary(METRICS)).toBe(
-    "1.2 s to first word · 38 tokens/s · 2,100 context tokens · 4 pages",
-  );
+  expect(summary(METRICS)).toBe("38 tok/s · read 4 pages · 6.1 s");
   // A cloud model without a reported speed, and a turn that used no pages.
   expect(summary({ ...METRICS, tokens_per_second: null, pages: 0, context_tokens: 0 })).toBe(
-    "1.2 s to first word · 0 context tokens",
+    "no pages read · 6.1 s",
   );
 });
 
-it("opens into the full breakdown and the searches that ran", () => {
-  render(<TurnDetails metrics={METRICS} />);
-  fireEvent.click(screen.getByLabelText("Answer details"));
-  expect(screen.getByText("about 2,100 tokens from 4 pages (6 passages)")).toBeTruthy();
-  expect(screen.getByText("3,400 tokens, 900 reused from the last turn")).toBeTruthy();
-  expect(screen.getByText("180 tokens at 38.4 tokens/s")).toBeTruthy();
-  expect(screen.getByText("Searched “invoice Q3” · 6 hits · 120 ms")).toBeTruthy();
+it("shows the full breakdown and the searches that ran behind a small info button", async () => {
+  render(
+    <TooltipProvider>
+      <TurnDetails metrics={METRICS} />
+    </TooltipProvider>,
+  );
+  expect(screen.getByText("38 tok/s · read 4 pages · 6.1 s")).toBeTruthy();
+  expect(screen.queryByText("Pages read")).toBeNull();
+  fireEvent.focus(screen.getByRole("button", { name: "Answer details" }));
+  expect(
+    (await screen.findAllByText("4 pages, 6 passages, about 2,100 tokens")).length,
+  ).toBeGreaterThan(0);
+  expect(screen.getAllByText("3,400 tokens, 900 reused").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("180 tokens at 38.4 tok/s").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("“invoice Q3” · 6 hits · 120 ms").length).toBeGreaterThan(0);
   expect(screen.queryByText("Steps")).toBeNull();
 });
 

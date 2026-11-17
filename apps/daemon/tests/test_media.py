@@ -25,6 +25,14 @@ def upload(
     return page, result.json()
 
 
+@pytest.fixture
+def engine(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A local speech engine is "installed" (its runs are mocked per test)."""
+    from graite.api import media
+
+    monkeypatch.setattr(media, "speech_binary", lambda *_: Path("crispasr"))
+
+
 def wait_job(client: TestClient, id_: str) -> dict:
     for _ in range(100):
         job = client.get(f"/api/v1/media/jobs/{id_}").json()
@@ -70,7 +78,7 @@ def test_upload_rejects_unsafe_and_empty_files(client: TestClient) -> None:
 
 @pytest.mark.parametrize("output", ["toggle", "page"])
 def test_transcript_is_new_markdown_and_preserves_source(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch, output: str
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, output: str, engine: None
 ) -> None:
     page, file = upload(client)
     from graite.api import media
@@ -110,12 +118,14 @@ def test_transcript_is_new_markdown_and_preserves_source(
 
 
 def test_missing_model_and_cancellation_are_recoverable(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, engine: None
 ) -> None:
     page, file = upload(client)
     payload = {"page_id": page["id"], "file": file["file"], "name": "voice.wav"}
     job = wait_job(client, client.post("/api/v1/media/extract", json=payload).json()["id"])
-    assert job["status"] == "error" and "Download Whisper" in job["error"]
+    # Neither a local Whisper nor a Graite Cloud sign-in: say how to get either.
+    assert job["status"] == "error" and "Settings → Speech" in job["error"]
+    assert "sign in to Graite Cloud" in job["error"]
     from graite.api import media
 
     monkeypatch.setattr(media, "audio_wav", lambda _: b"decoded")
@@ -180,7 +190,7 @@ def test_recording_on_navigation_is_attached_once(client: TestClient) -> None:
 
 
 def test_completed_result_is_recovered_after_daemon_restart(
-    settings, monkeypatch: pytest.MonkeyPatch
+    settings, monkeypatch: pytest.MonkeyPatch, engine: None
 ) -> None:
     from graite.api import media
     from graite.app import create_app
@@ -357,3 +367,98 @@ def test_batch_ocr_queues_one_job_per_image_and_runs_them_in_turn(
     assert client.get(f"/api/v1/media/jobs/{jobs[2]['id']}").json()["status"] == "cancelled"
     # A single extraction no longer refuses while another task holds the model.
     assert not client.app.state.models.lock.locked()
+
+
+class FakeCloud:
+    """Stands in for the Graite Cloud session: signed in, answering OCR and Whisper."""
+
+    def __init__(self, signed_in: bool = True) -> None:
+        self.signed = signed_in
+        self.ocr_batches: list[int] = []
+        self.audio: list[tuple[str, str]] = []
+
+    def has_sign_in(self) -> bool:
+        return self.signed
+
+    async def signed_in(self) -> bool:
+        return self.signed
+
+    async def ocr(self, images: list[bytes]) -> list[dict]:
+        self.ocr_batches.append(len(images))
+        return [{"text": f"text {i}", "finish_reason": "stop"} for i in range(len(images))]
+
+    async def transcribe(
+        self, audio: bytes, *, filename: str, mime: str, purpose: str = "transcribe"
+    ) -> dict:
+        self.audio.append((filename, purpose))
+        return {"text": "Heard in the cloud."}
+
+
+@pytest.fixture
+def cloud(monkeypatch: pytest.MonkeyPatch) -> FakeCloud:
+    from graite.cloud import session
+
+    fake = FakeCloud()
+    monkeypatch.setattr(session, "_cloud", fake)
+    return fake
+
+
+def test_speech_goes_to_graite_cloud_without_a_local_whisper(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, cloud: FakeCloud
+) -> None:
+    from graite.models import speech
+
+    monkeypatch.setattr(speech, "wav_to_mp3", lambda _: b"mp3")
+    from graite.api import media
+
+    monkeypatch.setattr(media, "audio_wav", lambda _: b"decoded")
+    page, file = upload(client)
+    payload = {"page_id": page["id"], "file": file["file"], "name": "voice.wav"}
+    job = wait_job(client, client.post("/api/v1/media/extract", json=payload).json()["id"])
+    assert job["status"] == "done", job
+    assert job["text"] == "Heard in the cloud."
+    assert cloud.audio == [("recording.mp3", "transcribe")]
+    assert client.get("/api/v1/ai/status").json()["speech_source"] == "graite"
+
+
+def test_local_whisper_wins_over_graite_cloud(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, cloud: FakeCloud, engine: None
+) -> None:
+    from graite.api import media
+
+    monkeypatch.setattr(media, "audio_wav", lambda _: b"decoded")
+    monkeypatch.setattr(
+        media, "transcribe", AsyncMock(return_value={"text": "Heard locally.", "seconds": 1})
+    )
+    client.app.state.downloads.items["whisper-large-v3-turbo-q8"].status = "installed"
+    page, file = upload(client)
+    payload = {"page_id": page["id"], "file": file["file"], "name": "voice.wav"}
+    job = wait_job(client, client.post("/api/v1/media/extract", json=payload).json()["id"])
+    assert job["text"] == "Heard locally." and cloud.audio == []
+
+
+def test_cloud_ocr_reads_twenty_pages_at_a_time(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, cloud: FakeCloud
+) -> None:
+    from graite.media import ocr
+
+    monkeypatch.setattr(ocr, "page_count", lambda _: 25)
+    monkeypatch.setattr(ocr, "render_page", lambda *_: b"png")
+    monkeypatch.setattr(ocr, "get_cloud", lambda: cloud)
+    text = asyncio.run(ocr.recognize_cloud(Path("scan.pdf"), lambda _: None))
+    assert cloud.ocr_batches == [20, 5]
+    assert text.startswith("## Page 1\n\ntext 0") and "## Page 25\n\ntext 4" in text
+
+
+def test_local_only_page_never_goes_to_graite_cloud(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, cloud: FakeCloud
+) -> None:
+    from graite.api import media
+
+    monkeypatch.setattr(media, "audio_wav", lambda _: b"decoded")
+    monkeypatch.setattr(media, "_cloud_allowed", lambda *_: False)
+    page, file = upload(client)
+    payload = {"page_id": page["id"], "file": file["file"], "name": "voice.wav"}
+    job = wait_job(client, client.post("/api/v1/media/extract", json=payload).json()["id"])
+    assert job["status"] == "error" and "kept on this computer" in job["error"]
+    assert cloud.audio == []

@@ -1611,3 +1611,31 @@
 .ai-index-facts dd {
   margin: 0;
 }
+
+/* Geek mode: the newest upstream build of an engine, below its card. */
+.ai-engine-newest {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.ai-engine-newest strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.ai-engine-newest small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+.ai-engine-newest a {
+  text-decoration: underline;
+}

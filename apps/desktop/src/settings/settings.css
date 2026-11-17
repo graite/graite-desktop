@@ -650,3 +650,41 @@
   border-radius: 12px;
   background: var(--settings-surface);
 }
+
+/* A sentence of context between a section heading and its cards. */
+.settings-note {
+  margin: -4px 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
+/* The per-task "Use local AI on my computer" switch sits right under the explainer. */
+.ai-local-switch {
+  margin-bottom: 14px;
+}
+
+/* A note set apart like a card, for things to know rather than settings to change. */
+.settings-note-card {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.settings-note-card strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+/* "Recommended" callout: the one thing worth doing on this page. */
+.settings-recommend {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 13px;
+}
+.settings-recommend strong {
+  color: var(--foreground);
+  font-weight: 600;
+}

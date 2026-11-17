@@ -89,6 +89,16 @@
             "title": "Ocr Binary Path",
             "type": "string"
           },
+          "ocr_provider": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "local",
+              "graite"
+            ],
+            "title": "Ocr Provider",
+            "type": "string"
+          },
           "provider": {
             "default": "local",
             "enum": [
@@ -116,6 +126,16 @@
               }
             ],
             "title": "Saved Model Id"
+          },
+          "stt_provider": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "local",
+              "graite"
+            ],
+            "title": "Stt Provider",
+            "type": "string"
           },
           "thinking": {
             "default": "auto",
@@ -174,6 +194,12 @@
             "title": "Busy",
             "type": "boolean"
           },
+          "cloud_signed_in": {
+            "default": false,
+            "description": "Whether this computer is signed in to Graite Cloud (no network check).",
+            "title": "Cloud Signed In",
+            "type": "boolean"
+          },
           "config": {
             "$ref": "#/components/schemas/AIConfig"
           },
@@ -213,6 +239,22 @@
             "title": "Loaded",
             "type": "boolean"
           },
+          "ocr_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "local",
+                  "graite"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where reading documents (OCR) runs right now; null when unavailable.",
+            "title": "Ocr Source"
+          },
           "reasoning": {
             "additionalProperties": {
               "type": "boolean"
@@ -232,9 +274,25 @@
             ],
             "title": "Runtime Warning"
           },
+          "speech_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "local",
+                  "graite"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where speech to text runs right now (models/sources.py); null when neither a local Whisper nor a Graite Cloud sign-in is available.",
+            "title": "Speech Source"
+          },
           "whisper_binary": {
             "default": "",
-            "description": "The whisper-server that speech to text will run: the configured path, else the one on PATH. Empty when there is none.",
+            "description": "The executable speech to text runs on this computer: the configured whisper-server, else Graite's installed voice engine, else a whisper-server on PATH. Empty when there is none.",
             "title": "Whisper Binary",
             "type": "string"
           }
@@ -2825,6 +2883,11 @@
       "EngineState": {
         "description": "What the UI shows for one engine.",
         "properties": {
+          "ahead": {
+            "default": false,
+            "title": "Ahead",
+            "type": "boolean"
+          },
           "custom_path": {
             "default": "",
             "title": "Custom Path",
@@ -3470,6 +3533,11 @@
       },
       "InstallBody": {
         "properties": {
+          "newest": {
+            "default": false,
+            "title": "Newest",
+            "type": "boolean"
+          },
           "variant": {
             "anyOf": [
               {
@@ -4521,6 +4589,45 @@
           "model"
         ],
         "title": "NewSavedModel",
+        "type": "object"
+      },
+      "NewestBuild": {
+        "description": "What the geek-mode \"newest build\" row shows.",
+        "properties": {
+          "newer": {
+            "default": false,
+            "title": "Newer",
+            "type": "boolean"
+          },
+          "prerelease": {
+            "default": false,
+            "title": "Prerelease",
+            "type": "boolean"
+          },
+          "published_at": {
+            "default": "",
+            "title": "Published At",
+            "type": "string"
+          },
+          "tested": {
+            "default": false,
+            "title": "Tested",
+            "type": "boolean"
+          },
+          "url": {
+            "default": "",
+            "title": "Url",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "NewestBuild",
         "type": "object"
       },
       "OptInBody": {
@@ -6636,6 +6743,16 @@
             "title": "Ocr Binary Path",
             "type": "string"
           },
+          "ocr_provider": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "local",
+              "graite"
+            ],
+            "title": "Ocr Provider",
+            "type": "string"
+          },
           "provider": {
             "default": "local",
             "enum": [
@@ -6663,6 +6780,16 @@
               }
             ],
             "title": "Saved Model Id"
+          },
+          "stt_provider": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "local",
+              "graite"
+            ],
+            "title": "Stt Provider",
+            "type": "string"
           },
           "thinking": {
             "default": "auto",
@@ -11812,6 +11939,57 @@
           }
         },
         "summary": "Install Engine",
+        "tags": [
+          "Engines"
+        ]
+      }
+    },
+    "/api/v1/engines/{engine_id}/newest": {
+      "post": {
+        "description": "Geek mode: the newest upstream build Graite can install (checked on GitHub, with the\nchecksums GitHub publishes), or null when there is none it can use.",
+        "operationId": "newest_build_api_v1_engines__engine_id__newest_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine_id",
+            "required": true,
+            "schema": {
+              "title": "Engine Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/NewestBuild"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Newest Build Api V1 Engines  Engine Id  Newest Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Newest Build",
         "tags": [
           "Engines"
         ]

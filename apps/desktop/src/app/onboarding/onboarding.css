@@ -1,0 +1,239 @@
+/* The first-run onboarding: one calm column on the welcome page's grey canvas. Progress dots,
+   a picture, a title and a few short paragraphs, then Back / Skip / Continue. */
+.onboarding-inner {
+  display: flex;
+  flex-direction: column;
+  max-width: 720px;
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 40px 32px 32px;
+}
+.onboarding-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+.onboarding-dots > li {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--border);
+  transition:
+    width 0.15s ease,
+    background 0.15s ease;
+}
+.onboarding-dots > li[data-state="done"] {
+  background: color-mix(in srgb, var(--foreground) 40%, var(--border));
+}
+.onboarding-dots > li[data-state="current"] {
+  width: 20px;
+  background: var(--foreground);
+}
+
+.onboarding-shots {
+  margin-bottom: 24px;
+}
+.onboarding-text h1 {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+.onboarding-text p,
+.onboarding-text li {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+}
+.onboarding-text p {
+  margin-top: 10px;
+}
+.onboarding-text b {
+  font-weight: 600;
+  color: var(--foreground);
+}
+.onboarding-text ul {
+  margin-top: 6px;
+  padding-left: 20px;
+  list-style: disc;
+}
+.onboarding-text li + li {
+  margin-top: 4px;
+}
+.onboarding-text .onboarding-note {
+  font-size: 13px;
+}
+.onboarding-principles {
+  margin-top: 20px;
+}
+
+/* The name question, without the picture: it sits higher in the column. */
+.onboarding-name {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+  max-width: 448px;
+  margin: 24px auto 0;
+}
+
+.onboarding-account {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+.onboarding-waiting,
+.onboarding-success {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--welcome-card);
+  font-size: 13.5px;
+}
+.onboarding-waiting {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.onboarding-waiting > p,
+.onboarding-success,
+.onboarding-muted {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.onboarding-waiting strong {
+  font-weight: 600;
+}
+.onboarding-success svg {
+  color: var(--primary);
+}
+.onboarding-muted {
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+.onboarding-error {
+  font-size: 13px;
+  color: var(--destructive);
+}
+
+/* The first page: a compact grid, blank page first. */
+.onboarding-templates {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 20px;
+}
+.onboarding-template {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--welcome-card);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease;
+}
+.onboarding-template:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--foreground) 35%, var(--border));
+}
+.onboarding-template:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.onboarding-template-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 6px;
+  font-size: 20px;
+  line-height: 1;
+}
+.onboarding-template strong {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.onboarding-template > span:not(.onboarding-template-icon) {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
+.onboarding-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 32px;
+}
+
+@media (max-width: 700px) {
+  .onboarding-inner {
+    padding: 28px 20px 24px;
+  }
+  .onboarding-templates {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* The basics: icon, title and one line each. */
+.onboarding-basics {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+}
+.onboarding-basics > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--background);
+}
+.onboarding-basics > li > span {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--muted);
+}
+.onboarding-basics strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.onboarding-basics p {
+  margin-top: 2px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
+/* Claude, ChatGPT and Gemini in place of a screenshot. */
+.onboarding-apps {
+  display: grid;
+  place-items: center;
+  margin-bottom: 28px;
+  padding: 36px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--background);
+}
+.onboarding-logo {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 20px;
+}

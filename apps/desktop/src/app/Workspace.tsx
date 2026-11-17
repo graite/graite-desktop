@@ -9,7 +9,8 @@ import { RowPage } from "./RowPage";
 import type { OpenRow } from "@/editor/tables/RowView";
 import { TemplatesPage } from "./TemplatesPage";
 import { WelcomePage } from "./WelcomePage";
-import { FirstRunName } from "./FirstRunName";
+import { Onboarding, type OnboardingResult } from "./onboarding/Onboarding";
+import { markOnboarded, needsOnboarding } from "./onboarding/state";
 import { useProfile } from "@/lib/profile";
 import { FeedbackDialog, useFeedbackEnabled } from "./FeedbackDialog";
 import { StartupLoader } from "./StartupLoader";
@@ -33,8 +34,6 @@ const WELCOME_KEY = "graite.welcomeSeen";
 const TABS_KEY = "graite.tabs";
 /** Section names `openSettings` accepts; "chat" is the section of the model in use. */
 const SETTINGS_TABS: SettingsTab[] = [...SECTIONS, "chat", "vault"];
-// App-wide, not per vault: the name is asked once.
-const NAME_ASKED_KEY = "graite.nameAsked";
 
 /** The welcome page opens by itself once per vault. Storage may be unavailable; then it just shows. */
 function firstVisit(): boolean {
@@ -63,24 +62,12 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
   const [templatesInstructions, setTemplatesInstructions] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(firstVisit);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  // The first-run question: asked once, until answered or skipped.
+  // The first-run onboarding: decided once, when the profile has loaded, so saving a name in
+  // its first step does not end it.
   const me = useProfile();
-  const [nameAsked, setNameAsked] = useState(() => {
-    try {
-      return !!localStorage.getItem(NAME_ASKED_KEY);
-    } catch {
-      return true;
-    }
-  });
-  const askName = !nameAsked && me !== null && !me.first_name;
-  const finishName = () => {
-    try {
-      localStorage.setItem(NAME_ASKED_KEY, "1");
-    } catch {
-      /* storage unavailable: asked again next time */
-    }
-    setNameAsked(true);
-  };
+  const [onboarding, setOnboarding] = useState<boolean | null>(null);
+  if (onboarding === null && me !== null) setOnboarding(needsOnboarding(me));
+  const showOnboarding = onboarding === true;
   const feedbackEnabled = useFeedbackEnabled();
   const [studioSection, setStudioSection] = useState<{ section: Section; n: number } | null>(null);
   const [askHost, setAskHost] = useState<HTMLDivElement | null>(null);
@@ -293,6 +280,15 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
     setAiOpen(false);
     setWelcomeOpen(false);
     setSettingsPath(path);
+  };
+
+  const finishOnboarding = ({ createdPath }: OnboardingResult) => {
+    markOnboarded();
+    setOnboarding(false);
+    if (createdPath) {
+      void loadTree();
+      navigatePage(createdPath);
+    } else setWelcomeOpen(true);
   };
 
   const createPage = async () => {
@@ -561,7 +557,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
         </div>
       </div>
       <div className="relative flex min-w-0 flex-1 flex-col">
-        {!aiOpen && !askName && shownTabs.length > 0 && (
+        {!aiOpen && !showOnboarding && shownTabs.length > 0 && (
           <TabBar
             tabs={shownTabs}
             active={fullScreen ? null : selectedPath}
@@ -587,8 +583,11 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
               settingsVersion={settingsVersion}
             />
           </div>
-          {aiOpen ? null : askName ? (
-            <FirstRunName onDone={finishName} />
+          {aiOpen ? null : showOnboarding ? (
+            <Onboarding
+              onCreateBlankPage={async () => (await pages.create({})).path}
+              onFinish={finishOnboarding}
+            />
           ) : rowPage ? (
             <RowPage
               row={rowPage}

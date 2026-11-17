@@ -39,13 +39,15 @@ async def reindex(ctx: JobContext) -> dict[str, Any]:
 
 
 async def attachment_text(ctx: JobContext) -> dict[str, Any]:
-    """OCR a chat attachment (image or scanned PDF) with the local GLM-OCR model."""
+    """OCR a chat attachment (image or scanned PDF): GLM-OCR on this computer or Graite Cloud's
+    OCR model, as Settings → Documents says (models/sources.py)."""
     import shutil
     import tempfile
     from pathlib import Path
 
-    from graite.media.ocr import recognize
+    from graite.media.ocr import recognize, recognize_cloud
     from graite.models.config import load_config
+    from graite.models.sources import OCR_MODEL, ocr_source, unavailable
 
     state = ctx.state
     attachment_id = str(ctx.job.payload.get("attachment_id") or "")
@@ -70,33 +72,34 @@ async def attachment_text(ctx: JobContext) -> dict[str, Any]:
             },
         )
 
-    item = state.downloads.items.get("glm-ocr-q8")
-    if not item or item.status != "installed":
-        finish(
-            "failed",
-            error="Download GLM-OCR under Settings → Documents to read this file.",
-        )
-        raise ValueError("GLM-OCR is not installed.")
+    config = load_config(state.db)
+    where = await ocr_source(config, state.downloads)
+    if where is None:
+        finish("failed", error=unavailable("ocr"))
+        raise ValueError("No OCR model is available.")
     source = state.settings.vault / row["rel_path"]
     if not source.is_file():
         finish("failed", error="The uploaded file is missing.")
         raise ValueError("Attachment file missing.")
     try:
-        async with state.models.lock:
-            await state.models.server.stop()
-            state.models.loaded = None
-            config = load_config(state.db)
-            files = state.downloads.parts(item)
-            with tempfile.TemporaryDirectory(prefix="graite-chat-") as directory:
-                working = Path(directory) / ("source" + source.suffix.lower())
-                shutil.copyfile(source, working)
-                text = await recognize(
-                    working,
-                    item.local_path,
-                    str(state.downloads.file_target(item, files[1])),
-                    config,
-                    lambda message: ctx.progress(message=message),
-                )
+        with tempfile.TemporaryDirectory(prefix="graite-chat-") as directory:
+            working = Path(directory) / ("source" + source.suffix.lower())
+            shutil.copyfile(source, working)
+            if where == "graite":
+                text = await recognize_cloud(working, lambda message: ctx.progress(message=message))
+            else:
+                item = state.downloads.items[OCR_MODEL]
+                async with state.models.lock:
+                    await state.models.server.stop()
+                    state.models.loaded = None
+                    files = state.downloads.parts(item)
+                    text = await recognize(
+                        working,
+                        item.local_path,
+                        str(state.downloads.file_target(item, files[1])),
+                        config,
+                        lambda message: ctx.progress(message=message),
+                    )
     except Exception as exc:
         finish("failed", error=str(exc)[:300] or "Text recognition failed.")
         raise

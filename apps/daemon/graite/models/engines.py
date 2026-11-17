@@ -25,6 +25,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from graite.events import EventBus
+from graite.models.engine_versions import NewestBuild, is_newer
 from graite.models.fetch import fetch
 from graite.models.hardware import Hardware
 from graite.proc import NO_WINDOW
@@ -80,7 +81,9 @@ class EngineState(BaseModel):
     installed_version: str | None = None
     installed_variant: str | None = None
     previous_version: str | None = None
-    update_available: bool = False
+    update_available: bool = False  # the tested build is newer than the installed one
+    # Installed a newer build than the tested one (geek mode, "Newest build").
+    ahead: bool = False
     recommended: str | None = None
     recommended_label: str | None = None
     recommended_size: int = 0
@@ -241,6 +244,8 @@ class EngineInstaller:
         self.events = events
         self.engines = {e.id: e for e in catalog()}
         self.tasks: dict[str, asyncio.Task[None]] = {}
+        # The newest upstream build per engine, from the last geek-mode check (`check_newest`).
+        self.newest: dict[str, Engine] = {}
         self.progress: dict[str, dict[str, Any]] = {}
 
     async def start(self) -> None:
@@ -318,8 +323,15 @@ class EngineInstaller:
             installed_version=found[1] if found else None,
             installed_variant=found[0] if found else None,
             previous_version=self._pointer(engine_id, found[0], PREVIOUS) if found else None,
-            # A build of the user's own is theirs to update (rerun the build script).
-            update_available=bool(found and not local and found[1] != engine.version),
+            # A build of the user's own is theirs to update (rerun the build script), and a
+            # newer build a geek chose is never "updated" back down to the tested one.
+            update_available=bool(found and not local and is_newer(engine.version, found[1])),
+            ahead=bool(
+                found
+                and not local
+                and found[1] != engine.version
+                and is_newer(found[1], engine.version)
+            ),
             recommended=best.id if best else None,
             recommended_label=best.label if best else None,
             recommended_size=best.size if best else 0,
@@ -339,10 +351,37 @@ class EngineInstaller:
         if self.events is not None:
             self.events.publish("engine_progress", {"id": engine_id, **self.progress[engine_id]})
 
-    def begin(self, engine_id: str, variant_id: str | None, hardware: Hardware) -> None:
+    async def check_newest(self, engine_id: str) -> NewestBuild | None:
+        """Ask GitHub for the newest build Graite can install, and remember it for `begin`."""
+        from graite.models.engine_releases import newest
+
+        engine = self.engines[engine_id]
+        found = await newest(engine)
+        if found is None:
+            self.newest.pop(engine_id, None)
+            return None
+        mapped, release = found
+        self.newest[engine_id] = mapped
+        installed = self.installed(engine_id)
+        return NewestBuild(
+            version=mapped.version,
+            published_at=str(release.get("published_at") or ""),
+            prerelease=bool(release.get("prerelease")),
+            url=str(release.get("html_url") or ""),
+            newer=is_newer(mapped.version, installed[1] if installed else None),
+            tested=mapped.version == engine.version,
+        )
+
+    def begin(
+        self, engine_id: str, variant_id: str | None, hardware: Hardware, *, newest: bool = False
+    ) -> None:
         if engine_id in self.tasks:
             return
         engine = self.engines[engine_id]
+        if newest:
+            if engine_id not in self.newest:
+                raise ValueError("Check for the newest build first.")
+            engine = self.newest[engine_id]
         system, arch = host()
         variant = next(
             (v for v in candidates(engine, system, arch) if v.id == variant_id), None

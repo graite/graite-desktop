@@ -75,7 +75,7 @@ Engines, pinned by version and checksum in `apps/daemon/graite/models/engines.js
 |---|---|---|
 | `llama-server` (llama.cpp) | <https://github.com/ggml-org/llama.cpp> | MIT |
 | `crispasr` (CrispASR, GGML Chatterbox) | <https://github.com/CrispStrobe/CrispASR> | MIT |
-| `whisper-server` (whisper.cpp), when configured | <https://github.com/ggml-org/whisper.cpp> | MIT |
+| `whisper-server` (whisper.cpp), only when you set your own (geek mode); otherwise `crispasr` runs Whisper | <https://github.com/ggml-org/whisper.cpp> | MIT |
 
 Models, pinned by revision and checksum in `apps/daemon/graite/models/catalog.json`:
 

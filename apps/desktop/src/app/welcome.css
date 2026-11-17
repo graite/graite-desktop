@@ -343,3 +343,35 @@
     padding: 36px 20px 48px;
   }
 }
+
+/* In place of screenshots: a calm panel with the marks of the AI apps Graite connects to. */
+.welcome-visual {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 13 / 5;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--background);
+}
+.ai-app-icons {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+}
+.ai-app-icons > li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.ai-app-icon {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--card, var(--background));
+}
