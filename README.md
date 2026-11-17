@@ -26,7 +26,7 @@ directly**: every change an agent wants to make is a diff you accept, reject or 
 Cloud models (Claude, OpenAI-compatible servers, OpenRouter) plug into the same interface as an
 optional escape hatch. The product does not depend on them.
 
-> **Status: v0.5.1.** The source is complete and the app runs on Linux, macOS
+> **Status: v0.5.2.** The source is complete and the app runs on Linux, macOS
 > and Windows. Packaged builds are previews; the macOS build is signed and notarized. Read `ROADMAP.md` for what is shipped,
 > in progress and planned.
 
