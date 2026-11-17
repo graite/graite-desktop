@@ -1,6 +1,7 @@
 ---
 name: charts-and-dashboards
 description: Chart a page's table data (graite:chart blocks via propose_chart) or build an HTML dashboard of tiles and charts (propose_dashboard), including data from related tables.
+requires: [propose_chart]
 ---
 
 # Charts and dashboards

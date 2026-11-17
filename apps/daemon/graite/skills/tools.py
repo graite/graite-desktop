@@ -237,7 +237,7 @@ async def load_skill(
     registry: Any, name: Annotated[str, "Exact skill name from the index."]
 ) -> Any:
     skill = registry.library.get(str(name))
-    if not skill:
+    if not skill or not registry.can_follow(skill):
         raise ValueError("Skill not found in the available index.")
     allowed = skill.get("allowed_tools")
     if isinstance(allowed, str):

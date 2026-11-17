@@ -45,3 +45,37 @@ def test_every_built_in_skill_has_a_name_and_a_description() -> None:
         found = discover(Path("/nonexistent"), None)
         assert any(s["body"].strip() for s in found.values()), file
     assert all(s["description"] and s["name"] for s in discover(Path("/none"), None).values())
+
+
+def test_every_tool_a_builtin_skill_names_exists_and_its_requirement_is_one_of_them(
+    tmp_path: Path,
+) -> None:
+    """A renamed or removed tool must not leave a skill teaching a call that is refused."""
+    import re
+
+    from graite.skills.tools import TOOLS
+
+    for name, skill in discover(tmp_path, None).items():
+        mentioned = set(re.findall(r"\b(?:propose|read|search|list|run)_[a-z_]+\b", skill["body"]))
+        mentioned -= {"read_only"}  # a word in prose, not a tool
+        assert mentioned <= set(TOOLS), (name, mentioned - set(TOOLS))
+        assert skill["requires"], name
+        assert set(skill["requires"]) <= mentioned | set(re.findall(r"\w+", skill["description"]))
+
+
+def test_a_run_without_a_skills_tools_is_not_offered_the_skill(tmp_path: Path) -> None:
+    """The background loop has `load_skill` but not `propose_view`: listing page-views there
+    only teaches it calls that are refused."""
+    from types import SimpleNamespace
+
+    from graite.skills.registry import Registry
+
+    run = SimpleNamespace(
+        library=discover(tmp_path, None),
+        groups={"read", "propose"},
+        allowed={"read_page", "propose_edit"},
+    )
+    run.can_follow = lambda skill: Registry.can_follow(run, skill)  # type: ignore[arg-type]
+    assert Registry.skill_index(run) == ""  # type: ignore[arg-type]
+    run.allowed.add("propose_view")
+    assert Registry.skill_index(run).startswith("- page-views:")  # type: ignore[arg-type]

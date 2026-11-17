@@ -475,7 +475,9 @@ built-ins. Built-ins ship with the daemon in `graite/skills/builtin/<name>/SKILL
 read first, so a vault skill of the same name replaces one. Graite ships `page-views`, which
 teaches a model the `graite:view` contract below. The system prompt lists name + description only; the body is loaded on demand
 through `load_skill(name)`. `allowed-tools`, when present, narrows the tool set further for
-that turn (it can never widen it).
+that turn (it can never widen it). `requires: [tool, …]` names the tools the skill
+cannot do without: a run that lacks one (the assistant's background loop has a short tool
+list) is not shown the skill.
 
 ## 10. `.graite/config.toml`
 

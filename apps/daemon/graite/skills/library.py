@@ -44,6 +44,10 @@ def _load_from(
             "description": str(meta.get("description") or name)[:300],
             "body": body,
             "allowed_tools": meta.get("allowed-tools"),
+            # Tools the skill cannot do without: a run that lacks one is not offered it.
+            "requires": [str(t) for t in meta.get("requires") or [] if isinstance(t, str)]
+            if isinstance(meta.get("requires"), list)
+            else [],
             "source": source,
         }
 
