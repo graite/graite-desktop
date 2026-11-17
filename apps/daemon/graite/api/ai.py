@@ -679,6 +679,12 @@ class ChatRequest(BaseModel):
     attachments: list[str] = Field(default_factory=list)
     selection: Selection | None = None
     replace_from: int | None = Field(default=None, ge=0)
+    depth: Literal["quick", "deep"] | None = Field(
+        default=None,
+        description="How a question in Ask mode is answered: 'quick' is one search and one "
+        "model call with no tools; 'deep' researches in several small steps and takes "
+        "longer. Left out, the model works with its tools as before (the app sends 'quick').",
+    )
 
 
 def _attachment_sources(
@@ -802,6 +808,8 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
             context = ContextSet()
     first_turn = not any(m.get("role") == "user" for m in history)
     user_message: dict[str, Any] = {"role": "user", "content": body.message.strip(), "mode": mode}
+    if body.depth == "deep":
+        user_message["depth"] = "deep"
     if attachment_meta:
         user_message["attachments"] = attachment_meta
     if body.selection is not None:
@@ -833,6 +841,7 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
         resolved=resolved,
         context=context,
         feedback=state.proposals.undelivered_rejections(conversation_id),
+        depth=body.depth,
     )
     is_assistant = row["kind"] == "assistant"
     if is_assistant:
@@ -868,15 +877,22 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
                 await queue.put({"type": "status", "text": fallback})
                 state.events.publish("model_status", {"message": fallback})
             completed = False
+            answered = ""
             async for item in answer_turn(ctx):
                 await queue.put(item)
                 if item["type"] == "answer":
                     completed = True
+                    answered = item["text"]
             if completed and first_turn and not is_assistant:
                 from graite.agent.titles import chat_title
 
                 await queue.put({"type": "status", "text": "Naming your chat…"})
-                title = await chat_title(state.models, config, body.message.strip())
+                # A lean turn lends its system prompt, so the title comes from the cached
+                # prefix instead of a prompt of its own.
+                shared = (
+                    {"system": ctx.system_prompt, "answer": answered} if ctx.system_prompt else {}
+                )
+                title = await chat_title(state.models, config, body.message.strip(), **shared)
         except asyncio.CancelledError:
             await queue.put({"type": "cancelled"})
             raise

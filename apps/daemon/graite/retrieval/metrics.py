@@ -106,9 +106,11 @@ class TurnTimer:
             {"query": query[:200], "hits": found, "ms": int((time.monotonic() - since) * 1000)}
         )
 
-    def request_done(self, usage: dict[str, Any]) -> None:
-        """One model request ended: take what the server reported about it."""
-        if not usage and self._request_first is None:
+    def request_done(self, usage: dict[str, Any], *, always: bool = False) -> None:
+        """One model request ended: take what the server reported about it. `always` counts
+        the request even when the server reported nothing and no token was seen (a step
+        whose text is not streamed to the user)."""
+        if not always and not usage and self._request_first is None:
             return
         m = self.metrics
         m.model_calls += 1
