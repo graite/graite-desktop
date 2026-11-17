@@ -897,7 +897,13 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                         "kind": "tool",
                         "name": item["name"],
                         "status": "running",
-                        "text": str(tool_args.get("summary") or tool_args.get("path") or ""),
+                        # What the step was about: a change's summary, a page, or the
+                        # words searched for ("Searched “invoice Q3” · 6 hits · 120 ms").
+                        "text": str(
+                            tool_args.get("summary")
+                            or tool_args.get("path")
+                            or (f"“{tool_args['query']}”" if tool_args.get("query") else "")
+                        ),
                     }
                     activity.append(activity_step)
                     yield {"type": "activity", "step": dict(activity_step)}

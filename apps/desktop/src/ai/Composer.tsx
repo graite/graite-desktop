@@ -9,6 +9,7 @@ import {
   PenLine,
   MousePointer2,
   Check,
+  Telescope,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAutoGrow } from "@/chat/useAutoGrow";
@@ -20,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ComposerModel } from "./ComposerModel";
+import { useDepth } from "./depth";
 import { AttachmentChips } from "./AttachmentChips";
 
 export const MODES: { id: ChatMode; label: string; hint: string }[] = [
@@ -78,6 +80,7 @@ export function Composer({
   settingsVersion?: number;
   onModelChanged?: () => void;
 }) {
+  const [depth, setDepth] = useDepth();
   const [working, setWorking] = useState(false);
   const area = useRef<HTMLTextAreaElement>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -191,6 +194,24 @@ export function Composer({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+          )}
+          {!fixedMode && mode === "ask" && (
+            <button
+              type="button"
+              className="ai-composer-mode ai-composer-depth"
+              aria-pressed={depth === "deep"}
+              aria-label="Deep research"
+              title={
+                depth === "deep"
+                  ? "Deep research is on: several searches in small steps, a fuller answer, slower. Click for a quick answer."
+                  : "Quick answer: one search, answered from the best passages. Click for deep research."
+              }
+              disabled={busy || disabled || working}
+              onClick={() => setDepth(depth === "deep" ? "quick" : "deep")}
+            >
+              <Telescope size={13} />
+              {depth === "deep" ? "Deep" : "Quick"}
+            </button>
           )}
           {pages}
           {left}

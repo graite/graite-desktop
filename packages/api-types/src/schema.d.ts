@@ -2446,6 +2446,11 @@ export interface components {
       /** Connection Id */
       connection_id?: string | null;
       /**
+       * Context Budget Tokens
+       * @default 3000
+       */
+      context_budget_tokens: number;
+      /**
        * Context Size
        * @default 8192
        */
@@ -2471,6 +2476,11 @@ export interface components {
        * @default 2048
        */
       max_output_tokens: number;
+      /**
+       * Max Tool Calls
+       * @default 8
+       */
+      max_tool_calls: number;
       /**
        * Model
        * @default
@@ -3104,6 +3114,11 @@ export interface components {
     ChatRequest: {
       /** Attachments */
       attachments?: string[];
+      /**
+       * Depth
+       * @description How a question in Ask mode is answered: 'quick' is one search and one model call with no tools; 'deep' researches in several small steps and takes longer. Left out, the model works with its tools as before (the app sends 'quick').
+       */
+      depth?: ("quick" | "deep") | null;
       /** Message */
       message: string;
       /** Mode */
@@ -4736,6 +4751,11 @@ export interface components {
       /** Connection Id */
       connection_id?: string | null;
       /**
+       * Context Budget Tokens
+       * @default 3000
+       */
+      context_budget_tokens: number;
+      /**
        * Context Size
        * @default 8192
        */
@@ -4761,6 +4781,11 @@ export interface components {
        * @default 2048
        */
       max_output_tokens: number;
+      /**
+       * Max Tool Calls
+       * @default 8
+       */
+      max_tool_calls: number;
       /**
        * Model
        * @default

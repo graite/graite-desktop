@@ -115,6 +115,10 @@ export interface SendBody {
   attachments?: string[];
   selection?: { page_path: string; text: string };
   replace_from?: number;
+  /** Ask mode only: one search and one model call, or research in several small steps. */
+  depth?: "quick" | "deep";
+  /** Pages the user pinned with @: given to the model first, whatever the search finds. */
+  pinned_paths?: string[];
 }
 
 const enc = encodeURIComponent;

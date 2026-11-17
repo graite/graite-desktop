@@ -24,6 +24,13 @@
             ],
             "title": "Connection Id"
           },
+          "context_budget_tokens": {
+            "default": 3000,
+            "maximum": 64000.0,
+            "minimum": 500.0,
+            "title": "Context Budget Tokens",
+            "type": "integer"
+          },
           "context_size": {
             "default": 8192,
             "maximum": 131072.0,
@@ -58,6 +65,13 @@
             "maximum": 32768.0,
             "minimum": 256.0,
             "title": "Max Output Tokens",
+            "type": "integer"
+          },
+          "max_tool_calls": {
+            "default": 8,
+            "maximum": 64.0,
+            "minimum": 1.0,
+            "title": "Max Tool Calls",
             "type": "integer"
           },
           "model": {
@@ -1680,6 +1694,22 @@
             },
             "title": "Attachments",
             "type": "array"
+          },
+          "depth": {
+            "anyOf": [
+              {
+                "enum": [
+                  "quick",
+                  "deep"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How a question in Ask mode is answered: 'quick' is one search and one model call with no tools; 'deep' researches in several small steps and takes longer. Left out, the model works with its tools as before (the app sends 'quick').",
+            "title": "Depth"
           },
           "message": {
             "maxLength": 16000,
@@ -6486,6 +6516,13 @@
             ],
             "title": "Connection Id"
           },
+          "context_budget_tokens": {
+            "default": 3000,
+            "maximum": 64000.0,
+            "minimum": 500.0,
+            "title": "Context Budget Tokens",
+            "type": "integer"
+          },
           "context_size": {
             "default": 8192,
             "maximum": 131072.0,
@@ -6520,6 +6557,13 @@
             "maximum": 32768.0,
             "minimum": 256.0,
             "title": "Max Output Tokens",
+            "type": "integer"
+          },
+          "max_tool_calls": {
+            "default": 8,
+            "maximum": 64.0,
+            "minimum": 1.0,
+            "title": "Max Tool Calls",
             "type": "integer"
           },
           "model": {
