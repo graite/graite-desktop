@@ -82,7 +82,7 @@ it("walks through the steps in order, saving the name and greeting with it", asy
   next();
   await waitFor(() => expect(title()).toBe("Welcome aboard, Sam"));
   expect(saveProfile).toHaveBeenCalledWith({ first_name: "Sam" });
-  expect(screen.getByText(/changes wait for your review/)).toBeTruthy();
+  expect(screen.getByText(/whether changes wait for your review/)).toBeTruthy();
   next();
   expect(title()).toBe("The basics");
   next();
@@ -91,7 +91,9 @@ it("walks through the steps in order, saving the name and greeting with it", asy
   next();
   expect(title()).toBe("AI settings for every page");
   next();
-  expect(title()).toBe("You review every change");
+  // Review is a choice per page, not a rule.
+  expect(title()).toBe("Review changes, or let AI apply them");
+  expect(screen.getByText(/applied directly/)).toBeTruthy();
   next();
   expect(title()).toBe("Your Graite account");
   expect(screen.getByText("Free, and it comes with:")).toBeTruthy();
