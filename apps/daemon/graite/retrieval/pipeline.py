@@ -15,7 +15,7 @@ import logging
 import sqlite3
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal
@@ -782,6 +782,22 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
         )
         yield {"type": "status", "text": "Preparing your model…"}
         answer_text = ""
+        unkept: Callable[[str], str | None] | None = None
+        if (
+            ctx.retrieve == "on_demand"
+            and ctx.persona is not None
+            and not prefetched
+            and max_rounds > 1
+            and "read_page" in registry.allowed
+        ):
+            # A page named in the question that this conversation has not read yet: an
+            # answer that opens nothing cannot know what is on it.
+            read_before = {s.page_path for s in context.sources}
+            unread = [p for p in ctx.preferred_paths if p not in read_before]
+
+            def unkept(text: str) -> str | None:
+                return answering.unkept_promise(text, unread)
+
         tool_calls = prefetched
         searched = retrieved
         reasoning = ""
@@ -854,6 +870,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                 registry,
                 max_rounds=max_rounds,
                 max_tool_calls=None if ctx.is_agent else ctx.config.max_tool_calls,
+                nudge=unkept,
                 thinking=think,
                 effort=effort,
                 context_size=ctx.config.context_size,

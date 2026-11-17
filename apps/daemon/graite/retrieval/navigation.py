@@ -21,7 +21,7 @@ from typing import Any
 INDENT = "  "
 SPELLED = re.compile(r"(?<![\w'’])[a-zA-Z](?:[\s.\-]+[a-zA-Z]){2,}(?!\w)")
 PAGE_REQUEST = re.compile(
-    r"\b(action|actions|tasks?|todos?|pages?|projects?|notes?|open|still|next|remaining|"
+    r"\b(action|actions|tasks?|to[- ]?dos?|pages?|projects?|notes?|open|still|next|remaining|"
     r"summari[sz]e|summary|analyse|analyze|"
     r"acties|taken|pagina|pagina's|notities)\b",
     re.I,
