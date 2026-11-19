@@ -177,7 +177,7 @@ class McpService:
                 registry.searcher.release()
             try:
                 failed = "error" in json.loads(text)
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 failed = False
             return types.CallToolResult(
                 content=[types.TextContent(type="text", text=text)], isError=failed

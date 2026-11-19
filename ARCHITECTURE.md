@@ -13,7 +13,7 @@ Companion to `VISION.md` (why) and `ROADMAP.md` (when). Specs: `docs/vault-forma
 │  Rust shell: spawns sidecar, generates token, vault:// protocol (Range), menus, dialogs │
 └─────────┼─────────────────────────────────────┼────────────────────────────────────────┘
           ▼                                     ▼
-┌──────────────────── graite-daemon (Python 3.12, FastAPI, 127.0.0.1:<random>) ──────────┐
+┌──────────────────── graite-daemon (Python 3.14, FastAPI, 127.0.0.1:<random>) ──────────┐
 │ api/        vault/ (fileops · watcher · indexer · instructions · policy · navigation)   │
 │ index/      SQLite + sqlite-vec + FTS5 (.graite/index.sqlite) · chunker · embedder      │
 │ retrieval/  scope · strategy · search · context · answer · research · pipeline          │
@@ -43,7 +43,7 @@ graite-desktop/
       src-tauri/  src/main.rs           # sidecar spawn, token, vault:// protocol, menu, dialogs
                   tauri.conf.json       # bundle.externalBin: binaries/graite-daemon; resources: llama cpu build
       src/        app/ editor/ review/ chat/ search/ models/ jobs/ settings/ lib/
-    daemon/                             # Python 3.12, FastAPI, uv, ruff, pytest, mypy (strict on vault/ review/)
+    daemon/                             # Python 3.14, FastAPI, uv, ruff, pytest, mypy (strict on vault/ review/)
       graite/     main.py config.py api/ vault/ index/ models/ skills/ agent/ review/ jobs/ media/
       tests/      fixtures/vaults/*
       graite-daemon.spec                # PyInstaller onedir

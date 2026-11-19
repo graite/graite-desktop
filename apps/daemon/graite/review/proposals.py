@@ -235,7 +235,7 @@ class Proposals:
         try:
             doc = await self.ops.read_page(parent)
             children = await self.ops.child_pages(doc.id)
-        except (ValueError, FileNotFoundError, AttributeError):
+        except ValueError, FileNotFoundError, AttributeError:
             pending = self._pending_parent(parent, conversation_id, run_id)
             proposal = self.get(pending) if pending else None
             if proposal:
@@ -659,10 +659,10 @@ class Proposals:
                 await self.accept(proposal["id"])
             except ProposalConflict:
                 return {"applied": applied, "stopped_at": proposal["id"]}
-            except (ConflictError, TableConflict):
+            except ConflictError, TableConflict:
                 # Lost a write race with another editor: leave it pending and stop here.
                 return {"applied": applied, "stopped_at": proposal["id"]}
-            except (ValueError, FileNotFoundError):
+            except ValueError, FileNotFoundError:
                 continue
             applied.append(proposal["id"])
         return {"applied": applied, "stopped_at": None}
@@ -673,7 +673,7 @@ class Proposals:
         for proposal_id in ids:
             try:
                 await self.reject(proposal_id, reason)
-            except (KeyError, ValueError):
+            except KeyError, ValueError:
                 continue
             rejected.append(proposal_id)
         return {"rejected": rejected}

@@ -88,7 +88,7 @@ class Store:
     def load(self) -> ConnectionsFile:
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        except OSError, ValueError:
             return ConnectionsFile()
         if not isinstance(raw, dict):
             return ConnectionsFile()

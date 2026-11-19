@@ -265,7 +265,7 @@ def _existing_meta(state: Any, rel: str | None) -> dict[str, Any]:
     try:
         text = safe_file(state.settings.vault, rel).read_text(encoding="utf-8")
         return frontmatter.split(text)[0]
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return {}
 
 

@@ -278,7 +278,7 @@ async def _board_fields(registry: Any, doc: Any) -> tuple[str, list[dict[str, An
         return None
     try:
         parent_doc = await registry.ops.read_page(parent)
-    except (ValueError, OSError):
+    except ValueError, OSError:
         return None
     view = view_fields(parent_doc.body)
     siblings = _card_properties(registry, parent)
@@ -298,7 +298,7 @@ async def _page_databases(registry: Any, rel: str) -> list[dict[str, Any]]:
     for shown in await asyncio.to_thread(shown_tables, cache, registry.ops.vault, rel):
         try:
             info = await asyncio.to_thread(cache.info, shown.path)
-        except (FileNotFoundError, ValueError, OSError):
+        except FileNotFoundError, ValueError, OSError:
             continue
         if not registry.scope.contains(info.page_path):
             continue
@@ -671,7 +671,7 @@ async def _search_rows(registry: Any, query: str, limit: int = 5) -> list[dict[s
         return []
     try:
         entries = await catalog(registry)
-    except (ValueError, OSError):
+    except ValueError, OSError:
         return []
     words = [w for w in re.findall(r"[\w'-]{3,}", query) if w.lower() not in _STOP]
     tries = [query.strip('"\u201c\u201d ')] + ([w for w in words] if len(words) > 1 else [])
@@ -685,7 +685,7 @@ async def _search_rows(registry: Any, query: str, limit: int = 5) -> list[dict[s
                 found = await asyncio.to_thread(
                     cache.select, entry.path, search=text, limit=limit - len(hits)
                 )
-            except (ValueError, OSError):
+            except ValueError, OSError:
                 continue
             for row in found["rows"]:
                 if (entry.path, row["id"]) in seen:
@@ -969,7 +969,7 @@ async def _find_table(
         if page is not None:
             try:
                 rel = await asyncio.to_thread(cache.resolve, page, table)
-            except (FileNotFoundError, ValueError):
+            except FileNotFoundError, ValueError:
                 rel = None
         if rel is None:
             wanted = table.lower().removesuffix(".csv").strip()
@@ -1102,7 +1102,7 @@ async def read_rows(
             raise ValueError(f"There is no row {id!r} in {rel}.")
         try:
             doc = await registry.ops.read_row_doc(rel, str(id))
-        except (ValueError, FileNotFoundError):
+        except ValueError, FileNotFoundError:
             doc = None
         if doc and doc.get("exists") and doc.get("body", "").strip():
             result["document"] = doc["body"][: registry.result_limit // 2]

@@ -140,7 +140,7 @@ class Downloader:
         except asyncio.CancelledError:
             item.status = "paused"
             raise
-        except (OSError, ValueError, httpx.HTTPError):
+        except OSError, ValueError, httpx.HTTPError:
             item.status, item.error = (
                 "error",
                 "Download could not finish. Check disk space and connection, then retry.",

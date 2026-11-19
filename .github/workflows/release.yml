@@ -116,7 +116,7 @@ jobs:
       # ---- Python sidecar: built on each OS, smoke-tested, placed into src-tauri/resources/daemon ----
       - uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
           enable-cache: true
           cache-dependency-glob: uv.lock
       - name: install the daemon with its build group

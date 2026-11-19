@@ -67,7 +67,7 @@ def detect() -> Hardware:
             result.gpu = out[0].strip()
             result.vram_gb, result.free_vram_gb = float(out[1]) / 1024, float(out[2]) / 1024
             result.backend = "cuda12"
-        except (OSError, subprocess.SubprocessError, ValueError, IndexError):
+        except OSError, subprocess.SubprocessError, ValueError, IndexError:
             pass
     if result.gpu and "GB10" in result.gpu:
         result.gpu += " · shared memory"
@@ -93,7 +93,7 @@ def detect() -> Hardware:
             names = [name for name in names if "llvmpipe" not in name.lower()]
             if names:
                 result.gpu, result.backend = names[0], "vulkan"
-        except (OSError, subprocess.SubprocessError):
+        except OSError, subprocess.SubprocessError:
             pass
     return result
 

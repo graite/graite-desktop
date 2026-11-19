@@ -202,7 +202,7 @@ class VoiceRuntime:
             try:
                 candidate = self.state.fileops.attachment_path(definition.memory, str(name))
                 reference = candidate if candidate.is_file() else None
-            except (FileNotFoundError, ValueError):
+            except FileNotFoundError, ValueError:
                 reference = None
         voice = Voice(
             "en" if language == "auto" else language,

@@ -141,7 +141,7 @@ def root_path(state: Any, page_id: str | None) -> str | None:
         return None
     try:
         return str(state.fileops.page_by_id(page_id))
-    except (FileNotFoundError, ValueError):
+    except FileNotFoundError, ValueError:
         return None
 
 
@@ -290,7 +290,7 @@ async def _load(state: Any, rows: list[Any]) -> list[Memory]:
         kind, pinned = _flags(row["frontmatter_json"])
         try:
             body = (await state.fileops.read_page(row["path"])).body
-        except (FileNotFoundError, ValueError):
+        except FileNotFoundError, ValueError:
             continue
         body = body.replace("<!-- graite:empty -->", "").strip()
         out.append(Memory(row["path"], row["title"], body, kind, pinned))
@@ -332,7 +332,7 @@ async def core(state: Any, root: str | None, *, cloud: bool) -> str:
             continue
         try:
             body = (await state.fileops.read_page(children[title])).body.strip()
-        except (FileNotFoundError, ValueError):
+        except FileNotFoundError, ValueError:
             continue
         body = re.sub(r"^## [^\n]*\n+(?=## |\Z)", "", body + "\n", flags=re.M).strip()
         body = body.replace("<!-- graite:empty -->", "").strip()
@@ -347,7 +347,7 @@ async def journal_tail(state: Any, root: str | None) -> str:
         return ""
     try:
         body = str((await state.fileops.read_page(path)).body).strip()
-    except (FileNotFoundError, ValueError):
+    except FileNotFoundError, ValueError:
         return ""
     return body[-JOURNAL_TAIL:]
 

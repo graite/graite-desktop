@@ -157,7 +157,7 @@ class Manager:
                     headers={"Authorization": f"Bearer {self.server.key}"},
                 )
             template = response.json().get("chat_template") if response.is_success else None
-        except (httpx.HTTPError, ValueError, AttributeError):
+        except httpx.HTTPError, ValueError, AttributeError:
             return
         if isinstance(template, str) and template:
             self.thinking_templates[model_path] = "enable_thinking" in template

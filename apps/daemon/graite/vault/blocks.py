@@ -118,7 +118,7 @@ def view_fields(markdown: str) -> list[PageProperty]:
                 raw = value["settings"].get("fields", [])
                 if isinstance(raw, list) and all(isinstance(f, dict) for f in raw):
                     fields.extend(_fields(raw))
-        except (ValueError, TypeError, KeyError, yaml.YAMLError):
+        except ValueError, TypeError, KeyError, yaml.YAMLError:
             continue
     return fields
 

@@ -428,7 +428,7 @@ def _graite_message(detail: str) -> str | None:
     """The user-facing message of a Graite Cloud error body, if that is what this is."""
     try:
         error = json.loads(detail).get("error")
-    except (ValueError, AttributeError):
+    except ValueError, AttributeError:
         return None
     if not isinstance(error, dict) or error.get("code") not in GRAITE_CODES:
         return None

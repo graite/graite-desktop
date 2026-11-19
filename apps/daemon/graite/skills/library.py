@@ -32,7 +32,7 @@ def _load_from(
                 checked = safe_file(vault, file.relative_to(vault.resolve()).as_posix())
             with checked.open(encoding="utf-8") as handle:
                 meta, body = frontmatter.split(handle.read(24000))
-        except (OSError, ValueError):
+        except OSError, ValueError:
             continue  # one broken skill file must not hide the others
         except Exception:  # noqa: BLE001 - malformed YAML front matter
             continue

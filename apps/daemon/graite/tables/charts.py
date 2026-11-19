@@ -300,7 +300,7 @@ def _number(value: Any) -> float | int | None:
         return value
     try:
         return float(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
 

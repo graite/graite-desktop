@@ -43,7 +43,7 @@ class VoiceLibrary:
         for meta in sorted(self.root.glob("v_*/meta.json")) if self.root.is_dir() else []:
             try:
                 info = VoiceInfo.model_validate_json(meta.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
+            except OSError, ValueError:
                 continue
             if (meta.parent / "voice.wav").is_file():
                 found.append(info)

@@ -155,7 +155,7 @@ class CloudSession:
         try:
             found = json.loads((self.app_dir / "cloud.json").read_text(encoding="utf-8"))
             return found if isinstance(found, dict) else {}
-        except (OSError, ValueError):
+        except OSError, ValueError:
             return {}
 
     def _mark(self, signed_in: bool) -> None:
@@ -183,7 +183,7 @@ class CloudSession:
             found = json.loads(path.read_text(encoding="utf-8")).get("install_id")
             if isinstance(found, str) and found:
                 return found
-        except (OSError, ValueError):
+        except OSError, ValueError:
             pass
         install_id = secrets.token_urlsafe(16)
         path.parent.mkdir(parents=True, exist_ok=True)

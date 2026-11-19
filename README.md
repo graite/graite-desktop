@@ -107,7 +107,7 @@ signed yet: SmartScreen shows "unknown publisher".
 ## Develop
 
 Prerequisites: [Rust](https://rustup.rs) (stable), [pnpm](https://pnpm.io) 10, Node 24,
-[uv](https://docs.astral.sh/uv/) with Python 3.12, [just](https://github.com/casey/just), and
+[uv](https://docs.astral.sh/uv/) with Python 3.14, [just](https://github.com/casey/just), and
 the [Tauri 2 system dependencies](https://tauri.app/start/prerequisites/) for your OS.
 
 ```bash
@@ -127,7 +127,7 @@ together; `VISION.md` says why. `CONTRIBUTING.md` explains how changes land and 
 
 ```
 apps/desktop     Tauri 2 shell + React 19 UI (BlockNote editor, review, chat, settings)
-apps/daemon      Python 3.12 FastAPI daemon: vault, index, models, agents, jobs, voice, MCP
+apps/daemon      Python 3.14 FastAPI daemon: vault, index, models, agents, jobs, voice, MCP
 packages/        md-convert (Markdown <-> BlockNote) and api-types (generated from OpenAPI)
 examples/vault   the small vault `just dev` opens
 docs/            development guide, vault format, decision log; docs/design/ holds deeper specs
