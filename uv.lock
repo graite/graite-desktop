@@ -387,7 +387,7 @@ wheels = [
 
 [[package]]
 name = "graite-daemon"
-version = "0.5.2"
+version = "0.5.3"
 source = { editable = "apps/daemon" }
 dependencies = [
     { name = "av" },
