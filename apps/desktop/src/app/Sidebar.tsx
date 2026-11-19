@@ -47,7 +47,8 @@ import { useVault } from "./vault-context";
 import { setThemeChoice, useTheme } from "@/lib/theme";
 import "./vault.css";
 
-const EXPANDED_KEY = "graite.sidebar.expanded";
+// v2: the tree used to start fully expanded and saved that; a new key starts it collapsed once.
+const EXPANDED_KEY = "graite.sidebar.expanded.v2";
 
 function loadExpanded(): Set<string> | null {
   try {
@@ -56,14 +57,6 @@ function loadExpanded(): Set<string> | null {
   } catch {
     return null;
   }
-}
-
-function allPaths(nodes: TreeNode[], out: string[] = []): string[] {
-  for (const n of nodes) {
-    out.push(n.path);
-    allPaths(n.children, out);
-  }
-  return out;
 }
 
 interface SidebarProps {
@@ -146,10 +139,9 @@ export function Sidebar({
       setMoving(false);
     }
   };
-  // First run: everything expanded. Afterwards the user's toggles persist.
-  const [expanded, setExpanded] = useState<Set<string>>(
-    () => loadExpanded() ?? new Set(allPaths(tree)),
-  );
+  // Collapsed until the user opens a page's children; their toggles persist. The open page's
+  // ancestors are expanded below so it is always visible.
+  const [expanded, setExpanded] = useState<Set<string>>(() => loadExpanded() ?? new Set());
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [deletePath, setDeletePath] = useState<string | null>(null);
   useEffect(() => {
@@ -269,7 +261,11 @@ export function Sidebar({
           Studio
         </button>
       </nav>
-      <div ref={askHost} className={aiActive ? "min-h-0 flex-1 flex flex-col" : "hidden"} />
+      {/* Studio's rail scrolls as a whole, from just below the Pages / Studio switch. */}
+      <div
+        ref={askHost}
+        className={aiActive ? "sidebar-studio-scroll min-h-0 flex-1 flex flex-col" : "hidden"}
+      />
       <div className={aiActive ? "hidden" : "min-h-0 flex-1 flex flex-col"}>
         <div className="flex items-center justify-between px-3 py-2">
           <span className="text-xs font-medium text-muted-foreground">Pages</span>
@@ -325,50 +321,53 @@ export function Sidebar({
           </div>
         </ScrollArea>
       </div>
-      {onWelcome && (
+      {/* Opaque, so a long list above never shows through the buttons. */}
+      <div className="relative z-10 flex shrink-0 flex-col bg-sidebar">
+        {onWelcome && (
+          <button
+            onClick={onWelcome}
+            aria-current={welcomeActive ? "page" : undefined}
+            className={`flex items-center gap-2 border-t px-4 py-3 text-xs text-muted-foreground hover:bg-accent ${welcomeActive ? "bg-accent" : ""}`}
+          >
+            <Sparkles className="size-4" />
+            Welcome &amp; next steps
+          </button>
+        )}
+        {onFeedback && (
+          <button
+            onClick={onFeedback}
+            className="flex items-center gap-2 border-t px-4 py-3 text-xs text-muted-foreground hover:bg-accent"
+          >
+            <MessageSquareHeart className="size-4" />
+            Send feedback
+          </button>
+        )}
         <button
-          onClick={onWelcome}
-          aria-current={welcomeActive ? "page" : undefined}
-          className={`flex items-center gap-2 border-t px-4 py-3 text-xs text-muted-foreground hover:bg-accent ${welcomeActive ? "bg-accent" : ""}`}
+          onClick={onTemplates}
+          aria-current={templatesActive ? "page" : undefined}
+          className={`flex items-center gap-2 border-t px-4 py-3 text-xs text-muted-foreground hover:bg-accent ${templatesActive ? "bg-accent" : ""}`}
         >
-          <Sparkles className="size-4" />
-          Welcome &amp; next steps
+          <LayoutTemplate className="size-4" />
+          Templates
         </button>
-      )}
-      {onFeedback && (
         <button
-          onClick={onFeedback}
+          onClick={onTrash}
+          aria-current={trashActive ? "page" : undefined}
+          className={`flex items-center gap-2 border-t px-4 py-3 text-xs text-muted-foreground hover:bg-accent ${trashActive ? "bg-accent" : ""}`}
+        >
+          <Trash2 className="size-4" />
+          Trash
+        </button>
+        <button
+          onClick={onModels}
           className="flex items-center gap-2 border-t px-4 py-3 text-xs text-muted-foreground hover:bg-accent"
         >
-          <MessageSquareHeart className="size-4" />
-          Send feedback
+          <Settings2 className="size-4" />
+          Settings
         </button>
-      )}
-      <button
-        onClick={onTemplates}
-        aria-current={templatesActive ? "page" : undefined}
-        className={`flex items-center gap-2 border-t px-4 py-3 text-xs text-muted-foreground hover:bg-accent ${templatesActive ? "bg-accent" : ""}`}
-      >
-        <LayoutTemplate className="size-4" />
-        Templates
-      </button>
-      <button
-        onClick={onTrash}
-        aria-current={trashActive ? "page" : undefined}
-        className={`flex items-center gap-2 border-t px-4 py-3 text-xs text-muted-foreground hover:bg-accent ${trashActive ? "bg-accent" : ""}`}
-      >
-        <Trash2 className="size-4" />
-        Trash
-      </button>
-      <button
-        onClick={onModels}
-        className="flex items-center gap-2 border-t px-4 py-3 text-xs text-muted-foreground hover:bg-accent"
-      >
-        <Settings2 className="size-4" />
-        Settings
-      </button>
-      <div className="border-t px-2 py-1.5">
-        <DaemonStatus compact />
+        <div className="border-t px-2 py-1.5">
+          <DaemonStatus compact />
+        </div>
       </div>
 
       <Dialog

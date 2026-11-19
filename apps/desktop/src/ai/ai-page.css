@@ -541,12 +541,19 @@
   padding: 0 6px;
 }
 
-/* Ask shares the workspace sidebar; eight recent rows fit before scrolling. */
+/* Ask shares the workspace sidebar. The sidebar's Studio area scrolls the whole rail, from
+   just below the Pages / Studio switch to the top of the bottom buttons. */
+.sidebar-studio-scroll {
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
 .ai-page-rail {
   width: 100%;
   border-right: 0;
   padding: 4px 8px;
   display: flex;
+  flex-shrink: 0;
+  min-height: auto;
 }
 .ai-rail-nav {
   display: flex;
@@ -567,7 +574,7 @@
 .ai-rail-spaces {
   display: flex;
   flex-direction: column;
-  margin: 20px 0;
+  margin: 8px 0 10px;
 }
 .ai-rail-count {
   margin-left: auto;
@@ -590,9 +597,8 @@
 }
 .ai-rail-list {
   flex: initial;
-  max-height: 272px;
+  overflow: visible;
   padding: 0;
-  scrollbar-width: thin;
 }
 .ai-rail-item {
   height: 34px;
