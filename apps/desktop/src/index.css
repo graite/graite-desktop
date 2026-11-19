@@ -255,3 +255,35 @@
   opacity: 0.5;
   cursor: default;
 }
+
+/* Toasts: a small, quiet close ✕ inside the card on the right, instead of Sonner's bordered
+ * circle on the corner. The card keeps room for it so text and actions never run under it.
+ * The doubled attribute outranks Sonner's own rules, which it adds after this sheet. */
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"]:has([data-close-button]) {
+  padding-right: 36px;
+}
+[data-sonner-toaster]
+  [data-sonner-toast][data-styled="true"]
+  [data-close-button][data-close-button] {
+  inset: 50% 10px auto auto;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted-foreground);
+  opacity: 0.6;
+}
+[data-sonner-toaster]
+  [data-sonner-toast][data-styled="true"]:hover
+  [data-close-button][data-close-button]:hover {
+  border: 0;
+  background: var(--accent);
+  color: var(--foreground);
+  opacity: 1;
+}
+[data-sonner-toaster] [data-close-button] svg {
+  width: 12px;
+  height: 12px;
+}
