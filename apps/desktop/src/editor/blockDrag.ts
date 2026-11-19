@@ -153,8 +153,9 @@ export function useBlockDrag(editor: GraiteEditor, actions: BlockDropActions) {
           .querySelector<HTMLElement>(".bn-toggle-wrapper")
           ?.getBoundingClientRect();
         if (title && y >= title.top + title.height / 2 && y <= rect.bottom) {
-          const indent = 24;
-          const line = new DOMRect(rect.left + indent, title.bottom, rect.width - indent, 0);
+          // The whole toggle (its open children too) is tinted rather than a line drawn.
+          const whole = outer.getBoundingClientRect();
+          const line = new DOMRect(rect.left - 4, whole.top, rect.width + 8, whole.height);
           return { kind: "block", id, placement: "inside", line };
         }
         const placement: Placement = y < rect.top + rect.height / 2 ? "before" : "after";
@@ -176,8 +177,13 @@ export function useBlockDrag(editor: GraiteEditor, actions: BlockDropActions) {
           highlighted = page;
         }
         if (target?.kind === "block") {
+          // ProseMirror redraws a block whose attributes change, so the toggle being dropped
+          // into is tinted by this overlay, not by marking the block itself.
+          const into = target.placement === "inside";
+          line.classList.toggle("block-drop-into", into);
+          line.style.height = into ? `${target.line.height}px` : "";
           line.style.display = "block";
-          line.style.transform = `translate3d(${target.line.left}px, ${target.line.top - 1}px, 0)`;
+          line.style.transform = `translate3d(${target.line.left}px, ${target.line.top - (into ? 0 : 1)}px, 0)`;
           line.style.width = `${target.line.width}px`;
         } else line.style.display = "none";
         if (scroller) {
