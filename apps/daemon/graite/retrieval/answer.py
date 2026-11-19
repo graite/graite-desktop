@@ -257,9 +257,50 @@ def agent_messages(
     return _assemble(head, effective, sources, pages, [], trigger, budget, skills_index)
 
 
-PERSONA_BUDGET = 1000
+# The assistant's profile (its Personality, Context, Guidelines and Goals) is written by the
+# user as instructions, so it outranks the automatic memory for room in the prompt.
+PERSONA_BUDGET = 8000
+PERSONA_FLOOR = 1000  # what a persona always gets, even when memory would like the room
 MEMORY_BUDGET = 3000  # bytes of pinned memories (and a not yet upgraded Profile/Playbook)
 _MEMORY_BLOCK = re.compile(r"^### [^\n]+ \([^\n]*\)\n", re.M)  # "### Profile (Ada/Profile)"
+
+
+_PERSONA_SECTION = re.compile(r"^## ", re.M)
+
+
+def fit_persona(persona: str, limit: int) -> str:
+    """The assistant's profile cut to `limit` bytes without losing a section: when it does not
+    fit, every `## Section` gets a fair share (short ones whole, the rest evenly) instead of
+    the last sections (Guidelines, Goals) falling off the end."""
+    persona = persona.strip()
+    if limit <= 0 or not persona:
+        return ""
+    if len(persona.encode()) <= limit:
+        return persona
+    marks = [m.start() for m in _PERSONA_SECTION.finditer(persona)]
+    if not marks:
+        return clip(persona, limit)
+    starts = [0, *marks] if marks[0] != 0 else marks
+    parts = [persona[a:b].strip() for a, b in zip(starts, [*starts[1:], len(persona)], strict=True)]
+    parts = [part for part in parts if part]
+    room = limit - 2 * (len(parts) - 1)  # the blank lines between sections
+    shares = [0] * len(parts)
+    # Water-filling: the smallest sections are kept whole while they fit in an even share.
+    order = sorted(range(len(parts)), key=lambda i: len(parts[i].encode()))
+    for position, index in enumerate(order):
+        even = max(0, room) // (len(parts) - position)
+        shares[index] = min(len(parts[index].encode()), even)
+        room -= shares[index]
+    kept = []
+    for part, share in zip(parts, shares, strict=True):
+        if len(part.encode()) <= share:
+            kept.append(part)
+            continue
+        cut = clip(part, share)
+        # End on a whole line where that still leaves more than the heading.
+        whole = cut.rsplit("\n", 1)[0]
+        kept.append((whole if len(whole) > len(part.split("\n", 1)[0]) else cut).strip())
+    return clip("\n\n".join(k for k in kept if k), limit)
 
 
 def fit_memory(memory: str, limit: int) -> str:
@@ -339,12 +380,17 @@ def assistant_messages(
         head += VOICE_ADDENDUM
     head += _feedback(feedback)
     # Persona and memory each have their own allowance, both bounded by what is left of half
-    # the window, so dialogue and sources always keep the other half. Memory is what makes the
-    # assistant personal, so it gets the larger share; the Journal gives way first.
+    # the window, so dialogue and sources always keep the other half. Memory keeps room for
+    # its notes up to its own cap (the Journal gives way first); the persona, which the user
+    # wrote as instructions, gets everything else, and at least PERSONA_FLOOR. A persona that does
+    # not fit loses a little of every section rather than its last ones.
     room = max(0, budget // 2 - len(head.encode()) - 160)
-    persona_size = min(PERSONA_BUDGET, budget // 6, room // 3 if memory.strip() else room)
-    if persona.strip() and persona_size:
-        persona_text = clip(persona.strip(), persona_size)
+    memory_need = min(len(memory.strip().encode()), MEMORY_BUDGET)
+    persona_size = min(
+        PERSONA_BUDGET, budget // 4, max(room - memory_need, min(PERSONA_FLOOR, room // 3))
+    )
+    persona_text = fit_persona(persona, persona_size)
+    if persona_text:
         head += "## Who you are\n" + persona_text + "\n"
         room -= len(persona_text.encode())
     notes = fit_memory(memory, min(MEMORY_BUDGET, room))
