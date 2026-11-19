@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useErrorToast } from "@/lib/useErrorToast";
 import {
   Activity,
   ArrowLeft,
@@ -80,6 +81,7 @@ export function AgentWorkspace({
       : null,
   );
   const [error, setError] = useState("");
+  useErrorToast(error);
   const [leave, setLeave] = useState<(() => void) | null>(null);
   const [suggestion, setSuggestion] = useState<{ before: AgentBody; after: AgentBody } | null>(
     null,
@@ -527,12 +529,6 @@ export function AgentWorkspace({
           </div>
         </div>
       </div>
-      {error && (
-        <div className="agent-workspace-error" role="alert">
-          {error}
-          <button onClick={() => setError("")}>Dismiss</button>
-        </div>
-      )}
     </section>
   );
 }

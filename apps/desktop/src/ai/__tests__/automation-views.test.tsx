@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { toast } from "sonner";
 
 const auto = vi.hoisted(() => ({
   buildAgent: vi.fn(),
@@ -408,7 +409,7 @@ it("does not overwrite edits made while a chat suggestion is generated", async (
   await screen.findByRole("button", { name: "Apply to draft" });
   fireEvent.change(screen.getByLabelText("Agent name"), { target: { value: "My review" } });
   fireEvent.click(screen.getByRole("button", { name: "Apply to draft" }));
-  expect(screen.getByRole("alert").textContent).toContain("You edited the draft");
+  expect(String(vi.mocked(toast.error).mock.lastCall?.[0])).toContain("You edited the draft");
   expect((screen.getByLabelText("Agent name") as HTMLInputElement).value).toBe("My review");
   fireEvent.click(screen.getByRole("button", { name: "Back to agents" }));
   expect(screen.getByText("You have unsaved changes.")).toBeTruthy();

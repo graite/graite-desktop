@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Hand, Mic, MicOff, PhoneOff, Settings2, Speech } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { voice as voiceApi, type VoiceStatus } from "@/lib/voice";
+import { useErrorToast } from "@/lib/useErrorToast";
 import type { useVoiceSession } from "./useVoiceSession";
 
 const LABELS: Record<string, string> = {
@@ -41,6 +42,7 @@ export function VoiceBar({
         .then(setStatus)
         .catch(() => setStatus(null));
   }, [active, settingsVersion]);
+  useErrorToast(session.error);
   useEffect(() => {
     if (phase !== "speaking" && phase !== "thinking") return;
     const onKey = (event: KeyboardEvent) => {
@@ -75,11 +77,6 @@ export function VoiceBar({
             <Settings2 size={13} /> Voice needs setting up: {missing[0].text}
             {missing.length > 1 ? ` (+${missing.length - 1})` : ""}
           </button>
-        )}
-        {session.error && (
-          <span className="voice-error" role="alert">
-            {session.error}
-          </span>
         )}
       </div>
     );
@@ -148,11 +145,6 @@ export function VoiceBar({
       <Button variant="ghost" size="sm" onClick={session.stop}>
         <PhoneOff size={14} /> End
       </Button>
-      {session.error && (
-        <span className="voice-error" role="alert">
-          {session.error}
-        </span>
-      )}
       {silent && phase === "listening" && !muted && (
         <button className="voice-silent" role="alert" onClick={() => onSettings("voice")}>
           {silent === "silence"
