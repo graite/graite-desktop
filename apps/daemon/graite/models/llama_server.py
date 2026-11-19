@@ -46,7 +46,7 @@ def supports(binary: str, flag: str, env: dict[str, str] | None = None) -> bool:
                 check=False,
             )
             _FLAGS[key] = done.stdout + done.stderr
-        except (OSError, subprocess.SubprocessError):
+        except OSError, subprocess.SubprocessError:
             _FLAGS[key] = ""
     return flag in _FLAGS[key]
 

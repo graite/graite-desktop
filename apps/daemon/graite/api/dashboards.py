@@ -154,7 +154,7 @@ async def frame(request: Request, ticket: str, theme: str = "light") -> HTMLResp
     elif found.src:
         try:
             html = await _ops(request).read_dashboard(found.page, found.src)
-        except (VaultPathError, FileNotFoundError):
+        except VaultPathError, FileNotFoundError:
             html = None
     if not isinstance(html, str):
         return _page("This dashboard file does not exist (yet).", 404)

@@ -156,7 +156,7 @@ def _text(result: Any) -> str:
 
     try:
         return json.dumps(result, ensure_ascii=False)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return str(result)
 
 

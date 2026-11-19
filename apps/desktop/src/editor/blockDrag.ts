@@ -12,7 +12,8 @@ import { isMovableText } from "./textDrag";
  * A press on the handle that moves less than DRAG_THRESHOLD stays a click and opens the
  * handle's menu as before. Dropping a media block on a page (sidebar row or page link) moves
  * the file there; dropping a page link on another page link nests that page under it;
- * dropping text blocks on a page moves the text into that page.
+ * dropping text blocks on a page moves the text into that page. Dropped on the lower half of a
+ * toggle's title (or its empty-toggle placeholder), blocks go inside it, as its first children.
  */
 
 const DRAG_THRESHOLD = 4;
@@ -26,11 +27,9 @@ export interface BlockDropActions {
   moveBlocks?: (blockIds: string[], path: string) => Promise<void>;
 }
 
-type Placement = "before" | "after";
-type Target =
-  | { kind: "block"; id: string; placement: Placement; line: DOMRect }
-  | { kind: "page"; path: string; element: HTMLElement }
-  | null;
+type Placement = "before" | "after" | "inside";
+export type BlockTarget = { kind: "block"; id: string; placement: Placement; line: DOMRect };
+type Target = BlockTarget | { kind: "page"; path: string; element: HTMLElement } | null;
 
 /** The blocks a press on `block`'s handle drags: the selection when it spans that block. */
 function draggedBlocks(editor: GraiteEditor, block: GraiteBlock): GraiteBlock[] {
@@ -46,6 +45,103 @@ function isInside(el: Element, ids: Set<string>): boolean {
   for (let node: Element | null = el; node; node = node.parentElement?.closest("[data-id]") ?? null)
     if (node.getAttribute("data-id") && ids.has(node.getAttribute("data-id")!)) return true;
   return false;
+}
+
+/** The block whose own content (not its children) is nearest `y`, skipping the dragged ones. */
+function nearestBlock(root: HTMLElement, y: number, ids: Set<string>): HTMLElement | null {
+  let best: HTMLElement | null = null;
+  let distance = Infinity;
+  for (const outer of root.querySelectorAll<HTMLElement>(".bn-block-outer")) {
+    if (isInside(outer, ids)) continue;
+    const content = outer.querySelector(":scope > .bn-block > .bn-block-content");
+    const rect = content?.getBoundingClientRect();
+    if (!rect || !rect.height) continue; // folded away
+    const d = y < rect.top ? rect.top - y : y > rect.bottom ? y - rect.bottom : 0;
+    if (d < distance) [best, distance] = [outer, d];
+  }
+  return best;
+}
+
+/**
+ * Where blocks dropped at (`x`, `y`) in the editor `root` go: before or after the block there,
+ * or into a toggle, with the line (or, into a toggle, the box) to show. Null over the dragged
+ * blocks themselves (`ids`), where a drop leaves them in place.
+ */
+export function blockTargetAt(
+  root: HTMLElement,
+  x: number,
+  y: number,
+  ids: Set<string>,
+): BlockTarget | null {
+  const doc = root.ownerDocument;
+  const box = root.getBoundingClientRect();
+  // Sample inside the text column so the gutter and margins still find a block.
+  const probeX = Math.min(Math.max(x, box.left + 24), box.right - 8);
+  let outer = doc.elementFromPoint(probeX, y)?.closest<HTMLElement>(".bn-block-outer");
+  if (outer && !root.contains(outer)) outer = null;
+  // Back over the dragged blocks themselves: dropping there leaves them where they are.
+  if (outer && isInside(outer, ids)) return null;
+  // Between blocks or beside the text: the block nearest the pointer, at any depth.
+  outer ??= nearestBlock(root, y, ids);
+  if (!outer) return null;
+  const id = outer.getAttribute("data-id")!;
+  const content =
+    outer.querySelector<HTMLElement>(":scope > .bn-block > .bn-block-content") ?? outer;
+  const rect = content.getBoundingClientRect();
+  // A toggle's content is its title plus, when it is open and empty, the "add a block"
+  // placeholder: below the middle of the title and still on it means "into the toggle".
+  const title = content.querySelector<HTMLElement>(".bn-toggle-wrapper")?.getBoundingClientRect();
+  if (title && y >= title.top + title.height / 2 && y <= rect.bottom) {
+    // The whole toggle (its open children too) is tinted rather than a line drawn.
+    const whole = outer.getBoundingClientRect();
+    const line = new DOMRect(rect.left - 4, whole.top, rect.width + 8, whole.height);
+    return { kind: "block", id, placement: "inside", line };
+  }
+  const placement: Placement = y < rect.top + rect.height / 2 ? "before" : "after";
+  // "after" a block with children goes after its whole subtree.
+  const whole = outer.getBoundingClientRect();
+  const lineY = placement === "before" ? rect.top : whole.bottom;
+  return { kind: "block", id, placement, line: new DOMRect(rect.left, lineY, rect.width, 0) };
+}
+
+/** Shows where `target` is on `line` (a `.block-drop-line`), or hides it for no target. */
+export function showDropLine(line: HTMLElement, target: BlockTarget | null) {
+  if (!target) {
+    line.style.display = "none";
+    return;
+  }
+  // ProseMirror redraws a block whose attributes change, so the toggle being dropped into is
+  // tinted by this overlay, not by marking the block itself.
+  const into = target.placement === "inside";
+  line.classList.toggle("block-drop-into", into);
+  line.style.height = into ? `${target.line.height}px` : "";
+  line.style.display = "block";
+  line.style.transform = `translate3d(${target.line.left}px, ${target.line.top - (into ? 0 : 1)}px, 0)`;
+  line.style.width = `${target.line.width}px`;
+}
+
+/** Moves `blocks` to `target`, in one step for undo, and puts the cursor on the first. */
+export function placeBlocks(editor: GraiteEditor, blocks: GraiteBlock[], target: BlockTarget) {
+  const current = blocks.map((b) => editor.getBlock(b.id)).filter(Boolean) as GraiteBlock[];
+  if (!current.length || current.some((b) => b.id === target.id)) return;
+  editor.transact(() => {
+    editor.removeBlocks(current.map((b) => b.id));
+    if (target.placement !== "inside") {
+      editor.insertBlocks(current, target.id, target.placement);
+      return;
+    }
+    // Into a toggle: first in its body. Adding a child also opens a folded toggle.
+    const first = editor.getBlock(target.id)?.children[0];
+    if (first) editor.insertBlocks(current, first.id, "before");
+    else editor.updateBlock(target.id, { children: current });
+  });
+  // Focus the moved block, as a native drop does, so Ctrl+Z undoes the move right away.
+  editor.focus();
+  try {
+    editor.setTextCursorPosition(current[0]!.id, "end");
+  } catch {
+    /* A block without text (image, view) keeps the editor's selection. */
+  }
 }
 
 export function useBlockDrag(editor: GraiteEditor, actions: BlockDropActions) {
@@ -124,34 +220,7 @@ export function useBlockDrag(editor: GraiteEditor, actions: BlockDropActions) {
         return null;
       };
 
-      const blockTarget = (): Target => {
-        const box = root.getBoundingClientRect();
-        // Sample inside the text column so the gutter and margins still find a block.
-        const probeX = Math.min(Math.max(x, box.left + 24), box.right - 8);
-        let outer = doc.elementFromPoint(probeX, y)?.closest<HTMLElement>(".bn-block-outer");
-        if (outer && !root.contains(outer)) outer = null;
-        while (outer && isInside(outer, ids))
-          outer = outer.parentElement?.closest<HTMLElement>(".bn-block-outer") ?? null;
-        if (!outer) {
-          const all = [
-            ...root.querySelectorAll<HTMLElement>(":scope .bn-block-group > .bn-block-outer"),
-          ];
-          const top = all.filter(
-            (el) => !isInside(el, ids) && el.parentElement?.closest(".bn-block-outer") === null,
-          );
-          if (!top.length) return null;
-          outer = y < box.top + box.height / 2 ? top[0]! : top[top.length - 1]!;
-        }
-        const id = outer.getAttribute("data-id")!;
-        const content =
-          outer.querySelector<HTMLElement>(":scope > .bn-block > .bn-block-content") ?? outer;
-        const rect = content.getBoundingClientRect();
-        const placement: Placement = y < rect.top + rect.height / 2 ? "before" : "after";
-        // "after" a block with children goes after its whole subtree.
-        const whole = outer.getBoundingClientRect();
-        const lineY = placement === "before" ? rect.top : whole.bottom;
-        return { kind: "block", id, placement, line: new DOMRect(rect.left, lineY, rect.width, 0) };
-      };
+      const blockTarget = (): Target => blockTargetAt(root, x, y, ids);
 
       const render = () => {
         frame = 0;
@@ -164,11 +233,7 @@ export function useBlockDrag(editor: GraiteEditor, actions: BlockDropActions) {
           page?.setAttribute("data-media-drop-active", "");
           highlighted = page;
         }
-        if (target?.kind === "block") {
-          line.style.display = "block";
-          line.style.transform = `translate3d(${target.line.left}px, ${target.line.top - 1}px, 0)`;
-          line.style.width = `${target.line.width}px`;
-        } else line.style.display = "none";
+        showDropLine(line, target?.kind === "block" ? target : null);
         if (scroller) {
           const box = scroller.getBoundingClientRect();
           const speed =
@@ -224,19 +289,7 @@ export function useBlockDrag(editor: GraiteEditor, actions: BlockDropActions) {
           return;
         }
         if (ids.has(done.id)) return;
-        const current = blocks.map((b) => editor.getBlock(b.id)).filter(Boolean) as GraiteBlock[];
-        if (!current.length) return;
-        editor.transact(() => {
-          editor.removeBlocks(current.map((b) => b.id));
-          editor.insertBlocks(current, done.id, done.placement);
-        });
-        // Focus the moved block, as a native drop does, so Ctrl+Z undoes the move right away.
-        editor.focus();
-        try {
-          editor.setTextCursorPosition(current[0]!.id, "end");
-        } catch {
-          /* A block without text (image, view) keeps the editor's selection. */
-        }
+        placeBlocks(editor, blocks, done);
       };
 
       const move = (event: PointerEvent) => {

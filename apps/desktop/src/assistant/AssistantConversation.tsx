@@ -3,6 +3,7 @@ import { MessageSquarePlus, Orbit, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { ai, type Conversation } from "@/lib/ai";
 import { assistant, type AssistantInfo } from "@/lib/assistant";
+import { useErrorToast } from "@/lib/useErrorToast";
 import { Button } from "@/components/ui/button";
 import { Composer } from "@/ai/Composer";
 import { ContextBlock } from "@/ai/ContextBlock";
@@ -51,6 +52,7 @@ export function AssistantConversation({
     ensureConversation,
     onConversationSaved: setConversation,
   });
+  useErrorToast(chat.error, { label: "Open Settings", onClick: () => onSettings() });
   const files = useAttachments(conversation, ensureConversation);
   const reviews = useProposals(conversation ? { conversation_id: conversation.id } : null);
 
@@ -137,12 +139,6 @@ export function AssistantConversation({
           {chat.clarify && <div className="ai-notice">{chat.clarify}</div>}
           {!chat.busy && chat.limits && (
             <LimitsCallout items={chat.limits.items} excluded={chat.limits.excluded_local_only} />
-          )}
-          {chat.error && (
-            <div className="ai-notice ai-error" role="alert">
-              {chat.error}
-              <button onClick={() => onSettings()}>Open Settings</button>
-            </div>
           )}
           <div ref={end} />
         </div>

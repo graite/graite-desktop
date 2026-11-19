@@ -532,7 +532,7 @@ class FileOps:
                 continue
             try:
                 text = page_file(self.vault, path).read_text(encoding="utf-8")
-            except (OSError, ValueError):
+            except OSError, ValueError:
                 continue
             data = page_dir(self.vault, path) / table_paths.DATA_DIR
             if data.is_dir() and not data.is_symlink():
@@ -580,7 +580,7 @@ class FileOps:
                     try:
                         table = self._table(rel)
                         parsed, _, data = self._read_table_sync(table)
-                    except (FileNotFoundError, VaultPathError):
+                    except FileNotFoundError, VaultPathError:
                         continue
                     names = tbl_schema.column_names(parsed.header)
                     index = [
@@ -2250,7 +2250,7 @@ class FileOps:
                     cuts.append({"table": src, "column": forward, "kind": "forward"})
             try:
                 info = self.tables.info(t)
-            except (FileNotFoundError, VaultPathError):
+            except FileNotFoundError, VaultPathError:
                 continue
             schema_id = self._raw_schema_sync(self._table(t)).get("id")
             for column in info.columns:
@@ -2278,7 +2278,7 @@ class FileOps:
         for cut in cuts:
             try:
                 table = self._table(cut["table"])
-            except (VaultPathError, FileNotFoundError):
+            except VaultPathError, FileNotFoundError:
                 continue
             if not table.file(self.vault).is_file():
                 continue
@@ -2326,7 +2326,7 @@ class FileOps:
         for record in records:
             try:
                 table = self._table(str(record.get("table") or ""))
-            except (VaultPathError, FileNotFoundError):
+            except VaultPathError, FileNotFoundError:
                 continue
             name = str(record.get("column") or "")
             if not name or not table.file(self.vault).is_file():
@@ -2369,7 +2369,7 @@ class FileOps:
         targets = [rel.rsplit("/", 1)[-1], rel]
         try:
             title = self._read_sync(rel).title
-        except (OSError, ValueError):
+        except OSError, ValueError:
             return targets
         return [*targets, title] if title and title not in targets else targets
 
@@ -2437,7 +2437,7 @@ class FileOps:
                 data = json.loads(origin_file.read_text(encoding="utf-8"))
                 if isinstance(data, dict):
                     return data
-            except (OSError, ValueError):
+            except OSError, ValueError:
                 pass
         return {}
 
@@ -2464,7 +2464,7 @@ class FileOps:
             try:
                 meta, _ = fm.split(page.read_text(encoding="utf-8"))
                 title = str(meta.get("title") or title)
-            except (OSError, ValueError):
+            except OSError, ValueError:
                 pass
         if trashed_at is None:
             try:

@@ -549,6 +549,11 @@
 .bn-side-menu [draggable="true"] {
   touch-action: none;
 }
+/* Over the toggle that dragged blocks will go into: a tint in the drop line's blue. */
+.block-drop-line.block-drop-into {
+  border-radius: 6px;
+  background: color-mix(in srgb, #60a5fa 18%, transparent);
+}
 
 /* The editor sits on the page, in both themes: BlockNote's own dark surface is a shade lighter
  * than the app's and showed as a box around the text. */

@@ -158,7 +158,7 @@ def _page_sources(
         return _SOURCES[key]
     try:
         text = page_file(vault, page).read_text(encoding="utf-8")
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return []
     found = fence_sources(text) if "graite:table" in text or ".csv]]" in text else []
     if file_hash:
@@ -176,7 +176,7 @@ def shown_tables(
     for source, view in _page_sources(vault, page, file_hash):
         try:
             rel = cache.resolve(page, source)
-        except (VaultPathError, FileNotFoundError, ValueError):
+        except VaultPathError, FileNotFoundError, ValueError:
             continue
         shown = out.setdefault(rel, Shown(rel))
         if view is not None and not any(v["name"] == view["name"] for v in shown.views):

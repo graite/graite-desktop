@@ -187,7 +187,7 @@ def _codex_entry() -> Any:
         return None
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except (tomllib.TOMLDecodeError, UnicodeDecodeError):
+    except tomllib.TOMLDecodeError, UnicodeDecodeError:
         raise ValueError(
             f"{_pretty(path)} is not valid TOML. Fix it, or add Graite by hand."
         ) from None
@@ -259,7 +259,7 @@ def _claude_entry() -> Any:
     path = _home() / ".claude.json"
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return None
     servers = data.get("mcpServers") if isinstance(data, dict) else None
     return servers.get(NAME) if isinstance(servers, dict) else None

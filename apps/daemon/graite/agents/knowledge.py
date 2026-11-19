@@ -25,7 +25,7 @@ def linked_sources(state: Any, instructions: str, scope: ResolvedScope) -> list[
             _, body = frontmatter.split(
                 safe_file(state.settings.vault, path + "/page.md").read_text(encoding="utf-8")
             )
-        except (OSError, ValueError):
+        except OSError, ValueError:
             continue
         sources.append(
             Source(0, "page", path, scope.ids.get(path), scope.titles[path], [], body[:12000])

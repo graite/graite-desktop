@@ -43,7 +43,7 @@ markdown vault, with local models and agents that only ever *propose* changes.
 ## Stack
 
 Tauri 2 + React 19 + Vite 8 + Tailwind 4 + shadcn + BlockNote 0.47 (pinned) in
-`apps/desktop`. Python 3.12 + FastAPI daemon in `apps/daemon` (uv, ruff, pytest, mypy).
+`apps/desktop`. Python 3.14 + FastAPI daemon in `apps/daemon` (uv, ruff, pytest, mypy).
 SQLite + sqlite-vec + FTS5 index. `packages/md-convert` (TS, unified/remark, vitest).
 
 ## Conventions

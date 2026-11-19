@@ -4,6 +4,7 @@ import { Check, Highlighter, History, Plus, Settings2, Orbit, X } from "lucide-r
 import { toast } from "sonner";
 import { ai, toScope, type ChatMode, type Conversation, type Scope } from "@/lib/ai";
 import type { TreeNode } from "@/lib/api";
+import { useErrorToast } from "@/lib/useErrorToast";
 /** This page and the pages nested under it: where a page's chat starts. */
 const pageScope = (path: string): Scope => ({ kind: "folder", roots: [path], excluded: [] });
 import { Button } from "@/components/ui/button";
@@ -93,6 +94,7 @@ export function ChatPanel({
       setConversations((old) => [saved, ...old.filter((c) => c.id !== saved.id)]);
     },
   });
+  useErrorToast(chat.error, { label: "Open Settings", onClick: () => onSettings() });
 
   const files = useAttachments(selected, ensureConversation);
   const setAttachments = files.setAttachments;
@@ -325,12 +327,6 @@ export function ChatPanel({
         {chat.clarify && <div className="ai-notice">{chat.clarify}</div>}
         {!chat.busy && chat.limits && (
           <LimitsCallout items={chat.limits.items} excluded={chat.limits.excluded_local_only} />
-        )}
-        {chat.error && (
-          <div className="ai-notice ai-error" role="alert">
-            {chat.error}
-            <button onClick={onSettings}>Open Settings</button>
-          </div>
         )}
         <div ref={end} />
       </div>

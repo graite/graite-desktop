@@ -20,6 +20,8 @@ import { BlockTypeMenuItem } from "./BlockTypeMenuItem";
 import { useBlockDrag } from "./blockDrag";
 import { useFileDrop } from "./fileDrop";
 import { TEXT_DRAG, beginTextDrag, dropTextOnPage, endTextDrag } from "./textDrag";
+import { blockTargetAt, placeBlocks, showDropLine } from "./blockDrag";
+import { dropPosition, selectedLines, textDragOf, textMove, type TextDrag } from "./textMove";
 import { useTheme } from "@/lib/theme";
 
 const SIDEBAR_PAGE = "application/graite-sidebar-page";
@@ -47,9 +49,35 @@ export function EditorSurface({
     // under that page, and text dragged out of this page onto a page link or a sidebar row
     // moves into that page. Listening on the window, ahead of BlockNote's document-level
     // handler, which would otherwise treat a drop on the sidebar as a drop into the text.
-    if (!movePage && !moveSelection) return;
+    // Selected text dropped anywhere else in the page is moved by `moveText`.
     const root = editor.prosemirrorView.dom;
     let highlighted: HTMLElement | null = null;
+    let textDrag: TextDrag | null = null;
+    let forget: ReturnType<typeof setTimeout> | undefined;
+    let dropLine: HTMLElement | null = null;
+    const area = root.closest("[data-page-scroll]") ?? root;
+    // Whole lines being dragged show the handle's drop line instead of a text caret.
+    const overLines = (event: DragEvent) => {
+      const lines = textDrag?.lines;
+      if (!lines || !(event.target instanceof Node) || !area.contains(event.target)) {
+        if (dropLine) showDropLine(dropLine, null);
+        return;
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      if (!dropLine) {
+        dropLine = root.ownerDocument.createElement("div");
+        dropLine.className = "block-drop-line";
+        root.ownerDocument.body.append(dropLine);
+      }
+      const ids = new Set(lines.map((b) => b.id));
+      showDropLine(dropLine, blockTargetAt(root, event.clientX, event.clientY, ids));
+    };
+    const hideLines = () => {
+      dropLine?.remove();
+      dropLine = null;
+    };
     const clearHighlight = () => {
       highlighted?.removeAttribute("data-media-drop-active");
       highlighted = null;
@@ -76,19 +104,50 @@ export function EditorSurface({
     const over = (event: DragEvent) => {
       const target = pageAt(event);
       if (highlighted !== target) clearHighlight();
-      if (!target) return;
+      if (!target) {
+        overLines(event);
+        return;
+      }
+      if (dropLine) showDropLine(dropLine, null);
       event.preventDefault();
       event.stopImmediatePropagation();
       if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
       highlighted = target;
       target.setAttribute("data-media-drop-active", "");
     };
+    const moveText = (event: DragEvent, drag: TextDrag | null) => {
+      hideLines();
+      if (!drag || !(event.target instanceof Node) || !area.contains(event.target)) return;
+      // Neither BlockNote nor ProseMirror sees this drop.
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const view = editor.prosemirrorView;
+      view.dragging = null;
+      if (drag.lines) {
+        if (view.state.doc !== drag.doc) return;
+        const ids = new Set(drag.lines.map((b) => b.id));
+        const target = blockTargetAt(root, event.clientX, event.clientY, ids);
+        if (target) placeBlocks(editor, drag.lines, target);
+        return;
+      }
+      const at = dropPosition(view, event.clientX, event.clientY);
+      const copy = /Mac/.test(navigator.platform) ? event.altKey : event.ctrlKey;
+      const tr = at === null ? null : textMove(view.state, drag, at, copy);
+      if (!tr) return;
+      view.focus();
+      view.dispatch(tr);
+    };
     const drop = (event: DragEvent) => {
+      const drag = textDrag;
+      textDrag = null;
       const target = pageAt(event);
       const path = target?.dataset.mediaDropPage;
       const kind = kindOf(event);
       clearHighlight();
-      if (!path) return;
+      if (!path) {
+        moveText(event, drag);
+        return;
+      }
       event.preventDefault();
       event.stopImmediatePropagation();
       if (kind === "text") {
@@ -106,6 +165,10 @@ export function EditorSurface({
     };
     // ProseMirror starts the drag of selected text; mark it so pages accept the drop.
     const dragStart = (event: DragEvent) => {
+      clearTimeout(forget);
+      // ProseMirror's own dragstart listener on the editor has run by now.
+      textDrag = textDragOf(editor.prosemirrorView);
+      if (textDrag) textDrag.lines = selectedLines(editor) ?? undefined;
       if (!moveSelection || !event.dataTransfer || !editor.prosemirrorView.dragging) return;
       if (editor.prosemirrorState.selection.empty) return;
       event.dataTransfer.setData(TEXT_DRAG, "1");
@@ -113,6 +176,10 @@ export function EditorSurface({
       beginTextDrag((path) => void moveSelection(path));
     };
     const dragEnd = () => {
+      hideLines();
+      // WebKitGTK can end the drag before the drop arrives, so the drag is kept a moment.
+      clearTimeout(forget);
+      forget = setTimeout(() => (textDrag = null), 1000);
       clearHighlight();
       setTimeout(endTextDrag, 0);
     };
@@ -121,6 +188,8 @@ export function EditorSurface({
     window.addEventListener("dragover", over, true);
     window.addEventListener("drop", drop, true);
     return () => {
+      clearTimeout(forget);
+      hideLines();
       clearHighlight();
       endTextDrag();
       root.removeEventListener("dragstart", dragStart);

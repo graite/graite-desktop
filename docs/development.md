@@ -5,7 +5,7 @@
 - **Rust** stable via [rustup](https://rustup.rs), with `rustfmt` and `clippy`
   (`rustup component add rustfmt clippy`).
 - **Node 24** and **pnpm 10** (`corepack enable` or <https://pnpm.io/installation>).
-- **uv** (<https://docs.astral.sh/uv/>); it installs Python 3.12 for you.
+- **uv** (<https://docs.astral.sh/uv/>); it installs Python 3.14 for you.
 - **just** (<https://github.com/casey/just>).
 - The **Tauri 2 system dependencies** for your OS: <https://tauri.app/start/prerequisites/>.
   On Debian/Ubuntu also install `patchelf` (needed to bundle GStreamer into the AppImage).

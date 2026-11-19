@@ -229,7 +229,7 @@ class TablesCache:
         """Bring one table up to date with its files; True when the cached rows changed."""
         try:
             table = checked(self.vault, parse(rel))
-        except (VaultPathError, FileNotFoundError):
+        except VaultPathError, FileNotFoundError:
             return self._drop(rel)
         csv_file, schema_file = table.file(self.vault), table.schema_file(self.vault)
         if not csv_file.is_file():
@@ -553,7 +553,7 @@ class TablesCache:
         for (path,) in self.conn.execute("SELECT path FROM _tables ORDER BY path").fetchall():
             try:
                 info = self._base_info(path)
-            except (FileNotFoundError, VaultPathError):
+            except FileNotFoundError, VaultPathError:
                 continue
             for column in info.columns:
                 if column.type == "relation" and not column.reverse:
@@ -597,7 +597,7 @@ class TablesCache:
             return {}
         try:
             src = self._base_info(source)
-        except (FileNotFoundError, VaultPathError):
+        except FileNotFoundError, VaultPathError:
             return {}
         pairs = self.links_to(source, column.reverse, rids)
         # In the source table's row order, so the list reads like that table.

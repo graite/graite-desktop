@@ -337,7 +337,7 @@ class VoiceSession:
     def _note_played(self, message: dict[str, Any]) -> None:
         try:
             played = float(message.get("ms") or 0)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return
         if played > self._total_ms() + 500:
             return  # a late report about the previous answer

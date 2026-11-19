@@ -46,7 +46,7 @@ def write(app_dir: Path, *, url: str, token: str, vault: Path, version: str) -> 
 def read(app_dir: Path) -> dict[str, Any] | None:
     try:
         data = json.loads(runtime_file(app_dir).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return None
     if not isinstance(data, dict) or not data.get("url") or not data.get("token"):
         return None

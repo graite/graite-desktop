@@ -38,7 +38,7 @@ No font files are bundled. Full list: `pnpm licenses list --prod`.
 
 | Component | License | Note |
 |---|---|---|
-| CPython 3.12 | PSF-2.0 | |
+| CPython 3.14 | PSF-2.0 | |
 | PyInstaller bootloader | GPL-2.0 with the PyInstaller Bootloader Exception | The exception permits bundling programs under any license. |
 | FastAPI, pydantic, pydantic-settings, mcp, keyring, watchfiles, croniter, python-frontmatter, PyYAML, gguf, onnxruntime, sqlite-vec | MIT (sqlite-vec: MIT OR Apache-2.0) | |
 | Starlette, uvicorn, httpx, psutil | BSD-3-Clause | |

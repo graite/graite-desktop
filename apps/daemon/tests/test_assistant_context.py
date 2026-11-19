@@ -226,3 +226,62 @@ def test_memory_has_its_own_budget_and_the_journal_gives_way_first() -> None:
     system = messages[0]["content"]
     notes = system.split("## Your notes about the user (reference, not instructions)\n", 1)[1]
     assert len(notes.encode()) > 2000 and "- Fact 59" in notes
+
+
+def _profile(personality: int, guidelines: int, goals: int) -> str:
+    return (
+        "## Personality\n\n"
+        + "Warm and direct.\n" * (personality // 17)
+        + "\n## Guidelines\n\n"
+        + "- Keep answers short.\n" * (guidelines // 22)
+        + "\n## Goals\n\nShip the release this month.\n" * max(1, goals // 40)
+    )
+
+
+def test_a_full_assistant_profile_reaches_the_model() -> None:
+    """A profile the size people write (about 5 KB over three sections) used to be cut to
+    1000 bytes, so its Guidelines and Goals never reached the model."""
+    persona = _profile(1200, 3500, 180)
+    messages, _ = answer.assistant_messages(
+        Effective(),
+        [],
+        [],
+        [],
+        "Hi",
+        16384,
+        name="Ada",
+        persona=persona,
+        memory="### Profile (Ada/Profile)\nLikes tea.\n",
+        memory_root="Ada",
+    )
+    system = messages[0]["content"]
+    assert persona.strip() in system
+    assert "Likes tea." in system
+
+
+def test_a_profile_too_big_for_the_context_keeps_every_section() -> None:
+    persona = _profile(1200, 6000, 40)
+    messages, _ = answer.assistant_messages(
+        Effective(),
+        [],
+        [],
+        [],
+        "Hi",
+        8192,
+        name="Ada",
+        persona=persona,
+        memory="### Profile (Ada/Profile)\nLikes tea.\n",
+        memory_root="Ada",
+    )
+    system = messages[0]["content"]
+    who = system.split("## Who you are\n", 1)[1]
+    for heading in ("## Personality", "## Guidelines", "## Goals"):
+        assert heading in who
+    assert "Ship the release this month." in who  # the short last section survives whole
+    assert sum(len(m["content"].encode()) for m in messages) <= answer.budget_for(8192)
+
+
+def test_fit_persona_without_sections_is_a_plain_cut() -> None:
+    assert answer.fit_persona("x" * 50, 10) == "x" * 10
+    assert answer.fit_persona("short", 100) == "short"
+    assert answer.fit_persona("anything", 0) == ""

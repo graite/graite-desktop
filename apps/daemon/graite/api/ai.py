@@ -866,7 +866,7 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
         try:
             selected = await state.fileops.read_page(body.selection.page_path)
             title = selected.title
-        except (ValueError, FileNotFoundError):
+        except ValueError, FileNotFoundError:
             title = body.selection.page_path
         extra_sources.insert(
             0,
@@ -906,7 +906,7 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
     if row["page_id"]:
         try:
             current_page = state.fileops.page_by_id(row["page_id"])
-        except (FileNotFoundError, ValueError):
+        except FileNotFoundError, ValueError:
             current_page = None
     elif scope.kind in ("page", "folder") and scope.roots:
         current_page = scope.roots[0]

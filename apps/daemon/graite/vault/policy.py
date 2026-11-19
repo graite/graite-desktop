@@ -170,7 +170,7 @@ class Resolver:
                         self._vault_defaults = validate(
                             {k: v for k, v in data.items() if k in KEYS}
                         )
-                except (OSError, ValueError, tomllib.TOMLDecodeError):
+                except OSError, ValueError, tomllib.TOMLDecodeError:
                     self._vault_defaults = {}
         return self._vault_defaults
 
@@ -184,7 +184,7 @@ class Resolver:
                     with path.open(encoding="utf-8") as handle:
                         meta, body = frontmatter.split(handle.read(16000))
                     entry = (meta, body)
-                except (OSError, ValueError):
+                except OSError, ValueError:
                     entry = None
                 except Exception:  # noqa: BLE001 - malformed YAML front matter
                     entry = ({}, path.read_text(encoding="utf-8")[:16000])

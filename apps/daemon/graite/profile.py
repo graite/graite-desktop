@@ -36,7 +36,7 @@ class ProfileStore:
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
             return Profile.model_validate(raw)
-        except (OSError, ValueError):
+        except OSError, ValueError:
             return Profile()
 
     def save(self, profile: Profile) -> Profile:

@@ -533,7 +533,7 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
         }
         try:
             await registry.load_library(ctx.skills_allowlist)
-        except (ValueError, OSError):
+        except ValueError, OSError:
             registry.library = {}
         registry.result_limit = min(6000, ctx.config.context_size // 2)
         read_numbers: set[int] = set()
