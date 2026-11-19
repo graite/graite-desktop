@@ -12,7 +12,8 @@ import { isMovableText } from "./textDrag";
  * A press on the handle that moves less than DRAG_THRESHOLD stays a click and opens the
  * handle's menu as before. Dropping a media block on a page (sidebar row or page link) moves
  * the file there; dropping a page link on another page link nests that page under it;
- * dropping text blocks on a page moves the text into that page.
+ * dropping text blocks on a page moves the text into that page. Dropped on the lower half of a
+ * toggle's title (or its empty-toggle placeholder), blocks go inside it, as its first children.
  */
 
 const DRAG_THRESHOLD = 4;
@@ -26,7 +27,7 @@ export interface BlockDropActions {
   moveBlocks?: (blockIds: string[], path: string) => Promise<void>;
 }
 
-type Placement = "before" | "after";
+type Placement = "before" | "after" | "inside";
 type Target =
   | { kind: "block"; id: string; placement: Placement; line: DOMRect }
   | { kind: "page"; path: string; element: HTMLElement }
@@ -146,6 +147,16 @@ export function useBlockDrag(editor: GraiteEditor, actions: BlockDropActions) {
         const content =
           outer.querySelector<HTMLElement>(":scope > .bn-block > .bn-block-content") ?? outer;
         const rect = content.getBoundingClientRect();
+        // A toggle's content is its title plus, when it is open and empty, the "add a block"
+        // placeholder: below the middle of the title and still on it means "into the toggle".
+        const title = content
+          .querySelector<HTMLElement>(".bn-toggle-wrapper")
+          ?.getBoundingClientRect();
+        if (title && y >= title.top + title.height / 2 && y <= rect.bottom) {
+          const indent = 24;
+          const line = new DOMRect(rect.left + indent, title.bottom, rect.width - indent, 0);
+          return { kind: "block", id, placement: "inside", line };
+        }
         const placement: Placement = y < rect.top + rect.height / 2 ? "before" : "after";
         // "after" a block with children goes after its whole subtree.
         const whole = outer.getBoundingClientRect();
@@ -228,7 +239,14 @@ export function useBlockDrag(editor: GraiteEditor, actions: BlockDropActions) {
         if (!current.length) return;
         editor.transact(() => {
           editor.removeBlocks(current.map((b) => b.id));
-          editor.insertBlocks(current, done.id, done.placement);
+          if (done.placement !== "inside") {
+            editor.insertBlocks(current, done.id, done.placement);
+            return;
+          }
+          // Into a toggle: first in its body. Adding a child also opens a folded toggle.
+          const first = editor.getBlock(done.id)?.children[0];
+          if (first) editor.insertBlocks(current, first.id, "before");
+          else editor.updateBlock(done.id, { children: current });
         });
         // Focus the moved block, as a native drop does, so Ctrl+Z undoes the move right away.
         editor.focus();
