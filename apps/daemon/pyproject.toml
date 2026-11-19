@@ -1,6 +1,6 @@
 [project]
 name = "graite-daemon"
-version = "0.5.2"
+version = "0.5.3"
 description = "Graite local daemon: vault, index, models, agents, jobs."
 license = "Apache-2.0"
 authors = [{ name = "Graite contributors" }]

@@ -6,7 +6,7 @@ list below is the status.
 
 ## Where we are
 
-The current release is **v0.5.2**.
+The current release is **v0.5.3**.
 
 **Shipped**
 
