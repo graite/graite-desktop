@@ -21,7 +21,7 @@ dependencies = [
   "pillow>=13",
   "watchfiles>=1.3",
   "croniter>=7",
-  "mcp>=1.25,<2",
+  "mcp>=2.3,<3",
   "numpy>=2.5",
   "onnxruntime>=1.32",
 ]

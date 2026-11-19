@@ -18,6 +18,7 @@ from collections.abc import Callable
 from typing import Any
 
 import mcp.types as types
+from mcp.server import ServerRequestContext
 from mcp.server.lowlevel import Server
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from starlette.responses import JSONResponse
@@ -92,15 +93,22 @@ class McpService:
         # The app that last called a tool and when (epoch seconds), for the settings screen:
         # "it works" is easiest to believe when Graite says who just used it.
         self.last_used: tuple[str, float] | None = None
-        self.server: Server[Any, Any] = Server(
-            "graite", version=__version__, instructions=INSTRUCTIONS
+        # The registry validates arguments itself and reports problems as tool errors, so no
+        # input schema is handed to the SDK (`get_tool_input_schema`) and nothing is validated.
+        self.server: Server[Any] = Server(
+            "graite",
+            version=__version__,
+            instructions=INSTRUCTIONS,
+            on_list_tools=self._list_tools,
+            on_call_tool=self._call_tool,
+            on_list_prompts=self._list_prompts,
+            on_get_prompt=self._get_prompt,
         )
         # Stateless JSON: the daemon gets a new port and token on every launch, so a session
         # would not outlive it anyway, and no tool streams or calls back into the client.
         self.manager = StreamableHTTPSessionManager(
             self.server, json_response=True, stateless=True, security_settings=None
         )
-        self._register()
 
     async def _resolved(self) -> ResolvedScope:
         state = self._state()
@@ -113,15 +121,12 @@ class McpService:
             self._scope = (epoch, scope)
         return self._scope[1]
 
-    def _client(self) -> str:
-        try:
-            request = self.server.request_context.request
-        except LookupError:
-            return "client"
-        headers = getattr(request, "headers", None)
+    @staticmethod
+    def _client(ctx: ServerRequestContext[Any] | None) -> str:
+        headers = getattr(ctx.request, "headers", None) if ctx is not None else None
         return client_name({k.lower(): v for k, v in headers.items()}) if headers else "client"
 
-    async def registry(self) -> Registry:
+    async def registry(self, ctx: ServerRequestContext[Any] | None = None) -> Registry:
         """A fresh registry: `load_skill` narrows it, so it must not outlive one call."""
         state = self._state()
         registry = Registry(
@@ -138,73 +143,75 @@ class McpService:
         # `cloud_model` makes the policy refuse local-only pages even if the scope let one by.
         registry.turn = {
             "run_id": None,
-            "conversation_id": f"mcp:{self._client()}",
+            "conversation_id": f"mcp:{self._client(ctx)}",
             "cloud_model": True,
         }
         await registry.load_library(None)
         return registry
 
-    def _register(self) -> None:
-        server = self.server
-
-        @server.list_tools()  # type: ignore[no-untyped-call, untyped-decorator]
-        async def list_tools() -> list[types.Tool]:
-            registry = await self.registry()
-            skills = registry.skill_index()
-            result = []
-            for tool in tool_module.TOOLS.values():
-                if tool.name not in registry.allowed or tool.group not in registry.groups:
-                    continue
-                description = tool.description
-                if tool.name == "load_skill" and skills:
-                    description += "\n\nAvailable skills:\n" + skills
-                result.append(
-                    types.Tool(
-                        name=tool.name,
-                        description=description,
-                        inputSchema=tool.schema["function"]["parameters"],
-                    )
+    async def _list_tools(
+        self, ctx: ServerRequestContext[Any], params: types.PaginatedRequestParams | None
+    ) -> types.ListToolsResult:
+        registry = await self.registry(ctx)
+        skills = registry.skill_index()
+        result = []
+        for tool in tool_module.TOOLS.values():
+            if tool.name not in registry.allowed or tool.group not in registry.groups:
+                continue
+            description = tool.description
+            if tool.name == "load_skill" and skills:
+                description += "\n\nAvailable skills:\n" + skills
+            result.append(
+                types.Tool(
+                    name=tool.name,
+                    description=description,
+                    input_schema=tool.schema["function"]["parameters"],
                 )
-            return result
-
-        # The registry validates arguments itself and reports problems as tool errors.
-        @server.call_tool(validate_input=False)  # type: ignore[untyped-decorator]
-        async def call_tool(name: str, arguments: dict[str, Any]) -> types.CallToolResult:
-            registry = await self.registry()
-            try:
-                text = await registry.invoke(name, json.dumps(arguments or {}))
-            finally:
-                registry.searcher.release()
-            try:
-                failed = "error" in json.loads(text)
-            except ValueError, TypeError:
-                failed = False
-            return types.CallToolResult(
-                content=[types.TextContent(type="text", text=text)], isError=failed
             )
+        return types.ListToolsResult(tools=result)
 
-        @server.list_prompts()  # type: ignore[no-untyped-call, untyped-decorator]
-        async def list_prompts() -> list[types.Prompt]:
-            registry = await self.registry()
-            return [
+    async def _call_tool(
+        self, ctx: ServerRequestContext[Any], params: types.CallToolRequestParams
+    ) -> types.CallToolResult:
+        registry = await self.registry(ctx)
+        try:
+            text = await registry.invoke(params.name, json.dumps(params.arguments or {}))
+        finally:
+            registry.searcher.release()
+        try:
+            failed = "error" in json.loads(text)
+        except ValueError, TypeError:
+            failed = False
+        return types.CallToolResult(
+            content=[types.TextContent(type="text", text=text)], is_error=failed
+        )
+
+    async def _list_prompts(
+        self, ctx: ServerRequestContext[Any], params: types.PaginatedRequestParams | None
+    ) -> types.ListPromptsResult:
+        registry = await self.registry(ctx)
+        return types.ListPromptsResult(
+            prompts=[
                 types.Prompt(name=name, description=skill["description"])
                 for name, skill in registry.library.items()
             ]
+        )
 
-        @server.get_prompt()  # type: ignore[no-untyped-call, untyped-decorator]
-        async def get_prompt(name: str, arguments: dict[str, str] | None) -> types.GetPromptResult:
-            registry = await self.registry()
-            skill = registry.library.get(name)
-            if skill is None:
-                raise ValueError("This skill is not available.")
-            return types.GetPromptResult(
-                description=skill["description"],
-                messages=[
-                    types.PromptMessage(
-                        role="user", content=types.TextContent(type="text", text=skill["body"])
-                    )
-                ],
-            )
+    async def _get_prompt(
+        self, ctx: ServerRequestContext[Any], params: types.GetPromptRequestParams
+    ) -> types.GetPromptResult:
+        registry = await self.registry(ctx)
+        skill = registry.library.get(params.name)
+        if skill is None:
+            raise ValueError("This skill is not available.")
+        return types.GetPromptResult(
+            description=skill["description"],
+            messages=[
+                types.PromptMessage(
+                    role="user", content=types.TextContent(type="text", text=skill["body"])
+                )
+            ],
+        )
 
 
 class McpEndpoint:
