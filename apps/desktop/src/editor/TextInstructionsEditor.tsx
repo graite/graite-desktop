@@ -11,6 +11,7 @@ import {
 } from "@blocknote/react";
 import { Bold, Heading1, Heading2, Heading3, Italic, List, Type } from "lucide-react";
 import { fromBlocks, toBlocks } from "@graite/md-convert";
+import { Arrows } from "./arrows";
 import { schema, type GraiteEditor, type GraitePartialBlock } from "./schema";
 import { filterSlashItems } from "./slash-menu";
 import { markdownPasteHandler } from "./paste";
@@ -76,6 +77,7 @@ export function TextInstructionsEditor({
   const theme = useTheme();
   const editor = useCreateBlockNote({
     schema,
+    extensions: [Arrows()],
     initialContent: blocks(value),
     pasteHandler: markdownPasteHandler(),
     domAttributes: { editor: { "aria-label": label, spellcheck: "false" } },

@@ -48,6 +48,7 @@ import { MediaContext } from "./media/context";
 import { EditorSurface } from "./EditorSurface";
 import { useViewSchema } from "./views/useViewSchema";
 import { editorExtensions } from "./reviewDecorations";
+import { Arrows } from "./arrows";
 import { isMovableText } from "./textDrag";
 import { useSelectAllStages } from "./useSelectAllStages";
 import { markdownPasteHandler } from "./paste";
@@ -57,6 +58,8 @@ import { findNode, linkTarget, resolveTarget, type FlatPage } from "./tree-utils
 import type { PickedPage } from "./slash-menu";
 import { sourceFor, tables } from "@/lib/tables";
 import { databaseBody } from "./tables/setup";
+
+const PAGE_EXTENSIONS = [...editorExtensions, Arrows()];
 
 export interface PageEditorProps {
   settingsRequested?: boolean;
@@ -255,7 +258,7 @@ export function PageEditor({
   );
   const editor = useCreateBlockNote({
     schema,
-    extensions: editorExtensions,
+    extensions: PAGE_EXTENSIONS,
     pasteHandler,
     domAttributes: { editor: { spellcheck: "false" } },
   });

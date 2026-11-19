@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useCreateBlockNote } from "@blocknote/react";
 import { fromBlocks, toBlocks } from "@graite/md-convert";
 import type { TreeNode } from "@/lib/api";
+import { Arrows } from "./arrows";
 import { schema, type GraitePartialBlock } from "./schema";
 import { EditorSurface } from "./EditorSurface";
 import { PagePicker } from "./PagePicker";
@@ -65,6 +66,7 @@ export function MarkdownEditor({
   );
   const editor = useCreateBlockNote({
     schema,
+    extensions: [Arrows()],
     initialContent: instructionBlocks(value, tree),
     pasteHandler,
     domAttributes: { editor: { spellcheck: "false" } },
