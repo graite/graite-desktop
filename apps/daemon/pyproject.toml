@@ -24,6 +24,8 @@ dependencies = [
   "mcp>=2.3,<3",
   "numpy>=2.5",
   "onnxruntime>=1.32",
+  "pynacl>=1.5",
+  "merge3>=0.0.15",
 ]
 
 [project.urls]

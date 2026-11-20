@@ -2872,6 +2872,23 @@
         "title": "EmbedResult",
         "type": "object"
       },
+      "EnableIn": {
+        "properties": {
+          "space_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Space Id"
+          }
+        },
+        "title": "EnableIn",
+        "type": "object"
+      },
       "EnabledIn": {
         "properties": {
           "enabled": {
@@ -4877,6 +4894,23 @@
           "type"
         ],
         "title": "PageProperty",
+        "type": "object"
+      },
+      "PassphraseOut": {
+        "properties": {
+          "passphrase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Passphrase"
+          }
+        },
+        "title": "PassphraseOut",
         "type": "object"
       },
       "PatchConnection": {
@@ -7337,6 +7371,162 @@
         "title": "StepBody",
         "type": "object"
       },
+      "SyncDevice": {
+        "properties": {
+          "connected": {
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "in_sync": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Sync"
+          },
+          "last_sync_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sync At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform"
+          },
+          "this_device": {
+            "title": "This Device",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "this_device",
+          "connected"
+        ],
+        "title": "SyncDevice",
+        "type": "object"
+      },
+      "SyncSpace": {
+        "properties": {
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/SyncDevice"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "devices"
+        ],
+        "title": "SyncSpace",
+        "type": "object"
+      },
+      "SyncStatus": {
+        "properties": {
+          "connected": {
+            "default": false,
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "set_up": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Set Up"
+          },
+          "signed_in": {
+            "title": "Signed In",
+            "type": "boolean"
+          },
+          "space_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Space Id"
+          },
+          "spaces": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SyncSpace"
+            },
+            "title": "Spaces",
+            "type": "array"
+          },
+          "unlocked": {
+            "default": false,
+            "title": "Unlocked",
+            "type": "boolean"
+          },
+          "waiting": {
+            "default": 0,
+            "title": "Waiting",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "signed_in"
+        ],
+        "title": "SyncStatus",
+        "type": "object"
+      },
       "TableConflictBody": {
         "properties": {
           "conflicts": {
@@ -7888,6 +8078,21 @@
           "examples"
         ],
         "title": "TypeCheck",
+        "type": "object"
+      },
+      "UnlockIn": {
+        "properties": {
+          "passphrase": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Passphrase",
+            "type": "string"
+          }
+        },
+        "required": [
+          "passphrase"
+        ],
+        "title": "UnlockIn",
         "type": "object"
       },
       "UpgradeResult": {
@@ -13720,6 +13925,199 @@
         "summary": "Warm",
         "tags": [
           "search"
+        ]
+      }
+    },
+    "/api/v1/sync/disable": {
+      "post": {
+        "description": "Stop syncing this vault on this device. The files stay; other devices keep syncing.",
+        "operationId": "disable_api_v1_sync_disable_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Disable",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/api/v1/sync/enable": {
+      "post": {
+        "description": "Sync this vault: as a new space, or with one this account already has.",
+        "operationId": "enable_api_v1_sync_enable_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnableIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enable",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/api/v1/sync/passphrase": {
+      "get": {
+        "description": "The passphrase to type on another device. Only a computer that is unlocked has it.",
+        "operationId": "passphrase_api_v1_sync_passphrase_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PassphraseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Passphrase",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/api/v1/sync/reset": {
+      "post": {
+        "description": "Start sync over for the account: for a forgotten passphrase or a lost device. No file\non any device changes; every device enters the new passphrase and joins again.",
+        "operationId": "reset_api_v1_sync_reset_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Reset",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/api/v1/sync/setup": {
+      "post": {
+        "description": "Set sync up for the account (once): makes its keys and a six-word passphrase on this\ncomputer. Graite Cloud never sees the passphrase; `/passphrase` shows it.",
+        "operationId": "setup_api_v1_sync_setup_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Setup",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/api/v1/sync/status": {
+      "get": {
+        "operationId": "status_api_v1_sync_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Status",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/api/v1/sync/unlock": {
+      "post": {
+        "description": "Enter the passphrase on a device that does not have the key.",
+        "operationId": "unlock_api_v1_sync_unlock_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnlockIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unlock",
+        "tags": [
+          "sync"
         ]
       }
     },

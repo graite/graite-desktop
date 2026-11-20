@@ -29,6 +29,7 @@ from graite.api import (
     media,
     pages,
     review,
+    sync,
     tables,
     trash,
 )
@@ -60,6 +61,7 @@ from graite.models.engines import EngineInstaller, set_installer
 from graite.models.manager import Manager
 from graite.profile import ProfileStore, set_profile_store
 from graite.review.proposals import Proposals
+from graite.sync.client import SyncService
 from graite.tables.cache import TablesCache
 from graite.vault import indexer
 from graite.vault.fileops import FileOps
@@ -171,8 +173,10 @@ def create_app(settings: Settings) -> FastAPI:
             # The MCP session manager owns a task group for the lifetime of the app.
             async with mcp_service.manager.run():
                 app.state.relay.start()
+                app.state.sync.start()
                 yield
         finally:
+            await app.state.sync.stop()
             await app.state.relay.stop()
             await app.state.voice.stop()
             await app.state.engines.stop()
@@ -196,6 +200,7 @@ def create_app(settings: Settings) -> FastAPI:
     mcp_service = McpService(lambda: app.state, settings)
     app.state.mcp = mcp_service
     app.state.relay = Relay(app)
+    app.state.sync = SyncService(app)
     app.add_middleware(BearerAuthMiddleware, token=settings.token)
     # The webview origin (tauri://localhost, http://tauri.localhost, or the Vite dev server)
     # differs from the daemon's, so every fetch with an Authorization header is preflighted.
@@ -212,6 +217,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(ai.router, prefix=API_PREFIX)
     app.include_router(connections.router, prefix=API_PREFIX)
     app.include_router(cloud.router, prefix=API_PREFIX)
+    app.include_router(sync.router, prefix=API_PREFIX)
     app.include_router(profile_api.router, prefix=API_PREFIX)
     cloud.hide_callback_query()
     app.include_router(review.router, prefix=API_PREFIX)

@@ -1781,6 +1781,145 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/sync/disable": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Disable
+     * @description Stop syncing this vault on this device. The files stay; other devices keep syncing.
+     */
+    post: operations["disable_api_v1_sync_disable_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/sync/enable": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Enable
+     * @description Sync this vault: as a new space, or with one this account already has.
+     */
+    post: operations["enable_api_v1_sync_enable_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/sync/passphrase": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Passphrase
+     * @description The passphrase to type on another device. Only a computer that is unlocked has it.
+     */
+    get: operations["passphrase_api_v1_sync_passphrase_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/sync/reset": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reset
+     * @description Start sync over for the account: for a forgotten passphrase or a lost device. No file
+     *     on any device changes; every device enters the new passphrase and joins again.
+     */
+    post: operations["reset_api_v1_sync_reset_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/sync/setup": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Setup
+     * @description Set sync up for the account (once): makes its keys and a six-word passphrase on this
+     *     computer. Graite Cloud never sees the passphrase; `/passphrase` shows it.
+     */
+    post: operations["setup_api_v1_sync_setup_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/sync/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Status */
+    get: operations["status_api_v1_sync_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/sync/unlock": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Unlock
+     * @description Enter the passphrase on a device that does not have the key.
+     */
+    post: operations["unlock_api_v1_sync_unlock_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/tables": {
     parameters: {
       query?: never;
@@ -3532,6 +3671,11 @@ export interface components {
       /** Vectors */
       vectors: number[][];
     };
+    /** EnableIn */
+    EnableIn: {
+      /** Space Id */
+      space_id?: string | null;
+    };
     /** EnabledIn */
     EnabledIn: {
       /** Enabled */
@@ -4328,6 +4472,11 @@ export interface components {
         | "updated";
       /** Value */
       value?: unknown;
+    };
+    /** PassphraseOut */
+    PassphraseOut: {
+      /** Passphrase */
+      passphrase?: string | null;
     };
     /** PatchConnection */
     PatchConnection: {
@@ -5166,6 +5315,63 @@ export interface components {
       instructions?: string | null;
       scope?: components["schemas"]["ScopeBody"] | null;
     };
+    /** SyncDevice */
+    SyncDevice: {
+      /** Connected */
+      connected: boolean;
+      /** Id */
+      id: string;
+      /** In Sync */
+      in_sync?: boolean | null;
+      /** Last Sync At */
+      last_sync_at?: string | null;
+      /** Name */
+      name: string;
+      /** Platform */
+      platform?: string | null;
+      /** This Device */
+      this_device: boolean;
+    };
+    /** SyncSpace */
+    SyncSpace: {
+      /** Devices */
+      devices: components["schemas"]["SyncDevice"][];
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+    };
+    /** SyncStatus */
+    SyncStatus: {
+      /**
+       * Connected
+       * @default false
+       */
+      connected: boolean;
+      /** Error */
+      error?: string | null;
+      /** Set Up */
+      set_up?: boolean | null;
+      /** Signed In */
+      signed_in: boolean;
+      /** Space Id */
+      space_id?: string | null;
+      /**
+       * Spaces
+       * @default []
+       */
+      spaces: components["schemas"]["SyncSpace"][];
+      /**
+       * Unlocked
+       * @default false
+       */
+      unlocked: boolean;
+      /**
+       * Waiting
+       * @default 0
+       */
+      waiting: number;
+    };
     /** TableConflictBody */
     TableConflictBody: {
       /** Conflicts */
@@ -5368,6 +5574,11 @@ export interface components {
       invalid: number;
       /** Total */
       total: number;
+    };
+    /** UnlockIn */
+    UnlockIn: {
+      /** Passphrase */
+      passphrase: string;
     };
     /** UpgradeResult */
     UpgradeResult: {
@@ -9450,6 +9661,172 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Warmed"];
+        };
+      };
+    };
+  };
+  disable_api_v1_sync_disable_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SyncStatus"];
+        };
+      };
+    };
+  };
+  enable_api_v1_sync_enable_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EnableIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SyncStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  passphrase_api_v1_sync_passphrase_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PassphraseOut"];
+        };
+      };
+    };
+  };
+  reset_api_v1_sync_reset_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SyncStatus"];
+        };
+      };
+    };
+  };
+  setup_api_v1_sync_setup_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SyncStatus"];
+        };
+      };
+    };
+  };
+  status_api_v1_sync_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SyncStatus"];
+        };
+      };
+    };
+  };
+  unlock_api_v1_sync_unlock_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UnlockIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SyncStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

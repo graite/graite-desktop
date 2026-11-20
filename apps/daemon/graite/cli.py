@@ -123,6 +123,7 @@ def main(argv: list[str] | None = None) -> None:
         selftest.main()
         return
     # Imported late: the bridge above must start fast and keep stdout for the protocol.
+    from graite import keychain
     from graite.app import create_app
 
     args = _parse_args(arguments)
@@ -133,6 +134,7 @@ def main(argv: list[str] | None = None) -> None:
     settings.vault.mkdir(parents=True, exist_ok=True)
 
     _configure_logging(args.log_level, settings.app_dir)
+    keychain.install()
     app = create_app(settings)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
