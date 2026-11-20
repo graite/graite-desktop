@@ -29,6 +29,11 @@ jobs:
           - os: ubuntu-22.04
             bundles: appimage,deb
             updates: true
+          # arm64 Linux: its own AppImage and `linux-aarch64`
+          # in latest.json. Without it those computers find no update in a release.
+          - os: ubuntu-22.04-arm
+            bundles: appimage,deb
+            updates: true
           - os: macos-latest # Apple silicon runner (aarch64-apple-darwin)
             bundles: app,dmg # `app` keeps Graite.app in bundle/macos for the in-bundle smoke test
             updates: true
