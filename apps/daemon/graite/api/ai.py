@@ -84,6 +84,13 @@ def active_model(config: AIConfig, catalog: dict[str, Any]) -> ActiveModel | Non
         )
     if not config.model:
         return None
+    if config.provider == "device":
+        return ActiveModel(
+            label=config.model,
+            connection_name=f"On {config.device_name or 'another computer'}",
+            kind="device",
+            model=config.model,
+        )
     store = get_store()
     found = store.resolve(config.saved_model_id) if store and config.saved_model_id else None
     if found:
@@ -130,12 +137,12 @@ class AIStatus(BaseModel):
         "whisper-server, else Graite's installed voice engine, else a whisper-server on PATH. "
         "Empty when there is none.",
     )
-    speech_source: Literal["local", "graite"] | None = Field(
+    speech_source: Literal["local", "graite", "device"] | None = Field(
         default=None,
         description="Where speech to text runs right now (models/sources.py); null when "
         "neither a local Whisper nor a Graite Cloud sign-in is available.",
     )
-    ocr_source: Literal["local", "graite"] | None = Field(
+    ocr_source: Literal["local", "graite", "device"] | None = Field(
         default=None,
         description="Where reading documents (OCR) runs right now; null when unavailable.",
     )
@@ -156,6 +163,8 @@ def _reasoning(config: AIConfig, manager: Any) -> dict[str, bool]:
         return {"toggle": known is not False and probe.reasoning()["toggle"], "effort": False}
     if not config.model:
         return {"toggle": False, "effort": False}
+    if config.provider == "device":  # another computer's local engine: the same switch
+        return {"toggle": Provider("local", "", "local", "").reasoning()["toggle"], "effort": False}
     return Provider(config.provider, config.base_url, config.model, "").reasoning()
 
 
@@ -1330,6 +1339,14 @@ async def speech_check(request: Request) -> SpeechResult:
         if where == "graite":
             validate_audio(bytes(audio))
             return SpeechResult.model_validate(await transcribe_cloud(bytes(audio)))
+        if where == "device":
+            from graite.compute.remote import transcribe_device
+
+            validate_audio(bytes(audio))
+            heard = await transcribe_device(
+                request.app.state.compute, config.stt_device_id, bytes(audio), live=True
+            )
+            return SpeechResult(text=str(heard["text"]), seconds=float(heard["seconds"] or 0))
         # Another request can acquire the model while the audio is uploading.
         if model_busy(request.app.state):
             raise HTTPException(409, "Wait for the current model task to finish.")

@@ -1,6 +1,7 @@
 """Where reading documents (OCR) and listening (speech to text) run.
 
-Each is "local" (a model on this computer) or "graite" (Graite Cloud). The setting is a
+Each is "local" (a model on this computer), "graite" (Graite Cloud) or "device" (the model
+of another of the user's own computers, reached through sync: graite/compute). The setting is a
 preference; the rule that applies it is the same everywhere (media extraction, chat
 attachments, the speech check and live voice):
 
@@ -8,6 +9,8 @@ attachments, the speech check and live voice):
   works through Graite Cloud when this computer is signed in, so voice never breaks.
 - "graite": Graite Cloud when signed in, else the local model when it is installed.
 - "auto": the local model when it is installed, else Graite Cloud when signed in.
+- "device": that computer and nothing else. When it is not connected the task says so; it
+  does not quietly go to Graite Cloud.
 
 `None` means neither is available; callers say what to do about it.
 """
@@ -18,7 +21,7 @@ from typing import Any, Literal
 
 from graite.cloud.session import get_cloud
 
-Source = Literal["local", "graite"]
+Source = Literal["local", "graite", "device"]
 OCR_MODEL = "glm-ocr-q8"
 SPEECH_MODEL = "whisper-large-v3-turbo-q8"
 
@@ -46,6 +49,8 @@ def signed_in_now() -> bool:
 
 def pick_now(preference: str, local: bool, *, fall_back: bool = True) -> Source | None:
     """`_pick` for synchronous callers."""
+    if preference == "device":
+        return "device"
     if preference == "graite":
         if signed_in_now():
             return "graite"
@@ -58,6 +63,8 @@ def pick_now(preference: str, local: bool, *, fall_back: bool = True) -> Source 
 
 
 async def _pick(preference: str, local: bool, *, fall_back: bool) -> Source | None:
+    if preference == "device":
+        return "device"
     if preference == "graite":
         if await _signed_in():
             return "graite"

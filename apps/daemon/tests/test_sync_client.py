@@ -156,6 +156,8 @@ class Device:
         assert self.web.portal is not None
         self.web.portal.call(state.sync.poke)  # on the daemon's loop, as a request would
         wait(lambda: self.sync.connected and self.sync.digest is not None)
+        # Synced before the mark existed: the service writes it when it starts.
+        assert json.loads(account.mark_file(self.vault).read_text())["space_id"] == SPACE
 
     def stop(self) -> None:
         assert self.web is not None
@@ -411,6 +413,14 @@ def test_setting_up_unlocking_and_switching_sync_on(
     assert on.json()["spaces"][0]["name"] == settings.vault.name
     assert settings.vault.name not in json.dumps(api.spaces)
     assert on.json()["spaces"][0]["devices"][0]["this_device"] is True
+    # The mark the desktop shell reads to show which vaults sync; it is only a convenience.
+    mark = account.mark_file(settings.vault)
+    assert json.loads(mark.read_text()) == {"space_id": SPACE, "name": settings.vault.name}
+    mark.unlink()
+    account.mark(settings.vault, SPACE, "Shared notes")
+    assert json.loads(mark.read_text())["name"] == "Shared notes"
+    client.get("/api/v1/sync/status")  # puts the real name back
+    assert json.loads(mark.read_text())["name"] == settings.vault.name
 
     # A second device: the key is not in its keychain until the passphrase is entered.
     asyncio.run(asyncio.to_thread(account.set_account_key, None))
@@ -433,6 +443,7 @@ def test_setting_up_unlocking_and_switching_sync_on(
     off = client.post("/api/v1/sync/disable")
     assert off.status_code == 200 and off.json()["space_id"] is None
     assert api.replicas[SPACE] == []
+    assert not mark.exists()
 
 
 def test_resetting_sync_starts_over_and_other_devices_notice(
@@ -455,8 +466,10 @@ def test_resetting_sync_starts_over_and_other_devices_notice(
     assert client.post("/api/v1/sync/enable", json={}).json()["space_id"] == SPACE
     old_key = asyncio.run(asyncio.to_thread(account.account_key))
 
+    assert account.mark_file(settings.vault).is_file()
     reset = client.post("/api/v1/sync/reset")
     assert reset.status_code == 200
+    assert not account.mark_file(settings.vault).exists()
     assert reset.json()["set_up"] is False and not reset.json()["unlocked"]
     assert reset.json()["space_id"] is None and reset.json()["spaces"] == []
     assert api.keys is None
@@ -466,8 +479,10 @@ def test_resetting_sync_starts_over_and_other_devices_notice(
     asyncio.run(asyncio.to_thread(account.set_account_key, old_key))
     account.set_joined(client.app.state.db, SPACE, "replica-1")  # type: ignore[attr-defined]
     _, api.keys = crypto.make_account("a brand new passphrase")
+    account.mark(settings.vault, SPACE)
     seen = client.get("/api/v1/sync/status").json()
     assert seen["set_up"] and not seen["unlocked"] and seen["space_id"] is None
+    assert not account.mark_file(settings.vault).exists()
     assert client.post("/api/v1/sync/enable", json={}).status_code == 400
     opened = client.post("/api/v1/sync/unlock", json={"passphrase": "a brand new passphrase"})
     assert opened.json()["unlocked"]

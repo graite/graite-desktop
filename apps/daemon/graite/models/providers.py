@@ -52,11 +52,25 @@ class _HintRejected(Exception):
 
 class Provider:
     def __init__(
-        self, kind: str, url: str, model: str, key: str, *, max_tokens: int = DEFAULT_MAX_TOKENS
+        self,
+        kind: str,
+        url: str,
+        model: str,
+        key: str,
+        *,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
+        transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self.kind, self.url, self.model, self.key = kind, url, model, key
         self.max_tokens = max_tokens
+        # How requests travel when not over the network: to another of the user's computers
+        # through the sync connection (graite/compute/transport.py).
+        self.transport = transport
         self.metrics: dict[str, Any] = {}
+
+    def _via(self) -> dict[str, Any]:
+        """Client options for how requests travel; nothing unless a transport was given."""
+        return {"transport": self.transport} if self.transport is not None else {}
 
     @property
     def is_openrouter(self) -> bool:
@@ -82,7 +96,7 @@ class Provider:
         """Models the endpoint offers: id, name and, where the API says so, context length
         and pricing (OpenRouter and Anthropic return more than the bare id)."""
         url = "https://api.anthropic.com/v1" if self.kind == "anthropic" else self.url
-        async with httpx.AsyncClient(timeout=15) as client:
+        async with httpx.AsyncClient(timeout=15, **self._via()) as client:
             response = await client.get(url + "/models", headers=self.headers())
             self.check(response)
             found: list[dict[str, Any]] = []
@@ -114,7 +128,7 @@ class Provider:
     async def embed(self, texts: list[str]) -> list[list[float]]:
         if self.kind == "anthropic":
             raise ValueError("Anthropic does not provide embeddings through this connection.")
-        async with httpx.AsyncClient(timeout=120) as client:
+        async with httpx.AsyncClient(timeout=120, **self._via()) as client:
             response = await client.post(
                 self.url + "/embeddings",
                 headers=self.headers(),
@@ -306,7 +320,9 @@ class Provider:
         """One request, its deltas. Raises `_HintRejected` before yielding anything, so the
         caller can retry without the optional fields and nobody downstream notices."""
         completed = False
-        async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=15)) as client:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(120, connect=15), **self._via()
+        ) as client:
             async with client.stream("POST", url, headers=self.headers(), json=body) as response:
                 if not response.is_success:
                     await self._failed(url, response, droppable=droppable)

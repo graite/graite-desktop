@@ -13,6 +13,7 @@ import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from graite.cloud.session import get_cloud
 from graite.models.config import REQUEST_ONLY, AIConfig, get_key, load_config
@@ -40,6 +41,8 @@ class Manager:
         self.last_used = time.monotonic()
         self.embedding_last_used = time.monotonic()
         self.reaper: asyncio.Task[None] | None = None
+        # Calls to the user's other computers (graite/compute), set by the app.
+        self.compute: Any = None
         # A voice session keeps the chat model loaded between turns whatever `resident` says.
         self.pinned = False
         # Per model file: whether its chat template has a thinking switch (`enable_thinking`).
@@ -89,6 +92,23 @@ class Manager:
         if config.provider != "local":
             if not config.model:
                 raise ValueError("Choose a model in Settings → Chat first.")
+            if config.provider == "device":
+                from graite.compute.transport import DEVICE_URL, DeviceTransport
+
+                if self.compute is None:
+                    raise ValueError("Sync is not running, so that computer cannot be reached.")
+
+                # That computer's own engine answers, so this is a local provider in every
+                # way but how the request travels.
+                yield Provider(
+                    "local",
+                    DEVICE_URL,
+                    "local",
+                    "",
+                    max_tokens=config.max_output_tokens,
+                    transport=DeviceTransport(self.compute, config.device_id, config.model),
+                )
+                return
             if config.provider == "graite":
                 cloud = get_cloud()
                 token = await cloud.access_token()

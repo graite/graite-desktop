@@ -22,7 +22,13 @@ class AIConfig(BaseModel):
     # normalised to a model server at the OpenRouter endpoint.
     # "graite" is Graite Cloud: its sign-in lives in graite/cloud, not in the keychain entries
     # of connections, and `base_url` follows the configured cloud (see Manager.use).
-    provider: Literal["local", "compatible", "anthropic", "openrouter", "graite"] = "local"
+    # "device" is the local model of another of the user's own computers, reached through the
+    # sync connection (graite/compute); `device_id` says which, `model` is its model's name.
+    provider: Literal["local", "compatible", "anthropic", "openrouter", "graite", "device"] = (
+        "local"
+    )
+    device_id: str = ""
+    device_name: str = ""
     base_url: str = "http://127.0.0.1:1234/v1"
     model: str = ""
     # App-wide connection and saved model this vault currently uses (models/connections.py).
@@ -40,8 +46,18 @@ class AIConfig(BaseModel):
     # computer, "graite" through Graite Cloud. "auto" (the default, and what rows written
     # before the switch existed read as) uses the local model when it is installed, else
     # Graite Cloud when signed in. See models/sources.py.
-    ocr_provider: Literal["auto", "local", "graite"] = "auto"
-    stt_provider: Literal["auto", "local", "graite"] = "auto"
+    # "device" is another of the user's own computers (graite/compute); the matching
+    # `*_device_id` says which and `*_device_name` is what to call it.
+    ocr_provider: Literal["auto", "local", "graite", "device"] = "auto"
+    stt_provider: Literal["auto", "local", "graite", "device"] = "auto"
+    # The assistant's voice: this computer's voice model, or another computer's.
+    tts_provider: Literal["local", "device"] = "local"
+    ocr_device_id: str = ""
+    ocr_device_name: str = ""
+    stt_device_id: str = ""
+    stt_device_name: str = ""
+    tts_device_id: str = ""
+    tts_device_name: str = ""
     model_path: str = ""
     context_size: int = Field(default=8192, ge=2048, le=131072)
     gpu_layers: int = Field(default=-1, ge=-1, le=999)
@@ -85,11 +101,13 @@ class SaveConfig(AIConfig):
 def is_cloud(config: AIConfig) -> bool:
     """Whether what this model is sent leaves the computer.
 
-    Graite's own engine is local, and so is a model server at a loopback address (Ollama,
-    LM Studio, a llama.cpp server on this machine). Everything else is cloud, including a
+    Graite's own engine is local, so is a model server at a loopback address (Ollama, LM
+    Studio, a llama.cpp server on this machine), and so is the engine of another of the
+    user's own computers reached through sync (D122). Everything else is cloud, including a
     server elsewhere on the network: `cloud: local-only` pages stay on this computer.
     """
-    if config.provider == "local":
+    if config.provider in ("local", "device"):
+        # "device": the user's own computer, and only their devices can read the request.
         return False
     if config.provider != "compatible":
         return True
@@ -202,7 +220,7 @@ def _link(config: AIConfig) -> AIConfig:
     that only names provider/endpoint/model (older rows, API clients) gets a connection and a
     saved model created for it, so the chat picker can offer it later.
     """
-    if config.provider == "graite":  # Graite Cloud is not a connection in the store
+    if config.provider in ("graite", "device"):  # neither is a connection in the store
         return config.model_copy(update={"connection_id": None, "saved_model_id": None})
     store = get_store()
     if store is None:
@@ -314,6 +332,13 @@ REQUEST_ONLY = frozenset(
         "max_tool_calls",
         "ocr_provider",
         "stt_provider",
+        "tts_provider",
+        "ocr_device_id",
+        "ocr_device_name",
+        "stt_device_id",
+        "stt_device_name",
+        "tts_device_id",
+        "tts_device_name",
         "tts_model",
     }
 )

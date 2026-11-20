@@ -39,8 +39,9 @@ async def reindex(ctx: JobContext) -> dict[str, Any]:
 
 
 async def attachment_text(ctx: JobContext) -> dict[str, Any]:
-    """OCR a chat attachment (image or scanned PDF): GLM-OCR on this computer or Graite Cloud's
-    OCR model, as Settings → Documents says (models/sources.py)."""
+    """OCR a chat attachment (image or scanned PDF): GLM-OCR on this computer, Graite Cloud's
+    OCR model or another of the user's computers, as Settings → Documents says
+    (models/sources.py)."""
     import shutil
     import tempfile
     from pathlib import Path
@@ -87,6 +88,15 @@ async def attachment_text(ctx: JobContext) -> dict[str, Any]:
             shutil.copyfile(source, working)
             if where == "graite":
                 text = await recognize_cloud(working, lambda message: ctx.progress(message=message))
+            elif where == "device":
+                from graite.compute.remote import recognize_device
+
+                text = await recognize_device(
+                    state.compute,
+                    config.ocr_device_id,
+                    working,
+                    lambda message: ctx.progress(message=message),
+                )
             else:
                 item = state.downloads.items[OCR_MODEL]
                 async with state.models.lock:

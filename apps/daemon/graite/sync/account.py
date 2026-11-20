@@ -8,7 +8,9 @@ account key, the passphrase and each space key live in this computer's keychain 
 from __future__ import annotations
 
 import asyncio
+import json
 import sqlite3
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -16,6 +18,7 @@ import keyring
 
 from graite.cloud.session import KEYCHAIN_DOWN, UNREACHABLE, get_cloud
 from graite.sync import crypto
+from graite.vault.paths import GRAITE_DIR
 
 SIGN_IN = "Sign in to Graite Cloud under Settings → Graite Cloud first."
 
@@ -76,6 +79,33 @@ def set_joined(db: sqlite3.Connection, space_id: str | None, replica_id: str | N
         db.execute("INSERT INTO meta VALUES ('sync_space', ?)", (space_id,))
         db.execute("INSERT INTO meta VALUES ('sync_replica', ?)", (replica_id,))
     db.commit()
+
+
+# --- the mark ------------------------------------------------------------------------------
+#
+# `.graite/sync.json` says "this vault syncs" to anything that cannot open the vault's
+# database: the desktop shell lists the vaults on this computer and shows which ones sync.
+# It follows the two rows above and is rewritten from them, so deleting it loses nothing.
+
+
+def mark_file(vault: Path) -> Path:
+    return vault / GRAITE_DIR / "sync.json"
+
+
+def mark(vault: Path, space_id: str | None, name: str = "") -> None:
+    """Write the mark for a vault that syncs (`name`: what the shared vault is called), or
+    remove it. Never raises: the mark is a convenience."""
+    file = mark_file(vault)
+    try:
+        if space_id is None:
+            file.unlink(missing_ok=True)
+            return
+        wanted = json.dumps({"space_id": space_id, "name": name or vault.name})
+        if not file.is_file() or file.read_text(encoding="utf-8") != wanted:
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_text(wanted, encoding="utf-8")
+    except OSError:
+        pass
 
 
 # --- Graite Cloud ---------------------------------------------------------------------------

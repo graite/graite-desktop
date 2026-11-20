@@ -93,6 +93,8 @@ class SyncService:
         self._fetches: dict[str, tuple[str, Path, asyncio.Future[bool]]] = {}
         self._asked: dict[str, str | None] = {}
         self._next_id = 0
+        # Calls to and from this account's other devices (graite/compute), set by the app.
+        self.compute: Any = None
 
     def start(self) -> None:
         self._task = asyncio.create_task(self._run(), name="sync")
@@ -129,6 +131,9 @@ class SyncService:
                 await self._wait(None)
                 continue
             space_id, self._replica = joined
+            if not account.mark_file(self._app.state.settings.vault).is_file():
+                # Synced before the mark existed, or `.graite` was rebuilt.
+                account.mark(self._app.state.settings.vault, space_id)
             try:
                 key = await asyncio.to_thread(account.space_key, space_id)
                 token = await get_cloud().access_token()
@@ -178,6 +183,8 @@ class SyncService:
             finally:
                 self._socket = None
                 self._fail_fetches(None)
+                if self.compute is not None:
+                    self.compute.lost(None)
             self.connected = False
             await self._wait(backoff)
             backoff = min(backoff * 2, MAX_BACKOFF)
@@ -244,6 +251,13 @@ class SyncService:
 
     async def _to_peer(self, peer: str, payload: dict[str, Any]) -> None:
         await self._send({"type": "peer", "to": peer, "payload": self._seal(payload)})
+
+    async def to_peer(self, peer: str, payload: dict[str, Any]) -> None:
+        """One message to another device, for the calls in `graite/compute`. ValueError when
+        this vault is not connected."""
+        if self._socket is None:
+            raise ValueError("This computer is not connected to your other devices right now.")
+        await self._to_peer(peer, payload)
 
     # ----------------------------------------------------------------- this device's changes
 
@@ -356,6 +370,8 @@ class SyncService:
                     await self._from_peer(sender, opened)
             elif kind == "peer_gone":
                 self._fail_fetches(str(frame.get("to") or ""))
+                if self.compute is not None:
+                    self.compute.lost(str(frame.get("to") or ""))
 
     def _queue(self, raw: Any, sender: str, content: Any = None, seq: int | None = None) -> bool:
         try:
@@ -383,6 +399,8 @@ class SyncService:
             asyncio.create_task(self._serve_blob(sender, message))
         elif kind == "blob":
             await self._on_blob(sender, message)
+        elif isinstance(kind, str) and kind.startswith("c_") and self.compute is not None:
+            await self.compute.on_message(sender, message)
 
     async def _apply(self) -> None:
         """Apply received versions one at a time, in the order they came, and confirm each

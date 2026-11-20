@@ -34,6 +34,7 @@ from graite.api import (
     trash,
 )
 from graite.api import assistant as assistant_api
+from graite.api import compute as compute_api
 from graite.api import engines as engines_api
 from graite.api import mcp as mcp_api
 from graite.api import profile as profile_api
@@ -44,6 +45,8 @@ from graite.api.auth import BearerAuthMiddleware
 from graite.assistant.presence import ForegroundGate
 from graite.cloud.relay import Relay
 from graite.cloud.session import CloudSession, set_cloud
+from graite.compute.serve import handlers as compute_handlers
+from graite.compute.service import Compute
 from graite.config import Settings
 from graite.events import EventBus
 from graite.index import db
@@ -113,6 +116,7 @@ def create_app(settings: Settings) -> FastAPI:
         set_cloud(CloudSession(settings.cloud_url, settings.app_dir))
         app.state.downloads = Downloader(conn, app.state.events, settings.models_dir)
         app.state.models = Manager(conn)
+        app.state.models.compute = app.state.compute
         await app.state.models.start()
         app.state.fileops = FileOps(settings.vault, conn, app.state.events)
         app.state.proposals = Proposals(conn, app.state.fileops, app.state.events)
@@ -177,6 +181,7 @@ def create_app(settings: Settings) -> FastAPI:
                 yield
         finally:
             await app.state.sync.stop()
+            await app.state.compute_close()
             await app.state.relay.stop()
             await app.state.voice.stop()
             await app.state.engines.stop()
@@ -201,6 +206,10 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.mcp = mcp_service
     app.state.relay = Relay(app)
     app.state.sync = SyncService(app)
+    # Calls between the account's devices ride on the sync connection (graite/compute).
+    app.state.compute = Compute(settings.app_dir, app.state.sync.to_peer)
+    app.state.compute.handlers = compute_handlers(app.state)
+    app.state.sync.compute = app.state.compute
     app.add_middleware(BearerAuthMiddleware, token=settings.token)
     # The webview origin (tauri://localhost, http://tauri.localhost, or the Vite dev server)
     # differs from the daemon's, so every fetch with an Authorization header is preflighted.
@@ -218,6 +227,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(connections.router, prefix=API_PREFIX)
     app.include_router(cloud.router, prefix=API_PREFIX)
     app.include_router(sync.router, prefix=API_PREFIX)
+    app.include_router(compute_api.router, prefix=API_PREFIX)
     app.include_router(profile_api.router, prefix=API_PREFIX)
     cloud.hide_callback_query()
     app.include_router(review.router, prefix=API_PREFIX)

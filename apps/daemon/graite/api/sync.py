@@ -105,8 +105,13 @@ async def _status(request: Request) -> SyncStatus:
         if joined and joined[0] not in {space.id for space in status.spaces}:
             # The vault this folder synced with is gone (sync was reset): ask again.
             account.set_joined(state.db, None, None)
+            account.mark(state.settings.vault, None)
             service.poke()
             status.space_id, status.connected, status.error = None, False, None
+        elif joined and key is not None:
+            # Keep the mark's name in step with what the shared vault is called.
+            name = next(space.name for space in status.spaces if space.id == joined[0])
+            account.mark(state.settings.vault, joined[0], name)
     except ValueError as exc:
         if str(exc) != account.SIGN_IN:
             status.error = status.error or str(exc)
@@ -160,6 +165,7 @@ async def reset(request: Request) -> SyncStatus:
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     account.set_joined(state.db, None, None)
+    account.mark(state.settings.vault, None)
     state.sync.poke()
     return await _status(request)
 
@@ -181,6 +187,7 @@ async def enable(body: EnableIn, request: Request) -> SyncStatus:
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     account.set_joined(state.db, space_id, replica_id)
+    account.mark(state.settings.vault, space_id)  # `_status` fills in the shared name
     state.sync.poke()
     return await _status(request)
 
@@ -192,6 +199,7 @@ async def disable(request: Request) -> SyncStatus:
     joined = account.joined(state.db)
     if joined is not None:
         account.set_joined(state.db, None, None)
+        account.mark(state.settings.vault, None)
         state.sync.poke()
         try:
             await account.leave(*joined)
