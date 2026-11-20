@@ -150,7 +150,7 @@ it to Claude Code, Codex or Cursor in one click (as `graite-local`).
 ### What exists today
 
 `.github/workflows/release.yml` builds bundles on a `v*` tag: AppImage and deb
-(Ubuntu 22.04), a **signed and notarized** dmg (macOS, Apple silicon, Developer ID, see
+(Ubuntu 22.04, x86-64 and arm64), a **signed and notarized** dmg (macOS, Apple silicon, Developer ID, see
 *macOS signing and notarization*), and an unsigned NSIS installer (Windows). Each job builds the
 PyInstaller sidecar first, smoke-tests it, places it in `src-tauri/resources/daemon`, then
 runs `tauri-action`, which creates a **draft** GitHub release with the bundles attached. On
@@ -178,9 +178,12 @@ The macOS app and the Linux AppImage update themselves (`tauri-plugin-updater`,
 `src-tauri/src/updates.rs`): the app looks at
 `https://github.com/graite/graite-desktop/releases/latest/download/latest.json` shortly after
 startup and a few times a day, says when there is a newer version, and installs it only when
-the user clicks **Install and restart** (the notice, or Settings > General > Updates). The
-Microsoft Store updates the Windows package itself, a `.deb` belongs to the system's package
-manager, and dev runs have nothing to replace: there the app never checks.
+the user clicks **Install and restart** (the notice, or Settings > General > Updates). A Linux
+`.deb` looks for a newer version the same way but cannot replace itself: its notice has a
+**Download** button to the release page. The Microsoft Store updates the Windows package
+itself and dev runs have nothing to replace: there the app never checks. A release without a
+build for the computer's platform (`latest.json` has no entry for it) is shown as "No update
+is published for this kind of computer yet", not as an error.
 
 - **Key.** Update files are signed with Tauri's updater key (not the Apple certificate). The
   public key is in `tauri.conf.json` (`plugins.updater.pubkey`). The private key is the
