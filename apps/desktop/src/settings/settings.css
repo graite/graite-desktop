@@ -629,6 +629,11 @@
 .ai-local-switch {
   margin-bottom: 14px;
 }
+/* A switch that stands on the page by itself is a card like the others: white on grey.
+   (Inside a card it stays the inset block set above.) */
+.ai-settings .ai-tech-mode.ai-local-switch {
+  background: var(--settings-surface);
+}
 
 /* A note set apart like a card, for things to know rather than settings to change. */
 .settings-note-card {
@@ -636,6 +641,7 @@
   padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: 12px;
+  background: var(--settings-surface);
 }
 .settings-note-card strong {
   color: var(--foreground);
@@ -646,9 +652,14 @@
 .settings-recommend {
   margin-bottom: 14px;
   padding: 12px 14px;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--tag-green) 30%, var(--border));
   border-radius: 12px;
+  /* A touch of green: it is advice, not a setting. */
+  background: color-mix(in srgb, var(--tag-green) 8%, var(--settings-surface));
   font-size: 13px;
+}
+.settings-recommend svg {
+  color: color-mix(in srgb, var(--tag-green) 70%, var(--foreground));
 }
 .settings-recommend strong {
   color: var(--foreground);

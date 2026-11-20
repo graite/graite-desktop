@@ -4,6 +4,9 @@ import {
   Bot,
   Cpu,
   FilePlus,
+  Laptop,
+  Lock,
+  Monitor,
   Inbox,
   MessageSquare,
   MessageSquareHeart,
@@ -15,7 +18,6 @@ import type { Section } from "@/ai/ConversationList";
 import type { SettingsTab } from "@/settings/sections";
 import { PRINCIPLES } from "./principles";
 import { AiAppIcons } from "@/components/AiAppIcons";
-import { SettingsArt } from "@/settings/SettingsArt";
 import { WelcomeShot, type WelcomeShotName } from "./WelcomeShot";
 import "./welcome.css";
 
@@ -38,6 +40,28 @@ function StepCard({ step }: { step: Step }) {
       <span>{step.text}</span>
       <em>{step.action} →</em>
     </button>
+  );
+}
+
+/** Two of your computers with a locked line between them, drawn like the app icons of the
+ * chapter before it. */
+function SyncVisual() {
+  return (
+    <div className="welcome-sync" aria-label="Two computers that share a vault, encrypted">
+      <span className="ai-app-icon">
+        <Laptop size={34} strokeWidth={1.4} />
+      </span>
+      <span className="welcome-sync-line" aria-hidden="true">
+        <i />
+        <span>
+          <Lock size={13} strokeWidth={1.8} />
+        </span>
+        <i />
+      </span>
+      <span className="ai-app-icon">
+        <Monitor size={34} strokeWidth={1.4} />
+      </span>
+    </div>
   );
 }
 
@@ -217,7 +241,7 @@ export function WelcomePage({
           <Chapter
             n={5}
             title="Sync your devices"
-            visual={<SettingsArt name="sync" size={88} />}
+            visual={<SyncVisual />}
             text="The same pages on all your computers. Share once, type six words on the other. Only your devices can read them."
             action={{ label: "Open Sync devices", onClick: () => onSettings("sync") }}
           />

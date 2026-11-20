@@ -4,6 +4,7 @@ import {
   FileText,
   KeyRound,
   MessageSquare,
+  MonitorCog,
   MonitorSmartphone,
   Plug,
   Search,
@@ -21,6 +22,7 @@ export type SettingsSection =
   | "voice"
   | "search"
   | "documents"
+  | "workstation"
   | "graite"
   | "sync"
   | "connectors"
@@ -60,6 +62,7 @@ export const NAV: { title?: string; items: NavItem[] }[] = [
       { id: "search", label: "Search", icon: Search },
       { id: "documents", label: "Documents", icon: FileText },
       { id: "voice", label: "Speech", icon: AudioLines },
+      { id: "workstation", label: "AI workstation", icon: MonitorCog },
       { id: "server", label: "Your own server", icon: Server, geek: true },
     ],
   },
@@ -105,6 +108,7 @@ export function isOwnNetwork(host: string): boolean {
 export function chatSection(config: Pick<AIConfig, "provider" | "base_url">): SettingsSection {
   if (config.provider === "local") return "local";
   if (config.provider === "graite") return "graite";
+  if (config.provider === "device") return "workstation";
   if (config.provider === "anthropic") return "keys";
   return isOwnNetwork(hostOf(config.base_url)) ? "server" : "keys";
 }

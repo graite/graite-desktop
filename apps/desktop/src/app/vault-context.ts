@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { DaemonInfo, VaultList } from "@/lib/platform";
+import type { DaemonInfo, VaultList, VaultProbe } from "@/lib/platform";
 
 /** The open vault and the host's ability to switch it, shared below the VaultGate. */
 export interface VaultContextValue {
@@ -9,8 +9,13 @@ export interface VaultContextValue {
   list: () => Promise<VaultList>;
   /** Restart the daemon on another folder; the whole workspace remounts on success. */
   switchTo: (path: string, create: boolean) => Promise<void>;
+  /** Open a new folder as a vault of its own and fill it with a vault your other devices
+   * share (a sync space). The workspace remounts on that folder. */
+  joinInFolder: (spaceId: string, path: string) => Promise<void>;
   /** Open the OS folder dialog; resolves with the chosen path or null. */
-  pickFolder: () => Promise<string | null>;
+  pickFolder: (title?: string) => Promise<string | null>;
+  /** What a folder holds, before opening it; null when the host cannot tell. */
+  inspect: (path: string) => Promise<VaultProbe | null>;
   forget: (path: string) => Promise<VaultList>;
   reveal: (path: string) => Promise<void>;
 }

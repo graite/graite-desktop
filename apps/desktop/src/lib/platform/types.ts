@@ -32,6 +32,8 @@ export interface VaultProbe {
   has_graite: boolean;
   pages: number;
   other_files: boolean;
+  /** The vault syncs with your other devices: what the shared vault is called. */
+  synced?: string | null;
 }
 
 /** A newer version of the app that this install can update itself to. */

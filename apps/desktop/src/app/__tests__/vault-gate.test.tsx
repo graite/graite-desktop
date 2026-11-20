@@ -17,6 +17,8 @@ vi.mock("@/lib/platform", async () => {
   return { ...actual, platform: host };
 });
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+const syncMock = vi.hoisted(() => ({ enable: vi.fn(), status: vi.fn() }));
+vi.mock("@/lib/sync", () => ({ sync: syncMock }));
 
 import { NoVaultError } from "@/lib/platform";
 import { scopedKey } from "@/lib/storage";
@@ -33,6 +35,7 @@ function Probe() {
       <span data-testid="vault">{vault?.info.vault}</span>
       <span data-testid="key">{scopedKey("graite.selectedPath")}</span>
       <button onClick={() => void vault?.switchTo("/home/me/Work", false)}>switch</button>
+      <button onClick={() => void vault?.joinInFolder("s1", "/home/me/Work")}>join</button>
     </div>
   );
 }
@@ -102,4 +105,50 @@ it("shows the startup error with a retry when the daemon fails for another reaso
   expect((await screen.findByRole("alert")).textContent).toContain("sidecar missing");
   fireEvent.click(screen.getByRole("button", { name: "Try again" }));
   expect((await screen.findByTestId("vault")).textContent).toBe("/home/me/Notes");
+});
+
+it("gets a shared vault in a new folder: opens the folder, joins there, shows Sync devices", async () => {
+  host.getDaemonInfo.mockResolvedValue(NOTES);
+  host.openVault.mockResolvedValue(WORK);
+  const order: string[] = [];
+  host.openVault.mockImplementation(async () => {
+    order.push("open");
+    return WORK;
+  });
+  syncMock.enable.mockImplementation(async () => {
+    order.push("join");
+    return {};
+  });
+  const opened = vi.fn();
+  window.addEventListener("graite:open-settings", opened);
+  render(<VaultGate>{() => <Probe />}</VaultGate>);
+  fireEvent.click(await screen.findByText("join"));
+  await waitFor(() => expect(screen.getByTestId("vault").textContent).toBe("/home/me/Work"));
+  expect(host.openVault).toHaveBeenCalledWith("/home/me/Work", true);
+  await waitFor(() => expect(syncMock.enable).toHaveBeenCalledWith("s1"));
+  expect(order).toEqual(["open", "join"]);
+  await waitFor(() => expect(opened).toHaveBeenCalled());
+  window.removeEventListener("graite:open-settings", opened);
+});
+
+it("marks the vaults that sync with other devices in the picker", async () => {
+  host.getDaemonInfo.mockRejectedValue(new NoVaultError());
+  host.vaults.mockResolvedValue({
+    current: null,
+    recent: ["/home/me/Notes", "/home/me/Work"],
+    dev: false,
+  });
+  host.inspectVault.mockImplementation(async (path: string) => ({
+    path,
+    exists: true,
+    is_dir: true,
+    has_graite: true,
+    pages: 12,
+    other_files: false,
+    synced: path.endsWith("Work") ? "Work" : null,
+  }));
+  render(<VaultGate>{() => <Probe />}</VaultGate>);
+  const work = (await screen.findByText("Work")).closest("button");
+  await waitFor(() => expect(work?.textContent).toContain("Synced"));
+  expect(screen.getByText("Notes").closest("button")?.textContent).not.toContain("Synced");
 });

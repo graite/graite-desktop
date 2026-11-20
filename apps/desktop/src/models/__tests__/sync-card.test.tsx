@@ -15,6 +15,11 @@ vi.mock("@/lib/api", () => ({
   api: { health: vi.fn().mockResolvedValue({ vault: "/home/sam/Notes" }) },
 }));
 
+const vaultMock = vi.hoisted(() => ({
+  value: null as null | Record<string, unknown>,
+}));
+vi.mock("@/app/vault-context", () => ({ useVault: () => vaultMock.value }));
+
 import { SyncCard } from "@/models/SyncCard";
 
 const BASE = {
@@ -37,7 +42,10 @@ const SPACE = {
   ],
 };
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  vaultMock.value = null;
+});
 afterEach(cleanup);
 
 it("asks to sign in first, and leads to Graite Cloud", async () => {
@@ -152,4 +160,58 @@ it("gets new words only after a second click", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Yes, new words for all my devices" }));
   expect(await screen.findByRole("button", { name: "Share this vault" })).toBeTruthy();
   expect(syncMock.reset).toHaveBeenCalled();
+});
+
+const EMPTY = { exists: true, is_dir: true, has_graite: false, pages: 0, other_files: false };
+
+it("puts a shared vault in a new folder of its own and switches to it", async () => {
+  const host = {
+    canSwitch: true,
+    pickFolder: vi.fn().mockResolvedValue("/home/sam/Work"),
+    inspect: vi.fn().mockResolvedValue(EMPTY),
+    joinInFolder: vi.fn().mockResolvedValue(undefined),
+  };
+  vaultMock.value = host;
+  syncMock.status.mockResolvedValue({ ...BASE, spaces: [SPACE] });
+  render(<SyncCard />);
+  expect(await screen.findByText(/It gets a folder of its own on this computer/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Get this vault here" }));
+  await waitFor(() => expect(host.joinInFolder).toHaveBeenCalledWith("s1", "/home/sam/Work"));
+  expect(host.pickFolder).toHaveBeenCalledWith("Choose an empty folder for Notes");
+  // The open vault was left alone.
+  expect(syncMock.enable).not.toHaveBeenCalled();
+});
+
+it("refuses a folder that is not empty, and keeps adding to the open vault as a small link", async () => {
+  const host = {
+    canSwitch: true,
+    pickFolder: vi.fn().mockResolvedValue("/home/sam/Old"),
+    inspect: vi.fn().mockResolvedValue({ ...EMPTY, pages: 3 }),
+    joinInFolder: vi.fn(),
+  };
+  vaultMock.value = host;
+  syncMock.status.mockResolvedValue({ ...BASE, spaces: [SPACE] });
+  syncMock.enable.mockResolvedValue({ ...BASE, space_id: "s1", spaces: [SPACE] });
+  render(<SyncCard />);
+  fireEvent.click(await screen.findByRole("button", { name: "Get this vault here" }));
+  expect((await screen.findByRole("alert")).textContent).toContain("That folder is not empty");
+  expect(host.joinInFolder).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: /Or add it to the vault that is open now/ }));
+  await waitFor(() => expect(syncMock.enable).toHaveBeenCalledWith("s1"));
+});
+
+it("does nothing when the folder dialog is closed", async () => {
+  const host = {
+    canSwitch: true,
+    pickFolder: vi.fn().mockResolvedValue(null),
+    inspect: vi.fn(),
+    joinInFolder: vi.fn(),
+  };
+  vaultMock.value = host;
+  syncMock.status.mockResolvedValue({ ...BASE, spaces: [SPACE] });
+  render(<SyncCard />);
+  fireEvent.click(await screen.findByRole("button", { name: "Get this vault here" }));
+  await waitFor(() => expect(host.pickFolder).toHaveBeenCalled());
+  expect(host.inspect).not.toHaveBeenCalled();
+  expect(host.joinInFolder).not.toHaveBeenCalled();
 });

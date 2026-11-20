@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { NoVaultError, platform, type DaemonInfo, type VaultList } from "@/lib/platform";
+import { toast } from "sonner";
 import { setStorageScope } from "@/lib/storage";
+import { sync } from "@/lib/sync";
+import { openSyncSettings } from "./SyncStatus";
 import { StartupLoader } from "./StartupLoader";
 import { VaultPicker } from "./VaultPicker";
 import { VaultContext, type VaultContextValue } from "./vault-context";
@@ -52,6 +55,25 @@ export function VaultGate({ children }: { children: (info: DaemonInfo) => ReactN
     },
     [ready],
   );
+  const joinInFolder = useCallback(
+    async (spaceId: string, path: string) => {
+      await switchTo(path, true);
+      // The daemon now runs on the new folder; the account's key is in the keychain, so it
+      // can join at once.
+      try {
+        await sync.enable(spaceId);
+      } catch (e) {
+        toast.error(
+          `The new folder is open, but the shared vault could not be added: ${
+            e instanceof Error ? e.message : "try again"
+          }`,
+        );
+      }
+      // The workspace was remounted for the new folder: show the pages arriving.
+      window.setTimeout(openSyncSettings, 300);
+    },
+    [switchTo],
+  );
   const context = useMemo<VaultContextValue | null>(() => {
     if (phase.kind !== "ready") return null;
     const info = phase.info;
@@ -65,11 +87,14 @@ export function VaultGate({ children }: { children: (info: DaemonInfo) => ReactN
       canSwitch: !!platform.openVault && !info.dev,
       list: () => platform.vaults?.() ?? Promise.resolve(empty),
       switchTo,
-      pickFolder: () => platform.pickFolder?.("Open a vault folder") ?? Promise.resolve(null),
+      joinInFolder,
+      pickFolder: (title = "Open a vault folder") =>
+        platform.pickFolder?.(title) ?? Promise.resolve(null),
+      inspect: (path) => platform.inspectVault?.(path) ?? Promise.resolve(null),
       forget: (path) => platform.forgetVault?.(path) ?? Promise.resolve(empty),
       reveal: (path) => platform.revealFolder?.(path) ?? Promise.resolve(),
     };
-  }, [phase, switchTo]);
+  }, [phase, switchTo, joinInFolder]);
   if (phase.kind === "checking") return <StartupLoader />;
   if (phase.kind === "error")
     return (

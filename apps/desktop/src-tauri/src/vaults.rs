@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
-const RECENT_LIMIT: usize = 8;
+const RECENT_LIMIT: usize = 20;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Vaults {
@@ -31,6 +31,18 @@ pub struct VaultProbe {
     pub pages: usize,
     /// Files other than pages, so opening a random folder is a deliberate choice.
     pub other_files: bool,
+    /// The vault syncs with the user's other devices: what the shared vault is called. Read
+    /// from `.graite/sync.json`, which the daemon keeps (graite/sync/account.py).
+    pub synced: Option<String>,
+}
+
+/// The name in a vault's sync mark, when it has one.
+fn synced(path: &Path) -> Option<String> {
+    let text = std::fs::read_to_string(path.join(".graite").join("sync.json")).ok()?;
+    let mark: serde_json::Value = serde_json::from_str(&text).ok()?;
+    mark.get("space_id")?.as_str()?;
+    let name = mark.get("name").and_then(|n| n.as_str()).unwrap_or("");
+    Some(name.to_string())
 }
 
 impl Vaults {
@@ -103,6 +115,7 @@ pub fn inspect(path: &Path) -> VaultProbe {
         has_graite: path.join(".graite").is_dir(),
         pages: 0,
         other_files: false,
+        synced: synced(path),
     };
     if let Ok(entries) = std::fs::read_dir(path) {
         for entry in entries.flatten() {
@@ -133,7 +146,7 @@ mod tests {
     #[test]
     fn remember_dedupes_caps_and_sets_current() {
         let mut vaults = Vaults::default();
-        for i in 0..10 {
+        for i in 0..RECENT_LIMIT + 2 {
             vaults.remember(Path::new(&format!("/v/{i}")));
         }
         vaults.remember(Path::new("/v/3"));
@@ -169,6 +182,15 @@ mod tests {
         assert!(probe.exists && probe.is_dir && probe.has_graite);
         assert_eq!(probe.pages, 1);
         assert!(!probe.other_files);
+        assert_eq!(probe.synced, None);
+        std::fs::write(
+            dir.join(".graite").join("sync.json"),
+            r#"{"space_id": "s1", "name": "Shared notes"}"#,
+        )
+        .unwrap();
+        assert_eq!(inspect(&dir).synced.as_deref(), Some("Shared notes"));
+        std::fs::write(dir.join(".graite").join("sync.json"), "not json").unwrap();
+        assert_eq!(inspect(&dir).synced, None);
         std::fs::write(dir.join("photo.jpg"), b"x").unwrap();
         assert!(inspect(&dir).other_files);
         let missing = inspect(&dir.join("nope"));

@@ -10,13 +10,14 @@ import {
   KeyRound,
   Loader2,
   MessageSquare,
+  MonitorCog,
   MonitorSmartphone,
   Plug,
   Search,
   Server,
   Settings2,
   ShieldCheck,
-  Sparkles,
+  BadgeCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ai, type AIConfig, type AIStatus } from "@/lib/ai";
@@ -33,6 +34,10 @@ import "./ai.css";
 import "@/settings/settings.css";
 import { ConnectionsCard } from "./ConnectionsCard";
 import { GraiteCloudCard } from "./GraiteCloudCard";
+import { WorkstationCard } from "./WorkstationCard";
+import { useWorkstations } from "./useWorkstations";
+import { useSyncStatus } from "@/app/SyncStatus";
+import { compute, type ComputeStatus, type ComputeTask } from "@/lib/compute";
 import { SyncCard } from "./SyncCard";
 import { IndexCard } from "./IndexCard";
 import { EngineCard } from "./EngineCard";
@@ -50,6 +55,7 @@ import {
   chatSection,
   isOwnNetwork,
   resolveSection,
+  SECTIONS,
   sectionLabel,
   type SettingsSection,
   type SettingsTab,
@@ -85,6 +91,7 @@ const CHAT_SOURCE: Record<SettingsSection, string> = {
   server: "your own server",
   graite: "Graite Cloud",
   sync: "another model",
+  workstation: "your AI workstation",
   connectors: "another model",
   keys: "your API key",
 };
@@ -117,6 +124,26 @@ export function ModelsPage({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [techMode, setTechMode] = useTechMode();
+  // Settings is already open and something asks for a section (the vault menu's sync
+  // line, a "set up a model" link): go there.
+  useEffect(() => {
+    const go = (event: Event) => {
+      const tab = (event as CustomEvent<unknown>).detail;
+      if (typeof tab !== "string") return;
+      const known = [...SECTIONS, "chat", "vault"] as string[];
+      if (known.includes(tab)) setSection(resolveSection(tab as SettingsTab, loadedRef.current));
+    };
+    window.addEventListener("graite:open-settings", go);
+    return () => window.removeEventListener("graite:open-settings", go);
+  }, []);
+  const workstations = useWorkstations();
+  const syncStatus = useSyncStatus();
+  /** A task moved to or from a workstation: the saved settings changed under this page. */
+  const moved = (saved: AIConfig) => {
+    loadedRef.current = saved;
+    setConfig(saved);
+    void workstations.refresh();
+  };
   // The config as it was last read from or written to the daemon: a save sends what differs.
   const loadedRef = useRef<AIConfig | null>(null);
   // Each section starts at its top: whichever of the two scrolls (with or without its own
@@ -542,7 +569,7 @@ export function ModelsPage({
                   text="How AI finds the one paragraph that matters without reading your whole vault. It runs here, on this computer."
                 />
                 <div className="ai-privacy settings-recommend">
-                  <Sparkles size={19} />
+                  <BadgeCheck size={18} />
                   <p>
                     <strong>Recommended: download the search model below.</strong> It is small, runs
                     on this computer and makes finding things much faster and smarter than keywords
@@ -560,6 +587,24 @@ export function ModelsPage({
               </>,
             )}
             {panel(
+              "workstation",
+              <>
+                <Explainer
+                  icon={MonitorCog}
+                  title="AI workstation"
+                  text="Have a strong computer at home? Let it do the AI work for your laptop. Everything travels encrypted between your own devices; nobody else can read it."
+                />
+                <WorkstationCard
+                  status={workstations.status}
+                  shared={syncStatus ? !!syncStatus.space_id : null}
+                  refresh={workstations.refresh}
+                  onStatus={workstations.setStatus}
+                  onUsed={moved}
+                  onOpenSync={() => setSection("sync")}
+                />
+              </>,
+            )}
+            {panel(
               "documents",
               <>
                 <Explainer
@@ -567,14 +612,26 @@ export function ModelsPage({
                   title="Documents"
                   text="Turns scans and photos into text you can search and quote. Drop in a PDF; Graite does the squinting."
                 />
-                <LocalSwitch
-                  id="local-documents"
-                  checked={documentsLocal}
+                <WorkstationSwitch
+                  what="documents"
+                  label="Read documents on"
+                  status={workstations.status}
+                  on={config.ocr_provider === "device"}
+                  deviceId={config.ocr_device_id}
+                  deviceName={config.ocr_device_name}
                   disabled={!!busy}
-                  label="Read everything in-house"
-                  hint="Your scans never leave the building: GLM-OCR reads every page right here, on this computer."
-                  onChange={(on) => patch({ ocr_provider: on ? "local" : "graite" })}
+                  onUsed={moved}
                 />
+                {config.ocr_provider !== "device" && (
+                  <LocalSwitch
+                    id="local-documents"
+                    checked={documentsLocal}
+                    disabled={!!busy}
+                    label="Read everything in-house"
+                    hint="Your scans never leave the building: GLM-OCR reads every page right here, on this computer."
+                    onChange={(on) => patch({ ocr_provider: on ? "local" : "graite" })}
+                  />
+                )}
                 {documentsLocal ? (
                   <>
                     <OcrEngineNote
@@ -589,7 +646,7 @@ export function ModelsPage({
                       disabled={!!busy}
                     />
                   </>
-                ) : (
+                ) : config.ocr_provider === "device" ? null : (
                   <CloudNote
                     signedIn={!!status?.cloud_signed_in}
                     what="Documents are read"
@@ -606,13 +663,25 @@ export function ModelsPage({
                   title="Speech"
                   text="Talk instead of type. Dictate a note, transcribe a recording, or have a chat with your assistant out loud."
                 />
-                <LocalSwitch
-                  id="local-speech"
-                  checked={speechLocal}
+                <WorkstationSwitch
+                  what="speech"
+                  label="Turn speech into text on"
+                  status={workstations.status}
+                  on={config.stt_provider === "device"}
+                  deviceId={config.stt_device_id}
+                  deviceName={config.stt_device_name}
                   disabled={!!busy}
-                  hint="Turn speech into text here with Whisper, instead of in the cloud."
-                  onChange={(on) => patch({ stt_provider: on ? "local" : "graite" })}
+                  onUsed={moved}
                 />
+                {config.stt_provider !== "device" && (
+                  <LocalSwitch
+                    id="local-speech"
+                    checked={speechLocal}
+                    disabled={!!busy}
+                    hint="Turn speech into text here with Whisper, instead of in the cloud."
+                    onChange={(on) => patch({ stt_provider: on ? "local" : "graite" })}
+                  />
+                )}
                 {speechLocal ? (
                   <ModelLibrary
                     kind="utilities"
@@ -621,7 +690,7 @@ export function ModelsPage({
                     onChoose={() => {}}
                     disabled={!!busy}
                   />
-                ) : (
+                ) : config.stt_provider === "device" ? null : (
                   <CloudNote
                     signedIn={!!status?.cloud_signed_in}
                     what="Speech to text runs"
@@ -630,16 +699,37 @@ export function ModelsPage({
                 )}
                 <div className="ai-section-heading">
                   <h2>Talking with your assistant</h2>
-                  <span>Always on this computer</span>
+                  <span>
+                    {config.tts_provider === "device"
+                      ? "Listening on this computer"
+                      : "Always on this computer"}
+                  </span>
                 </div>
                 <p className="settings-note">
-                  Hearing when you start and stop talking, and your assistant’s own voice, run on
-                  this computer.
+                  {config.tts_provider === "device"
+                    ? "Hearing when you start and stop talking still runs on this computer; the voice itself comes from your workstation."
+                    : "Hearing when you start and stop talking, and your assistant’s own voice, run on this computer."}
                 </p>
-                <EngineCard engineId="crispasr" disabled={!!busy} />
+                <WorkstationSwitch
+                  what="voice"
+                  label="Let your assistant speak with"
+                  status={workstations.status}
+                  on={config.tts_provider === "device"}
+                  deviceId={config.tts_device_id}
+                  deviceName={config.tts_device_name}
+                  disabled={!!busy}
+                  onUsed={moved}
+                />
+                {/* The voice engine runs Whisper and the voice: with both on a workstation
+                    there is nothing for it to do here. */}
+                {!(config.tts_provider === "device" && config.stt_provider === "device") && (
+                  <EngineCard engineId="crispasr" disabled={!!busy} />
+                )}
                 <ModelLibrary
                   kind="utilities"
-                  roles={["vad", "turn", "tts"]}
+                  roles={
+                    config.tts_provider === "device" ? ["vad", "turn"] : ["vad", "turn", "tts"]
+                  }
                   selectedPath=""
                   onChoose={() => {}}
                   voiceModel={config.tts_model ?? ""}
@@ -969,6 +1059,58 @@ function LocalSwitch({
 }
 
 /** With local AI off: who does the work, or what is missing for it. */
+/** On a task's own page: hand that one task to an AI workstation, or take it back. Shown
+ * when one of your other computers offers the task, or does it now. */
+function WorkstationSwitch({
+  what,
+  label,
+  status,
+  on,
+  deviceId,
+  deviceName,
+  disabled,
+  onUsed,
+}: {
+  what: ComputeTask;
+  /** Ends where the computer's name follows: "Read documents on". */
+  label: string;
+  status: ComputeStatus | null;
+  on: boolean;
+  deviceId?: string;
+  deviceName?: string;
+  disabled?: boolean;
+  onUsed: (config: AIConfig) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const offering = status?.devices.find((d) => (on ? d.id === deviceId : d[what as "documents"]));
+  if (!on && !offering) return null;
+  const id = on ? (deviceId ?? "") : (offering?.id ?? "");
+  const name = (on ? deviceName : offering?.name) || "your workstation";
+  return (
+    <div className="workstation-switch">
+      <LocalSwitch
+        id={`workstation-${what}`}
+        checked={on}
+        disabled={disabled || busy}
+        label={`${label} ${name}`}
+        hint={
+          on && !offering
+            ? `${name} is not connected right now. Until it is back this will not work; switch off to do it here instead.`
+            : "Your AI workstation does the work. It travels encrypted between your own devices."
+        }
+        onChange={(next) => {
+          setBusy(true);
+          compute
+            .use(id, what, next)
+            .then(onUsed)
+            .catch((e: unknown) => toast.error(e instanceof Error ? e.message : "Try again."))
+            .finally(() => setBusy(false));
+        }}
+      />
+    </div>
+  );
+}
+
 function CloudNote({
   signedIn,
   what,

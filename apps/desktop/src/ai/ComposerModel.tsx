@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Cloud,
   Cpu,
+  MonitorCog,
   MessageCircle,
   MousePointer2,
   PenLine,
@@ -30,6 +31,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { ChatMode } from "@/lib/ai";
 import { useModelOptions, type ModelOption } from "@/models/useModelOptions";
+import { useWorkstations } from "@/models/useWorkstations";
+import { compute, type ComputeDevice } from "@/lib/compute";
 import { DictationButton } from "./DictationButton";
 import { offersReasoning, ReasoningControl, ReasoningItems } from "./ReasoningControl";
 
@@ -74,6 +77,23 @@ export function ComposerModel({
   const [saving, setSaving] = useState(false);
   const [version, setVersion] = useState(0);
   const { groups, catalog } = useModelOptions((settingsVersion ?? 0) + version);
+  // Your AI workstations: the chat models on your other computers. Looked up with the rest
+  // when the menu opens.
+  const workstations = useWorkstations((settingsVersion ?? 0) + version, false).status;
+  const stations = (workstations?.devices ?? []).filter((d) => d.chat_models.length > 0);
+  const chooseStation = async (device: ComputeDevice, model: string) => {
+    if (saving || busy || working) return;
+    setSaving(true);
+    try {
+      await compute.use(device.id, "chat", true, model);
+      await refresh();
+      onModelChanged?.();
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
   // Graite Cloud, when signed in: one entry, the model it offers.
   const [cloudModel, setCloudModel] = useState<CloudModel | null>(null);
   // The lookup can finish after the picker is gone (closing a chat, a test ending).
@@ -134,7 +154,16 @@ export function ComposerModel({
               model_path: option.model_path ?? "",
               saved_model_id: null,
             }
-          : { ...fresh, saved_model_id: option.saved_model_id ?? null };
+          : {
+              ...fresh,
+              // Graite Cloud and a workstation are not saved connections: leaving either as
+              // the provider would make the daemon drop the saved model again.
+              provider:
+                fresh.provider === "graite" || fresh.provider === "device"
+                  ? "compatible"
+                  : fresh.provider,
+              saved_model_id: option.saved_model_id ?? null,
+            };
       await ai.save(next);
       await refresh();
       onModelChanged?.();
@@ -183,7 +212,23 @@ export function ComposerModel({
           </div>
         ) : null,
       )}
-      {!cloudModel && !groups.some((g) => g.options.length) && (
+      {stations.map((device) => (
+        <div key={device.id}>
+          <DropdownMenuLabel className="ai-model-group">
+            Workstation · {device.name}
+          </DropdownMenuLabel>
+          {device.chat_models.map((model) => (
+            <DropdownMenuItem key={model} onSelect={() => void chooseStation(device, model)}>
+              <MonitorCog size={15} />
+              <span className="flex-1 truncate">{model}</span>
+              {config?.provider === "device" &&
+                config.device_id === device.id &&
+                config.model === model && <Check size={14} />}
+            </DropdownMenuItem>
+          ))}
+        </div>
+      ))}
+      {!cloudModel && !stations.length && !groups.some((g) => g.options.length) && (
         <DropdownMenuItem disabled>
           No model yet. Download one or connect a server in Settings.
         </DropdownMenuItem>

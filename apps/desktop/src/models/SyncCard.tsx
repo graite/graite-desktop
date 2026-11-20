@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Loader2, MonitorSmartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { useVault } from "@/app/vault-context";
 import { vaultName } from "@/lib/storage";
 import { sync, type SyncDevice, type SyncSpace, type SyncStatus } from "@/lib/sync";
 import { WORD_COUNT, WordBlocks, WordInputs } from "./SecretWords";
@@ -66,6 +67,10 @@ export function SyncCard({ onOpenCloud }: { onOpenCloud?: () => void }) {
   // undefined: not asked for; null: this computer does not have the words.
   const [words, setWords] = useState<string | null | undefined>(undefined);
   const [folder, setFolder] = useState("this folder");
+  const vault = useVault();
+  // A shared vault gets a folder of its own where the app can open folders itself. Under
+  // the dev daemon and in the web app it can only be added to the vault that is open.
+  const ownFolder = !!vault?.canSwitch;
 
   const refresh = useCallback(() => {
     sync
@@ -94,6 +99,32 @@ export function SyncCard({ onOpenCloud }: { onOpenCloud?: () => void }) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "That did not work. Try again.");
     } finally {
+      setBusy(false);
+    }
+  };
+  /** Put a shared vault in a new, empty folder and switch to it. */
+  const getInFolder = async (space: SyncSpace) => {
+    if (!vault) return;
+    setError(null);
+    const path = await vault.pickFolder(`Choose an empty folder for ${space.name}`);
+    if (!path) return;
+    const probe = await vault.inspect(path);
+    if (probe && probe.exists && !probe.is_dir) {
+      setError("Choose a folder, not a file.");
+      return;
+    }
+    if (probe && (probe.pages > 0 || probe.other_files || probe.has_graite)) {
+      setError(
+        "That folder is not empty. Choose an empty one, or use the link below to add the vault to the one that is open now.",
+      );
+      return;
+    }
+    setBusy(true);
+    try {
+      // The workspace reopens on the new folder, on Settings → Sync devices.
+      await vault.joinInFolder(space.id, path);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "That folder could not be opened.");
       setBusy(false);
     }
   };
@@ -202,10 +233,17 @@ export function SyncCard({ onOpenCloud }: { onOpenCloud?: () => void }) {
           {others.length > 0 ? (
             <>
               <h2>Which vault do you want on this computer?</h2>
-              <p>
-                Its pages are copied into {folder}. Pages already in this folder stay, and are
-                shared with your other devices too. For an exact copy, start with an empty folder.
-              </p>
+              {ownFolder ? (
+                <p>
+                  It gets a folder of its own on this computer. You choose where, and Graite
+                  switches to it. The vault you have open now stays as it is.
+                </p>
+              ) : (
+                <p>
+                  Its pages are copied into {folder}. Pages already in this folder stay, and are
+                  shared with your other devices too.
+                </p>
+              )}
               <div className="sync-join">
                 {others.map((space) => (
                   <div className="cloud-account" key={space.id}>
@@ -215,9 +253,25 @@ export function SyncCard({ onOpenCloud }: { onOpenCloud?: () => void }) {
                         on {space.devices.length} device{space.devices.length === 1 ? "" : "s"}
                       </small>
                     </div>
-                    <Button disabled={busy} onClick={() => void run(() => sync.enable(space.id))}>
+                    <Button
+                      disabled={busy}
+                      onClick={() =>
+                        ownFolder ? void getInFolder(space) : void run(() => sync.enable(space.id))
+                      }
+                    >
+                      {busy && ownFolder && <Loader2 size={14} className="animate-spin" />}
                       Get this vault here
                     </Button>
+                    {ownFolder && (
+                      <button
+                        type="button"
+                        className="sync-merge"
+                        disabled={busy}
+                        onClick={() => void run(() => sync.enable(space.id))}
+                      >
+                        Or add it to the vault that is open now ({folder})
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -265,8 +319,8 @@ export function SyncCard({ onOpenCloud }: { onOpenCloud?: () => void }) {
           <section className="settings-card" aria-label="Add a device">
             <h2>Add another device</h2>
             <p>
-              Open Graite on the other computer, sign in with the same account, open an empty folder
-              and type these six words under Settings → Sync devices.
+              Open Graite on the other computer, sign in with the same account and type these six
+              words under Settings → Sync devices. It then asks where to put this vault.
             </p>
             {wordsBox}
             <div className="cloud-actions">

@@ -13,6 +13,11 @@ const cloudMocks = vi.hoisted(() => ({
   models: vi.fn(async () => [] as unknown[]),
 }));
 vi.mock("@/lib/cloud", () => ({ cloud: cloudMocks }));
+const computeMocks = vi.hoisted(() => ({
+  status: vi.fn(async () => ({ serving: false, devices: [] as unknown[] })),
+  use: vi.fn(async () => ({})),
+}));
+vi.mock("@/lib/compute", () => ({ compute: computeMocks }));
 import { ComposerModel } from "../ComposerModel";
 afterEach(() => {
   cleanup();
@@ -215,4 +220,34 @@ it("offers effort on a model that has it, and greys it out while thinking is off
   fireEvent.pointerDown(button, { button: 0, ctrlKey: false });
   const high = await screen.findByRole("menuitemradio", { name: /High/ });
   expect(high.getAttribute("aria-disabled") ?? high.getAttribute("data-disabled")).not.toBeNull();
+});
+
+it("lists the chat models of your AI workstation and switches chat to one", async () => {
+  setup({ provider: "local", model_path: "/one.gguf", context_size: 8192, saved_model_id: null });
+  computeMocks.status.mockResolvedValue({
+    serving: false,
+    devices: [
+      { id: "r2", name: "Desk", chat_model: "gemma-12b", chat_models: ["gemma-12b", "big-27b"] },
+    ],
+  });
+  const onModelChanged = vi.fn();
+  render(
+    <ComposerModel
+      busy={false}
+      working={false}
+      onWorking={vi.fn()}
+      value=""
+      onChange={vi.fn()}
+      onModelChanged={onModelChanged}
+    />,
+  );
+  await screen.findByText("One");
+  fireEvent.keyDown(screen.getByRole("button", { name: "Choose chat model" }), {
+    key: "ArrowDown",
+  });
+  expect(await screen.findByText("Workstation · Desk")).toBeTruthy();
+  fireEvent.click(await screen.findByRole("menuitem", { name: "big-27b" }));
+  await waitFor(() => expect(computeMocks.use).toHaveBeenCalledWith("r2", "chat", true, "big-27b"));
+  await waitFor(() => expect(onModelChanged).toHaveBeenCalled());
+  expect(mocks.save).not.toHaveBeenCalled();
 });
