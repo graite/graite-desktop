@@ -115,6 +115,41 @@
   font-weight: 600;
   letter-spacing: -0.02em;
 }
+/* The one sentence under a chapter's title. */
+.welcome-line {
+  margin: 10px 0 16px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.welcome-line b {
+  font-weight: 600;
+}
+.welcome-action {
+  margin-top: auto;
+}
+/* Every picture slot has the same shape, so the four cards line up. */
+.welcome-shots {
+  display: grid;
+  grid-template-columns: repeat(var(--shots, 1), minmax(0, 1fr));
+  gap: 10px;
+  aspect-ratio: 13 / 5;
+}
+.welcome-shots[data-count="2"] {
+  --shots: 2;
+}
+.welcome-number {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+}
+.welcome-chapter h2 {
+  margin-top: 4px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
 /* What it is and why it is there: a small label, then a sentence or two. */
 .welcome-why {
   display: flex;

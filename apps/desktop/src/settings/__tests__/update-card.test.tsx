@@ -58,3 +58,28 @@ it("reports a failed check and lets the user try again", async () => {
     (screen.getByRole("button", { name: "Check for updates" }) as HTMLButtonElement).disabled,
   ).toBe(false);
 });
+
+it("says so plainly when the release has no build for this kind of computer", async () => {
+  updates.check.mockRejectedValue(
+    new Error(
+      'None of the fallback platforms `["linux-aarch64-appimage", "linux-aarch64"]` were found in the response `platforms` object',
+    ),
+  );
+  render(<UpdateCard />);
+  fireEvent.click(await screen.findByRole("button", { name: "Check for updates" }));
+  expect(
+    await screen.findByText("No update is published for this kind of computer yet."),
+  ).toBeTruthy();
+  expect(screen.queryByText(/Could not check/)).toBeNull();
+});
+
+it("points an install that cannot replace itself to the download", async () => {
+  updates.status.mockResolvedValue({ version: "0.4.0", supported: true, installable: false });
+  updates.check.mockResolvedValue({ version: "0.5.0", notes: null });
+  render(<UpdateCard />);
+  fireEvent.click(await screen.findByRole("button", { name: "Check for updates" }));
+  const link = await screen.findByRole("link", { name: "Download" });
+  expect(link.getAttribute("href")).toContain("/releases/latest");
+  expect(screen.getByText(/Version 0\.5\.0 is available\. Download it/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Install and restart" })).toBeNull();
+});

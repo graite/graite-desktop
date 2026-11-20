@@ -74,12 +74,12 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
   const [assistantPage, setAssistantPage] = useState<{ path: string; n: number } | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
   const [modelsOpen, setModelsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>("chat");
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("general");
   /** Open Settings, on a tab when the caller knows where the user needs to be. Buttons pass
-   * their click event here, so anything that is not a tab name means "the first tab". */
+   * their click event here, so anything that is not a tab name means the first one, General. */
   const openSettings = (tab?: unknown) => {
     const known = typeof tab === "string" && (SETTINGS_TABS as string[]).includes(tab);
-    setSettingsTab(known ? (tab as SettingsTab) : "chat");
+    setSettingsTab(known ? (tab as SettingsTab) : "general");
     setModelsOpen(true);
   };
   // The settings sidebar is drawn by the settings page into the app's sidebar column.
@@ -111,8 +111,10 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
       })();
     };
     window.addEventListener("graite:ask-ai", onAsk);
-    // A block that needs a model ("describe a chart") sends people to set one up.
-    const onSettings = () => openSettings();
+    // A block that needs a model ("describe a chart") sends people to set one up; others
+    // name the section they lead to in the event's detail.
+    const onSettings = (event: Event) =>
+      openSettings((event as CustomEvent<unknown>).detail ?? "chat");
     window.addEventListener("graite:open-settings", onSettings);
     return () => {
       window.removeEventListener("graite:ask-ai", onAsk);

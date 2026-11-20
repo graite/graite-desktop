@@ -114,6 +114,7 @@ it("lists Graite Cloud first and Local AI as one tab per task", async () => {
   expect(labels()).toEqual([
     "General",
     "Graite Cloud",
+    "Sync devices",
     "AI connectors",
     "API keys",
     "Chat",
@@ -160,8 +161,6 @@ it("runs documents and speech in Graite Cloud until local AI is switched on", as
   expect(await documents.findByText(/Documents are read through Graite Cloud/)).toBeTruthy();
   expect(documents.queryByText("library:ocr")).toBeNull();
   const toggle = documents.getByRole("switch", { name: "Read everything in-house" });
-  // Graite Cloud is offered as a convenience, not a requirement.
-  expect(documents.getByText(/Handy, but optional/)).toBeTruthy();
   expect(toggle.getAttribute("aria-checked")).toBe("false");
   fireEvent.click(toggle);
   expect(documents.getByText("library:ocr")).toBeTruthy();
@@ -213,7 +212,7 @@ it("keeps search on this computer and explains why", async () => {
   await screen.findByText("index-card");
   const search = within(panel("Search"));
   expect(search.queryByRole("switch", { name: "Use local AI on my computer" })).toBeNull();
-  expect(search.getByText(/always runs on this computer/)).toBeTruthy();
+  expect(search.getByText(/It runs here, on this computer/)).toBeTruthy();
   expect(search.getByText(/Recommended: download the search model/)).toBeTruthy();
 });
 
@@ -232,11 +231,12 @@ it("explains every section the same way before its controls", async () => {
   ]) {
     const section = within(panel(name));
     expect(section.getByRole("heading", { level: 1, name, hidden: true })).toBeTruthy();
-    for (const question of ["Why", "You need", "Leaves this computer"])
-      expect(section.getByText(question)).toBeTruthy();
+    // One card: the page's icon, a title and a line or two. No table of questions.
+    const card = section.getByRole("heading", { level: 1, name, hidden: true }).closest("header");
+    expect(card?.querySelector("p")?.textContent?.length).toBeGreaterThan(20);
+    expect(card?.querySelectorAll("svg").length).toBe(1);
+    expect(section.queryByText("Leaves this computer")).toBeNull();
   }
-  expect(within(panel("Graite Cloud")).getByText(/Zero data retention/)).toBeTruthy();
-  expect(within(panel("Chat")).getByText("Nothing.")).toBeTruthy();
 });
 
 it("goes back to the pages from the sidebar", async () => {

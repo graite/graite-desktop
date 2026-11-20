@@ -173,6 +173,9 @@
   font-weight: 500;
   border-radius: 6px;
   padding: 2px 6px 2px 2px;
+}
+.vault-menu-trigger > img {
+  margin-right: 4px;
   cursor: pointer;
 }
 .vault-menu-trigger:hover:not(:disabled) {
@@ -186,13 +189,23 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* "Vault | name": what the name next to the logo is */
+.vault-menu-name > small {
+  margin-right: 6px;
+  padding-right: 6px;
+  border-right: 1px solid var(--border);
+  font-size: inherit;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
 .vault-menu-path {
   display: block;
   max-width: 260px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: inherit;
+  font-weight: 400;
   color: var(--muted-foreground);
 }
 

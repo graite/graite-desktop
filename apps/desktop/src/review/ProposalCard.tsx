@@ -163,6 +163,12 @@ export function ProposalCard({
             {proposal.conversation_id?.startsWith("mcp:") && (
               <span className="review-origin">via MCP · {proposal.conversation_id.slice(4)}</span>
             )}
+            {/* Your own edit, replaced when another device changed the same lines (sync). */}
+            {proposal.conversation_id?.startsWith("sync:") && (
+              <span className="review-origin">
+                changed on {proposal.conversation_id.slice(5)} too
+              </span>
+            )}
             {onNavigate && path && (applied || proposal.kind !== "create") && (
               <button type="button" className="ai-source" onClick={() => onNavigate(path)}>
                 Open

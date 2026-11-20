@@ -10,6 +10,7 @@ import {
   KeyRound,
   Loader2,
   MessageSquare,
+  MonitorSmartphone,
   Plug,
   Search,
   Server,
@@ -32,6 +33,7 @@ import "./ai.css";
 import "@/settings/settings.css";
 import { ConnectionsCard } from "./ConnectionsCard";
 import { GraiteCloudCard } from "./GraiteCloudCard";
+import { SyncCard } from "./SyncCard";
 import { IndexCard } from "./IndexCard";
 import { EngineCard } from "./EngineCard";
 import { useEngine } from "./useEngine";
@@ -47,7 +49,6 @@ import { SettingsSidebar } from "@/settings/SettingsSidebar";
 import {
   chatSection,
   isOwnNetwork,
-  isThisComputer,
   resolveSection,
   sectionLabel,
   type SettingsSection,
@@ -83,6 +84,7 @@ const CHAT_SOURCE: Record<SettingsSection, string> = {
   search: "a model on this computer",
   server: "your own server",
   graite: "Graite Cloud",
+  sync: "another model",
   connectors: "another model",
   keys: "your API key",
 };
@@ -228,9 +230,6 @@ export function ModelsPage({
       toast(`${created.name} is listed under ${sectionLabel(home)}.`);
     }
   };
-  const activeHost = hostOf(
-    store.connections.find((c) => c.id === config?.connection_id)?.base_url ?? config?.base_url,
-  );
   // "auto" (never switched) follows what is in use: local when its model is installed.
   const documentsLocal =
     config?.ocr_provider === "local" ||
@@ -304,17 +303,7 @@ export function ModelsPage({
                 <Explainer
                   icon={Cloud}
                   title="Graite Cloud"
-                  lede="Hosted models that just work, and the link to Claude and ChatGPT."
-                  why={
-                    <ul>
-                      <li>Nothing to download or set up.</li>
-                      <li>Free daily credits.</li>
-                      <li>Zero data retention: never stored, never used for training.</li>
-                      <li>Lets Claude, ChatGPT and Grok work with your pages.</li>
-                    </ul>
-                  }
-                  need="A free Graite account and an internet connection."
-                  leaves="Your question and the passages needed to answer it. Pages marked “Local models only” or “No AI” are never sent."
+                  text="Good models, zero setup. Sign in and chat; your chats and pages are not stored or used for training."
                 />
                 {chatUse("graite", () =>
                   patch({
@@ -342,15 +331,23 @@ export function ModelsPage({
               </>,
             )}
             {panel(
+              "sync",
+              <>
+                <Explainer
+                  icon={MonitorSmartphone}
+                  title="Sync devices"
+                  text="Your pages, on all your computers. Share this vault once, type six words on the other one, done. Only your devices can read them, not even us."
+                />
+                <SyncCard onOpenCloud={() => setSection("graite")} />
+              </>,
+            )}
+            {panel(
               "connectors",
               <>
                 <Explainer
                   icon={Plug}
                   title="AI connectors"
-                  lede="Let the AI app you already use work with your pages."
-                  why="Keep your favourite assistant, with your own notes as what it knows."
-                  need="Apps in the browser: a Graite account. Apps on this computer: nothing."
-                  leaves="Only the pages the app asks for. Its changes wait for your review."
+                  text="Already attached to Claude, ChatGPT or Cursor? Plug Graite in and it knows your pages. Whatever it wants to change waits for your OK."
                 />
                 <ConnectorsCard onOpenAccount={() => setSection("graite")} />
                 <p className="settings-note settings-note-card">
@@ -367,14 +364,7 @@ export function ModelsPage({
                 <Explainer
                   icon={KeyRound}
                   title="API keys"
-                  lede="Use a model from a provider you have your own account with."
-                  why="The strongest models, billed to your own account."
-                  need="An API key. A ChatGPT or Claude subscription does not include one."
-                  leaves={`Your questions and the passages they need go to ${
-                    activeHost && draftSection === "keys" && !isThisComputer(activeHost)
-                      ? activeHost
-                      : "the provider you choose"
-                  }. Pages marked “Local models only” or “No AI” are never sent.`}
+                  text="Have your own account with OpenAI, Anthropic or another provider? Paste the key and pick a model. The bill goes to you, the chats go straight to them."
                 />
                 {chatUse("keys", undefined, "Pick a saved model below to use it for chat.")}
                 <div className="ai-privacy">
@@ -422,14 +412,7 @@ export function ModelsPage({
                 <Explainer
                   icon={MessageSquare}
                   title="Chat"
-                  lede="Ask about your pages, write with AI, and let agents do routine work."
-                  why="Running chat on your own machine is private and free, and works offline."
-                  need="Enough memory for the model. Graite shows which ones fit."
-                  leaves={
-                    config.provider === "local"
-                      ? "Nothing."
-                      : "With local AI off, your question and the passages it needs go to the model chat uses. Pages marked “Local models only” or “No AI” are never sent."
-                  }
+                  text="The model that answers when you ask about your pages. Pick one that runs on this computer and nothing leaves it."
                 />
                 <LocalSwitch
                   id="local-chat"
@@ -556,24 +539,7 @@ export function ModelsPage({
                 <Explainer
                   icon={Search}
                   title="Search"
-                  lede="How AI finds the right passage without reading every page."
-                  why={
-                    <ul>
-                      <li>
-                        Graite turns each passage of your pages into a list of numbers that captures
-                        its meaning, so it finds “holiday plans” when you ask about “vacation”.
-                      </li>
-                      <li>
-                        This always runs on this computer: private, free, and it works offline.
-                      </li>
-                      <li>
-                        Only the few passages that matter go to the chat model, so answers are
-                        faster, cost fewer tokens and show their sources.
-                      </li>
-                    </ul>
-                  }
-                  need="A small search model (about 100 MB). Without it, keyword search still works."
-                  leaves="Nothing. The index lives in your vault."
+                  text="How AI finds the one paragraph that matters without reading your whole vault. It runs here, on this computer."
                 />
                 <div className="ai-privacy settings-recommend">
                   <Sparkles size={19} />
@@ -599,18 +565,7 @@ export function ModelsPage({
                 <Explainer
                   icon={FileText}
                   title="Documents"
-                  lede="Turn scanned PDFs and images into text."
-                  why="A scan is only a picture. Once read, you can search it and ask about it."
-                  need={
-                    documentsLocal
-                      ? "The chat engine and a document model, both downloaded below."
-                      : "Graite Cloud can read documents for you with a free account. Handy, but optional: switch on reading in-house below and nothing leaves this computer."
-                  }
-                  leaves={
-                    documentsLocal
-                      ? "Nothing."
-                      : "The pages you ask to read, to Graite Cloud, which keeps nothing. Up to 20 pages at a time; longer files are sent in parts."
-                  }
+                  text="Turns scans and photos into text you can search and quote. Drop in a PDF; Graite does the squinting."
                 />
                 <LocalSwitch
                   id="local-documents"
@@ -649,18 +604,7 @@ export function ModelsPage({
                 <Explainer
                   icon={AudioLines}
                   title="Speech"
-                  lede="Dictate, transcribe recordings, and talk with your assistant."
-                  why="Think out loud or dictate notes instead of typing."
-                  need={
-                    speechLocal
-                      ? "A one-time download of the speech model below."
-                      : "A free Graite account. Nothing to install."
-                  }
-                  leaves={
-                    speechLocal
-                      ? "Nothing. Your voice becomes text on this computer."
-                      : "Your recording, to Graite Cloud, which turns it into text and keeps nothing. Up to one hour per recording."
-                  }
+                  text="Talk instead of type. Dictate a note, transcribe a recording, or have a chat with your assistant out loud."
                 />
                 <LocalSwitch
                   id="local-speech"
@@ -718,10 +662,7 @@ export function ModelsPage({
                 <Explainer
                   icon={Server}
                   title="Your own server"
-                  lede="Use models you already run with Ollama, LM Studio or llama.cpp."
-                  why="Keep the setup you have, or use a stronger machine in your own network."
-                  need="The server’s address, ending in /v1."
-                  leaves="Only what you ask, to that address. A server on this computer keeps everything here."
+                  text="Already running Ollama, LM Studio or llama.cpp? Point Graite at it and use the models you have."
                 />
                 {chatUse("server", undefined, "Pick a saved model below to use it for chat.")}
                 <fieldset className="ai-setup-card" disabled={!!busy}>
@@ -845,7 +786,7 @@ function GeneralSection({
       <Explainer
         icon={Settings2}
         title="General"
-        lede="Your name, how Graite looks, and where your pages live."
+        text="Your name, light or dark, and where your pages live. The small stuff that makes it yours."
       />
       <section className="settings-card" aria-label="Your name">
         <h2>Your name</h2>

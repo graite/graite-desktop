@@ -188,12 +188,18 @@ function BrowserConnector({
       <header className="connector-head">
         <Globe size={18} />
         <div>
-          <h3>Claude, ChatGPT or Grok in the browser</h3>
+          <h3>Your pages inside Claude and ChatGPT</h3>
           <p>
-            They reach this vault through your Graite account, so only you can open it from them.
+            Ask Claude or ChatGPT on the web about your notes, and let them suggest changes. It
+            works while Graite is open on this computer, and only you can get in.
           </p>
         </div>
       </header>
+      <ol className="connector-steps" aria-label="How to connect">
+        <li data-done={signedIn || undefined}>Sign in to Graite Cloud</li>
+        <li data-done={(signedIn && remote.enabled) || undefined}>Switch on remote access</li>
+        <li>Paste the address into Claude or ChatGPT</li>
+      </ol>
       {!signedIn ? (
         <div className="connector-row">
           <span>
@@ -346,7 +352,8 @@ function ClientRow({ info, initial }: { info: McpInfo; initial: ClientStatus }) 
       </div>
       {test.result && <Outcome result={test.result} />}
       {manual ? (
-        <details>
+        // Open when one click cannot do it: then these are the instructions.
+        <details open={!ready && !client.can_install}>
           <summary>Set it up by hand</summary>
           <small className="mcp-note">
             Graite writes one entry, <code>graite-local</code>, to <code>{client.where}</code> and
@@ -374,6 +381,13 @@ function LocalApps({ info }: { info: McpInfo }) {
   }, []);
   // An AppImage is mounted at a new path on every start. The daemon hands out the AppImage
   // file itself instead (`<file> mcp`); the mount path only shows up if it could not find it.
+  // One app at a time: the one already set up or installed here, until another is picked.
+  const [picked, setPicked] = useState<string | null>(null);
+  const shown =
+    info.clients.find((c) => c.id === picked) ??
+    info.clients.find((c) => c.installed) ??
+    info.clients.find((c) => c.found) ??
+    info.clients[0];
   const moving = info.stdio_command.startsWith("/tmp/.mount_");
   return (
     <section className="connector" aria-label="Apps on this computer">
@@ -381,16 +395,24 @@ function LocalApps({ info }: { info: McpInfo }) {
         <Laptop size={18} />
         <div>
           <h3>Apps on this computer</h3>
-          <p>
-            One click adds Graite; then restart the app and ask it about your vault. No account
-            needed.
-          </p>
+          <p>Pick your app, add Graite, restart the app. No account needed.</p>
         </div>
       </header>
-      <ul className="connector-apps">
+      <div className="settings-segments" role="radiogroup" aria-label="App">
         {info.clients.map((c) => (
-          <ClientRow key={c.id} info={info} initial={c} />
+          <button
+            key={c.id}
+            type="button"
+            role="radio"
+            aria-checked={c.id === shown?.id}
+            onClick={() => setPicked(c.id)}
+          >
+            {c.name}
+          </button>
         ))}
+      </div>
+      <ul className="connector-apps">
+        {shown && <ClientRow key={shown.id} info={info} initial={shown} />}
       </ul>
       {info.http_stable && token ? (
         <details>

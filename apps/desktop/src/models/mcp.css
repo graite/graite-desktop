@@ -250,3 +250,39 @@
 .connector details[open] > summary {
   margin-bottom: 8px;
 }
+
+/* Three numbered steps; a done step gets a tick-green number */
+.connector-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+  font-size: 13px;
+}
+.connector-steps > li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  counter-increment: step;
+}
+.connector-steps > li::before {
+  content: counter(step);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+.connector-steps > li[data-done]::before {
+  border-color: transparent;
+  background: #6e7861;
+  color: white;
+}

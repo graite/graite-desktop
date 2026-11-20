@@ -4,6 +4,7 @@ import {
   FileText,
   KeyRound,
   MessageSquare,
+  MonitorSmartphone,
   Plug,
   Search,
   Server,
@@ -21,6 +22,7 @@ export type SettingsSection =
   | "search"
   | "documents"
   | "graite"
+  | "sync"
   | "connectors"
   | "keys";
 
@@ -42,7 +44,13 @@ export interface NavItem {
  * after, one tab per task, each with its own "Use local AI on my computer" switch. */
 export const NAV: { title?: string; items: NavItem[] }[] = [
   { items: [{ id: "general", label: "General", icon: Settings2 }] },
-  { title: "Graite", items: [{ id: "graite", label: "Graite Cloud", icon: Cloud }] },
+  {
+    title: "Graite",
+    items: [
+      { id: "graite", label: "Graite Cloud", icon: Cloud },
+      { id: "sync", label: "Sync devices", icon: MonitorSmartphone },
+    ],
+  },
   { title: "Your AI apps", items: [{ id: "connectors", label: "AI connectors", icon: Plug }] },
   { title: "Your own keys", items: [{ id: "keys", label: "API keys", icon: KeyRound }] },
   {

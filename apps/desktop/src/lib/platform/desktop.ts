@@ -79,7 +79,8 @@ export const desktopPlatform: Platform = {
     };
   },
   updates: {
-    status: () => invoke<{ version: string; supported: boolean }>("update_status"),
+    status: () =>
+      invoke<{ version: string; supported: boolean; installable: boolean }>("update_status"),
     check: () => invoke<AppUpdate | null>("check_update"),
     async install(onProgress) {
       const { listen } = await import("@tauri-apps/api/event");

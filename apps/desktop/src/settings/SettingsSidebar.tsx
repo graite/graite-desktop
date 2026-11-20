@@ -1,5 +1,6 @@
 import { ArrowLeft } from "lucide-react";
 import { DaemonStatus } from "@/app/DaemonStatus";
+import { SyncStatus } from "@/app/SyncStatus";
 import { ThemeToggle, VaultMenu } from "@/app/Sidebar";
 import { useTechMode } from "@/lib/techMode";
 import { visibleNav, type SettingsSection } from "./sections";
@@ -22,7 +23,6 @@ export function SettingsSidebar({
   return (
     <div className="flex h-full flex-col border-r bg-sidebar">
       <div className="flex items-center gap-2 px-3 py-2.5">
-        <img src="/logo-graite.svg" alt="Graite" className="size-5 shrink-0 dark:invert" />
         <VaultMenu />
         <ThemeToggle />
       </div>
@@ -60,6 +60,7 @@ export function SettingsSidebar({
         ))}
       </nav>
       <div className="border-t px-2 py-1.5">
+        <SyncStatus />
         <DaemonStatus compact />
       </div>
     </div>

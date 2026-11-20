@@ -7,6 +7,7 @@ import {
   Inbox,
   MessageSquare,
   MessageSquareHeart,
+  MonitorSmartphone,
   Orbit,
   type LucideIcon,
 } from "lucide-react";
@@ -14,6 +15,7 @@ import type { Section } from "@/ai/ConversationList";
 import type { SettingsTab } from "@/settings/sections";
 import { PRINCIPLES } from "./principles";
 import { AiAppIcons } from "@/components/AiAppIcons";
+import { SettingsArt } from "@/settings/SettingsArt";
 import { WelcomeShot, type WelcomeShotName } from "./WelcomeShot";
 import "./welcome.css";
 
@@ -39,15 +41,14 @@ function StepCard({ step }: { step: Step }) {
   );
 }
 
-/** One card of the guide: a close-up of the thing itself, then what it is and why it is
- * there, each in a sentence or two. */
+/** One card of the guide: a close-up of the thing itself, a title, one sentence and where
+ * to go. */
 function Chapter({
   n,
   title,
   shots = [],
   visual,
-  what,
-  why,
+  text,
   action,
 }: {
   n: number;
@@ -56,9 +57,8 @@ function Chapter({
   shots?: [WelcomeShotName, string?][];
   /** Something to show instead of screenshots. */
   visual?: ReactNode;
-  what: ReactNode;
-  why: ReactNode;
-  action?: { label: string; onClick: () => void };
+  text: ReactNode;
+  action?: { label: string; onClick: () => void } | false;
 }) {
   return (
     <section className="welcome-chapter" aria-labelledby={`welcome-${n}`}>
@@ -74,16 +74,7 @@ function Chapter({
       <div className="welcome-chapter-text">
         <span className="welcome-number">{String(n).padStart(2, "0")}</span>
         <h2 id={`welcome-${n}`}>{title}</h2>
-        <dl className="welcome-why">
-          <div>
-            <dt>What</dt>
-            <dd>{what}</dd>
-          </div>
-          <div>
-            <dt>Why</dt>
-            <dd>{why}</dd>
-          </div>
-        </dl>
+        <p className="welcome-line">{text}</p>
         {action && (
           <button className="welcome-action" onClick={action.onClick}>
             {action.label} <ArrowRight size={14} />
@@ -127,7 +118,7 @@ export function WelcomePage({
       title: "Choose an AI model",
       text: "Graite Cloud, an API key, or local AI on this computer.",
       action: "Open settings",
-      onClick: () => onSettings(),
+      onClick: () => onSettings("chat"),
     },
     {
       icon: MessageSquare,
@@ -151,6 +142,13 @@ export function WelcomePage({
       onClick: () => onStudio("agents"),
     },
     {
+      icon: MonitorSmartphone,
+      title: "Use it on all your devices",
+      text: "Sync a vault between your computers, encrypted.",
+      action: "Open Sync devices",
+      onClick: () => onSettings("sync"),
+    },
+    {
       icon: Inbox,
       title: "Stay in control",
       text: "Accept or reject what AI proposes, in one queue.",
@@ -163,7 +161,7 @@ export function WelcomePage({
       <div className="welcome-inner">
         <header className="welcome-hero">
           <h1>{firstName ? `Welcome, ${firstName}` : "Welcome to Graite"}</h1>
-          <p>Your notes, with AI that works on your terms. Here is how it fits together.</p>
+          <p>Your notes, with AI that works on your terms.</p>
         </header>
 
         <div className="welcome-principles">
@@ -183,53 +181,45 @@ export function WelcomePage({
             n={1}
             title="Tabs and page buttons"
             shots={[["overview"]]}
-            what={
+            text={
               <>
-                Pages open in tabs; Ctrl+click a page for a new one. At the top right of every page:{" "}
-                <b>AI settings</b>, <b>Ask AI</b> and <b>⋯</b>.
+                Pages open in tabs. At the top right of each: <b>AI settings</b>, <b>Ask AI</b> and{" "}
+                <b>⋯</b>.
               </>
             }
-            why="You keep several pages at hand, and AI is one click away from the page you are on."
             action={{ label: "Write a page", onClick: onCreatePage }}
           />
           <Chapter
             n={2}
             title="Instructions for AI"
             shots={[["ai-instructions"]]}
-            what={
-              <>
-                Plain-language rules in a page’s <b>AI settings</b>: the tone, what a new page looks
-                like, what to check. They also count for the pages below.
-              </>
-            }
-            why="You explain how a section works once. AI follows it every time, in chat, agents and connected apps."
+            text="Tell AI once how a section works, in plain words. It follows that every time."
             action={onTemplates && { label: "Browse example instructions", onClick: onTemplates }}
           />
           <Chapter
             n={3}
             title="Reviews"
             shots={[["review"]]}
-            what={
+            text={
               <>
-                AI never edits a page itself. It proposes a change, shown in the page, and you{" "}
-                <b>accept</b> or reject it.
+                AI never edits a page itself. It proposes; you <b>accept</b> or reject.
               </>
             }
-            why="Nothing changes behind your back, so you can let AI work on your notes without worrying."
             action={{ label: "Open the review queue", onClick: () => onStudio("review") }}
           />
           <Chapter
             n={4}
             title="Connect to Claude, ChatGPT or others"
             visual={<AiAppIcons size={44} />}
-            what={
-              <>
-                Graite as a connector in Claude, ChatGPT or another AI app. Sign in to Graite Cloud,
-                turn on remote access, and paste the connector address into the app.
-              </>
-            }
-            why="You keep the AI app you already use, and it knows your pages. What it changes waits in Reviews too."
+            text="Keep the AI app you already use. Plug Graite in and it knows your pages."
             action={{ label: "Open AI connectors", onClick: () => onSettings("connectors") }}
+          />
+          <Chapter
+            n={5}
+            title="Sync your devices"
+            visual={<SettingsArt name="sync" size={88} />}
+            text="The same pages on all your computers. Share once, type six words on the other. Only your devices can read them."
+            action={{ label: "Open Sync devices", onClick: () => onSettings("sync") }}
           />
         </div>
 

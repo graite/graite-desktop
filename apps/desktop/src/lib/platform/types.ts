@@ -64,9 +64,10 @@ export interface Platform {
   onVaultChanged?(listener: (info: DaemonInfo) => void): () => void;
   /** The app updating itself. Absent where the host has no app to update (the web app). */
   updates?: {
-    /** The running version, and whether this install can update itself: not the Store
-     * build, a system package or a dev run, which are updated some other way. */
-    status(): Promise<{ version: string; supported: boolean }>;
+    /** The running version; whether this install looks for newer ones (not the Store build
+     * or a dev run); and whether it can also install one itself (not a Linux system package,
+     * where the user downloads it). */
+    status(): Promise<{ version: string; supported: boolean; installable?: boolean }>;
     check(): Promise<AppUpdate | null>;
     /** Download and install what `check` found, then restart the app. `fraction` is null
      * while the size of the download is unknown. */
