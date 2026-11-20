@@ -10,8 +10,8 @@ One vault on several devices of the same Graite account. A change made on one de
 the others through Graite Cloud, which passes it on and cannot read it: file contents and
 file names are sealed on the device.
 
-Not yet: using another computer's models (stage 3), sharing pages with other people
-(stage 4).
+Not yet: sharing pages with other people (stage 4). Using another computer's models is at
+the end of this page.
 
 ## Keys (`sync/crypto.py`, `sync/account.py`)
 
@@ -126,3 +126,64 @@ uv run alembic upgrade head && uv run graite-cloud serve --reload      # :8000
 # Settings → Graite Cloud: sign in, choose a passphrase, "Sync this vault";
 # on the second: sign in, enter the passphrase, "Connect".
 ```
+
+## Vaults and folders (D123)
+
+Sync is per vault, and a computer can hold several vaults. A vault that another device
+shares arrives in a folder of its own: under Settings → Sync devices, "Get this vault here"
+asks for an empty folder, Graite switches to it and joins there. The vault that was open is
+not touched and stays in the vault list. Adding the shared vault to the open one is still
+possible (a small link); the two are then merged like any two devices that meet for the
+first time ("Applying a version from another device").
+
+Whether a vault syncs is two rows in its own database. For everything that cannot open that
+database, the daemon keeps `.graite/sync.json` (`{"space_id", "name"}`) in step with them:
+written when sync is switched on or found on at start, removed when it is switched off or
+reset. The desktop shell reads it (`VaultProbe.synced`) to mark synced vaults in the vault
+picker, the vault menu and Settings → General. Deleting the file loses nothing.
+
+## AI on another of your computers (`graite/compute/`, D122)
+
+A device that shares the vault can do AI work for the others: chat, reading documents (OCR),
+speech to text and the assistant's voice. The app calls such a computer a "local AI
+workstation". It is one switch per computer ("Make this computer a workstation", off by
+default), kept in `compute.json` in the app folder. On the computer you work at, each of the
+four tasks is moved to a workstation separately: under Settings → AI workstation, on the
+Documents and Speech pages themselves, and (chat) in the model menu of any chat.
+
+- **Transport.** Calls are `peer` frames like manifests and blobs, sealed with the space key:
+  `c_call`/`c_more` carry the request (64 MB at most), `c_head`, `c_part`, `c_end` the
+  streamed reply, and `c_stop` cancels. Bodies travel base64 in pieces of 192 KB. A device
+  that disconnects fails the calls to and from it at once. A caller waits five minutes for
+  the next piece, so long jobs send a beat every 20 seconds.
+- **Serving** (`compute/serve.py`). Nothing is read from or written to the serving
+  computer's vault.
+  - `info`: what it offers (every local chat model it has, the one it uses itself first, and whether it has the OCR, speech and
+    voice models with their engines).
+  - `chat`: an OpenAI chat-completions body, run on the computer's own engine with the model
+    the call names (`head.model`; none = the one that computer uses itself), under
+    `Manager.use` (so it queues with that computer's own chats); the engine's stream is
+    passed back untouched.
+  - `ocr`: a whole image or PDF in; lines of JSON back (`{"progress"}`, then `{"text"}`).
+    Like a document of its own, the chat model is unloaded first.
+  - `stt`: a recording in (WAV for live turns, MP3 for files, decoded there); Whisper's
+    result back as JSON. The Whisper server stays loaded for ten minutes.
+  - `tts`: text and voice settings in; PCM back as it is spoken. A voice to clone is named
+    by the SHA-256 of its clip; the reply status 428 asks for the clip, which is then kept
+    in the app's cache folder. The engine stays loaded for ten minutes.
+- **Calling.** Chat: the AI config's provider is `device` with the replica id of the serving
+  computer; `Manager.use` returns a local `Provider` with an httpx transport that sends the
+  request through `Compute.call` (`compute/transport.py`). Retrieval, tools and the review
+  queue stay on the calling computer. The other three (`compute/remote.py`):
+  `ocr_provider`/`stt_provider` `device` and `tts_provider` `device`, each with its
+  `*_device_id`; `models/sources.py` returns the source `device`, and `recognize_device`,
+  `transcribe_device`, `DeviceSpeech` and `DeviceVoice` stand where the local and Graite
+  Cloud ones do. Voice activity and turn detection always stay on the calling computer.
+- **No silent fallback.** A task set to `device` fails with a clear message when that
+  computer is away; it does not go to Graite Cloud instead.
+- **Privacy.** `is_cloud` is false for `device`: it is the user's own machine and only their
+  devices hold the key.
+  The calling computer picks the chat model in the workstation card; its name is the AI
+  config's `model`. Two devices asking for different models make the workstation swap.
+- **Not yet:** a serving computer that does not sync the vault; a direct connection on the same network (everything is relayed by
+  Graite Cloud).
