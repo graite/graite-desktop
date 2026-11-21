@@ -380,74 +380,40 @@
 
 /* ---- The explainer on top of every section ------------------------------------------- */
 .settings-explainer {
-  margin-bottom: 16px;
-}
-.settings-explainer-title {
   display: flex;
+  flex-direction: row-reverse;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 18px 22px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--settings-surface);
 }
 .settings-explainer-icon {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--settings-surface);
+  border-radius: 12px;
+  background: var(--background);
   color: var(--foreground);
 }
 .ai-settings .settings-explainer h1 {
-  margin: 0;
+  margin: 0 0 4px;
   font-size: 20px;
   letter-spacing: -0.02em;
   line-height: 1.3;
 }
-.settings-explainer-title p {
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--muted-foreground);
-}
-/* Why · You need · Leaves this computer: a label and one sentence per row. */
-.settings-explainer dl {
-  margin-top: 18px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--settings-surface);
-}
-.settings-explainer dl > div {
-  display: grid;
-  grid-template-columns: 170px minmax(0, 1fr);
-  gap: 12px;
-  padding: 11px 18px;
-}
-.settings-explainer dl > div + div {
-  border-top: 1px solid var(--border);
-}
-.settings-explainer dt {
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.6;
-  color: var(--muted-foreground);
-}
-.settings-explainer dd {
-  font-size: 13px;
+.settings-explainer p {
+  max-width: 52ch;
+  font-size: 13.5px;
   line-height: 1.55;
-}
-.settings-explainer dd ul {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding-left: 16px;
-  list-style: disc;
-}
-@media (max-width: 760px) {
-  .settings-explainer dl > div {
-    grid-template-columns: 1fr;
-    gap: 2px;
-  }
+  color: var(--muted-foreground);
 }
 
 /* Whether chat uses this section's model. */
@@ -663,6 +629,11 @@
 .ai-local-switch {
   margin-bottom: 14px;
 }
+/* A switch that stands on the page by itself is a card like the others: white on grey.
+   (Inside a card it stays the inset block set above.) */
+.ai-settings .ai-tech-mode.ai-local-switch {
+  background: var(--settings-surface);
+}
 
 /* A note set apart like a card, for things to know rather than settings to change. */
 .settings-note-card {
@@ -670,6 +641,7 @@
   padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: 12px;
+  background: var(--settings-surface);
 }
 .settings-note-card strong {
   color: var(--foreground);
@@ -680,9 +652,14 @@
 .settings-recommend {
   margin-bottom: 14px;
   padding: 12px 14px;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--tag-green) 30%, var(--border));
   border-radius: 12px;
+  /* A touch of green: it is advice, not a setting. */
+  background: color-mix(in srgb, var(--tag-green) 8%, var(--settings-surface));
   font-size: 13px;
+}
+.settings-recommend svg {
+  color: color-mix(in srgb, var(--tag-green) 70%, var(--foreground));
 }
 .settings-recommend strong {
   color: var(--foreground);

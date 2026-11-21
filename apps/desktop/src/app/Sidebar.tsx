@@ -13,6 +13,7 @@ import {
   MessageSquareHeart,
   Moon,
   Sun,
+  MonitorSmartphone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { pages, type TreeNode } from "@/lib/api";
+import { api, pages, type TreeNode } from "@/lib/api";
 import { findNode, parentPath } from "@/editor/tree-utils";
 import { workspace } from "@/lib/workspace";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -43,6 +44,7 @@ import { scopedKey, vaultName } from "@/lib/storage";
 import type { VaultList } from "@/lib/platform";
 import { PageTreeItem } from "./PageTreeItem";
 import { DaemonStatus } from "./DaemonStatus";
+import { openSyncSettings, SyncStatus, useSyncStatus } from "./SyncStatus";
 import { useVault } from "./vault-context";
 import { setThemeChoice, useTheme } from "@/lib/theme";
 import "./vault.css";
@@ -239,7 +241,6 @@ export function Sidebar({
   return (
     <div className="flex h-full flex-col border-r bg-sidebar">
       <div className="flex items-center gap-2 px-3 py-2.5">
-        <img src="/logo-graite.svg" alt="Graite" className="size-5 shrink-0 dark:invert" />
         <VaultMenu />
         <ThemeToggle />
       </div>
@@ -366,6 +367,7 @@ export function Sidebar({
           Settings
         </button>
         <div className="border-t px-2 py-1.5">
+          <SyncStatus />
           <DaemonStatus compact />
         </div>
       </div>
@@ -469,22 +471,54 @@ export function ThemeToggle() {
   );
 }
 
+/** The logo and vault name at the top of the sidebar: one button that opens the vault menu
+ * (where this vault is, your other vaults, opening another folder). */
 export function VaultMenu() {
   const vault = useVault();
   const [recent, setRecent] = useState<VaultList | null>(null);
+  // Which of the remembered vaults sync with other devices (read from each folder).
+  const [syncedVaults, setSyncedVaults] = useState<Set<string>>(new Set());
+  const loadVaults = () =>
+    void vault?.list().then(async (next) => {
+      setRecent(next);
+      const probes = await Promise.all(next.recent.map((r) => vault.inspect(r)));
+      setSyncedVaults(new Set(next.recent.filter((_, i) => probes[i]?.synced != null)));
+    });
   const [switching, setSwitching] = useState(false);
-  const name = vaultName(vault?.info.vault);
-  const path = vault?.info.vault ?? null;
-  if (!vault || (!vault.canSwitch && !path)) {
+  const synced = useSyncStatus();
+  // An external dev daemon owns its vault: the host does not know the folder, the daemon does.
+  const [daemonVault, setDaemonVault] = useState<string | null>(null);
+  const hostVault = vault?.info.vault ?? null;
+  useEffect(() => {
+    if (hostVault) return;
+    let cancelled = false;
+    api
+      .health()
+      .then((health) => !cancelled && setDaemonVault(health.vault ?? null))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [hostVault]);
+  const path = hostVault ?? daemonVault;
+  const name = vaultName(path);
+  if (!vault) {
     return (
-      <span
-        className="text-sm font-medium truncate"
-        title={vault?.info.dev ? "Managed by the dev daemon" : undefined}
-      >
-        {name}
-      </span>
+      <>
+        <img src="/logo-graite.svg" alt="Graite" className="size-5 shrink-0 dark:invert" />
+        <span className="vault-menu-name text-sm font-medium truncate">
+          <small>Vault</small>
+          {name}
+        </span>
+      </>
     );
   }
+  const space = synced?.spaces.find((s) => s.id === synced.space_id);
+  const syncText = !synced?.signed_in
+    ? null
+    : space
+      ? `Syncs with ${space.devices.length} device${space.devices.length === 1 ? "" : "s"}`
+      : "Not synced with other devices";
   const open = async (target: string) => {
     setSwitching(true);
     try {
@@ -495,12 +529,11 @@ export function VaultMenu() {
       setSwitching(false);
     }
   };
-  const pickAndOpen = async () => {
-    const picked = await vault.pickFolder();
-    if (picked) await open(picked);
-  };
+  /** Settings → General holds the vaults on this computer and the way to another folder. */
+  const openVaultSettings = () =>
+    window.dispatchEvent(new CustomEvent("graite:open-settings", { detail: "general" }));
   return (
-    <DropdownMenu onOpenChange={(opened) => opened && void vault.list().then(setRecent)}>
+    <DropdownMenu onOpenChange={(opened) => opened && loadVaults()}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
@@ -508,7 +541,11 @@ export function VaultMenu() {
           aria-label={`Vault ${name}`}
           disabled={switching}
         >
-          <span>{switching ? "Switching…" : name}</span>
+          <img src="/logo-graite.svg" alt="Graite" className="size-5 shrink-0 dark:invert" />
+          <span className="vault-menu-name">
+            <small>Vault</small>
+            {switching ? "Switching…" : name}
+          </span>
           <ChevronDown size={13} className="shrink-0 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
@@ -522,26 +559,38 @@ export function VaultMenu() {
             <FolderSearch size={14} /> Reveal in file manager
           </DropdownMenuItem>
         ) : null}
+        {syncText ? (
+          <DropdownMenuItem onSelect={openSyncSettings}>
+            <MonitorSmartphone size={14} /> {syncText}
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuSeparator />
         {vault.canSwitch ? (
           <>
-            <DropdownMenuSeparator />
             {recent?.recent
               .filter((r) => r !== path)
               .map((r) => (
                 <DropdownMenuItem key={r} onSelect={() => void open(r)} title={r}>
-                  <FolderOpen size={14} /> {vaultName(r)}
+                  <FolderOpen size={14} />
+                  <span>
+                    {vaultName(r)}
+                    <span className="vault-menu-path">{r}</span>
+                  </span>
+                  {syncedVaults.has(r) && (
+                    <MonitorSmartphone
+                      size={13}
+                      className="ml-auto shrink-0 text-muted-foreground"
+                      aria-label="Synced with your other devices"
+                    />
+                  )}
                 </DropdownMenuItem>
               ))}
-            <DropdownMenuItem onSelect={() => void pickAndOpen()}>
-              <FolderOpen size={14} /> Open another folder…
-            </DropdownMenuItem>
           </>
-        ) : (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled>Managed by the dev daemon</DropdownMenuItem>
-          </>
-        )}
+        ) : null}
+        {/* Settings → General lists the vaults on this computer and opens other folders. */}
+        <DropdownMenuItem onSelect={openVaultSettings}>
+          <FolderOpen size={14} /> Open another vault…
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

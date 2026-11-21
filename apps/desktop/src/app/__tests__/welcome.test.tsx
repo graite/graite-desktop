@@ -23,7 +23,8 @@ it("links each next step to its place in the app", () => {
   fireEvent.click(screen.getByText("Open settings →"));
   fireEvent.click(screen.getByText("Open the review queue →"));
   expect(props.onCreatePage).toHaveBeenCalled();
-  expect(props.onSettings).toHaveBeenCalled();
+  // The model step leads to the section of the model in use, not to the top of Settings.
+  expect(props.onSettings).toHaveBeenCalledWith("chat");
   expect(props.onStudio).toHaveBeenCalledWith("review");
   // No feedback endpoint in this build: no link to a form that cannot send.
   expect(screen.queryByText("Send feedback")).toBeNull();
@@ -40,6 +41,7 @@ it("explains how Graite works, greets by name and marks the screenshots still to
     "Instructions for AI",
     "Reviews",
     "Connect to Claude, ChatGPT or others",
+    "Sync your devices",
     "Start here",
   ]);
   // The pictures are not bundled yet: each slot says which file it wants and what to show.
@@ -50,6 +52,8 @@ it("explains how Graite works, greets by name and marks the screenshots still to
   expect(screen.getByRole("list", { name: /Claude, ChatGPT, Gemini/ })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: /Open AI connectors/ }));
   expect(props.onSettings).toHaveBeenCalledWith("connectors");
+  fireEvent.click(screen.getByRole("button", { name: /Open Sync devices$/ }));
+  expect(props.onSettings).toHaveBeenLastCalledWith("sync");
 });
 
 it("sends feedback and closes", async () => {

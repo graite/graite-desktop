@@ -115,6 +115,41 @@
   font-weight: 600;
   letter-spacing: -0.02em;
 }
+/* The one sentence under a chapter's title. */
+.welcome-line {
+  margin: 10px 0 16px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.welcome-line b {
+  font-weight: 600;
+}
+.welcome-action {
+  margin-top: auto;
+}
+/* Every picture slot has the same shape, so the four cards line up. */
+.welcome-shots {
+  display: grid;
+  grid-template-columns: repeat(var(--shots, 1), minmax(0, 1fr));
+  gap: 10px;
+  aspect-ratio: 13 / 5;
+}
+.welcome-shots[data-count="2"] {
+  --shots: 2;
+}
+.welcome-number {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+}
+.welcome-chapter h2 {
+  margin-top: 4px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
 /* What it is and why it is there: a small label, then a sentence or two. */
 .welcome-why {
   display: flex;
@@ -373,5 +408,33 @@
   height: 72px;
   border: 1px solid var(--border);
   border-radius: 18px;
+  background: var(--card, var(--background));
+}
+
+/* Sync: two computers and the locked line between them */
+.welcome-sync {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--foreground);
+}
+.welcome-sync-line {
+  display: flex;
+  align-items: center;
+  width: 150px;
+  color: var(--muted-foreground);
+}
+.welcome-sync-line > i {
+  flex: 1;
+  border-top: 1.5px dashed color-mix(in srgb, var(--muted-foreground) 55%, transparent);
+}
+.welcome-sync-line > span {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
   background: var(--card, var(--background));
 }

@@ -29,6 +29,8 @@ MyVault/
     config.toml                    # vault settings
     index.sqlite                   # derived; safe to delete
     tables.sqlite                  # derived query cache of every _data/*.csv; safe to delete
+    sync.json                      # present while this vault syncs with other devices; derived
+    sync/                          # sync work files
     versions/<page-id>/<unix_ms>.md
     trash/<unix_ms>-<slug>/        # soft-deleted page folders, restorable
     chat/<conversation-id>/        # files attached to a chat, deleted with it

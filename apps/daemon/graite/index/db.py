@@ -249,6 +249,8 @@ def migrate(conn: sqlite3.Connection) -> None:
     for name, definition in PROPOSAL_COLUMNS.items():
         if name not in columns:
             conn.execute(f"ALTER TABLE proposals ADD COLUMN {name} {definition}")
+    if "sent" not in _columns(conn, "sync_files"):
+        conn.execute("ALTER TABLE sync_files ADD COLUMN sent INTEGER NOT NULL DEFAULT 0")
     conn.execute(
         "INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ?)", (SCHEMA_VERSION,)
     )

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
-import { checkForUpdate, installUpdate, useUpdateState } from "@/lib/updates";
+import { checkForUpdate, installUpdate, openReleasePage, useUpdateState } from "@/lib/updates";
 
 const TOAST_ID = "app-update";
 const FIRST_CHECK_MS = 15_000;
@@ -24,10 +24,14 @@ export function UpdateNotice() {
     if (state.step === "available") {
       toast(`Graite ${state.update.version} is available`, {
         id: TOAST_ID,
-        description: "Installing takes a moment and restarts Graite.",
+        description: state.installable
+          ? "Installing takes a moment and restarts Graite."
+          : "Download it and install it over this one.",
         duration: Infinity,
         closeButton: true,
-        action: { label: "Install and restart", onClick: () => void installUpdate() },
+        action: state.installable
+          ? { label: "Install and restart", onClick: () => void installUpdate() }
+          : { label: "Download", onClick: openReleasePage },
       });
     } else if (state.step === "installing") {
       const percent = state.fraction === null ? "" : ` ${Math.round(state.fraction * 100)}%`;

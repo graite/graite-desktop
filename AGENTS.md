@@ -14,6 +14,8 @@ markdown vault, with local models and agents that only ever *propose* changes.
   update channels. `docs/design/voice-and-assistant.md` — the personal assistant, its memory and loop,
   and the realtime voice pipeline. `docs/design/remote-api-mobile.md` — API and MCP, remote access,
   mobile and sync, and the v1 hooks they need.
+- `docs/design/sync.md` — sync between devices: keys, version vectors, what happens when two
+  devices change the same page, the wire protocol.
 - `docs/decisions.md` — decisions with rationale. Add a row when you make one.
 - `docs/development.md` — environment, commands, packaging, env vars, releasing.
 - `docs/design/ai-retrieval-and-chat.md` — indexing, retrieval, the chat API, per-page AI settings.

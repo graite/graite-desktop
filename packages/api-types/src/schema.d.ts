@@ -1159,6 +1159,63 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/compute/serve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Serve
+     * @description Let this account's other devices use this computer's local models, or stop that.
+     */
+    put: operations["serve_api_v1_compute_serve_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/compute/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Status */
+    get: operations["status_api_v1_compute_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/compute/use": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Use
+     * @description Do one kind of AI work on another of the account's devices, or take it back.
+     */
+    post: operations["use_api_v1_compute_use_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/dashboards": {
     parameters: {
       query?: never;
@@ -1775,6 +1832,145 @@ export interface paths {
      *     words. Called when the search palette opens; returns at once and loads in the background.
      */
     post: operations["warm_api_v1_search_warm_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/sync/disable": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Disable
+     * @description Stop syncing this vault on this device. The files stay; other devices keep syncing.
+     */
+    post: operations["disable_api_v1_sync_disable_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/sync/enable": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Enable
+     * @description Sync this vault: as a new space, or with one this account already has.
+     */
+    post: operations["enable_api_v1_sync_enable_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/sync/passphrase": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Passphrase
+     * @description The passphrase to type on another device. Only a computer that is unlocked has it.
+     */
+    get: operations["passphrase_api_v1_sync_passphrase_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/sync/reset": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reset
+     * @description Start sync over for the account: for a forgotten passphrase or a lost device. No file
+     *     on any device changes; every device enters the new passphrase and joins again.
+     */
+    post: operations["reset_api_v1_sync_reset_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/sync/setup": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Setup
+     * @description Set sync up for the account (once): makes its keys and a six-word passphrase on this
+     *     computer. Graite Cloud never sees the passphrase; `/passphrase` shows it.
+     */
+    post: operations["setup_api_v1_sync_setup_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/sync/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Status */
+    get: operations["status_api_v1_sync_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/sync/unlock": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Unlock
+     * @description Enter the passphrase on a device that does not have the key.
+     */
+    post: operations["unlock_api_v1_sync_unlock_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2477,6 +2673,16 @@ export interface components {
        */
       context_size: number;
       /**
+       * Device Id
+       * @default
+       */
+      device_id: string;
+      /**
+       * Device Name
+       * @default
+       */
+      device_name: string;
+      /**
        * Effort
        * @default medium
        * @enum {string}
@@ -2518,17 +2724,27 @@ export interface components {
        */
       ocr_binary_path: string;
       /**
+       * Ocr Device Id
+       * @default
+       */
+      ocr_device_id: string;
+      /**
+       * Ocr Device Name
+       * @default
+       */
+      ocr_device_name: string;
+      /**
        * Ocr Provider
        * @default auto
        * @enum {string}
        */
-      ocr_provider: "auto" | "local" | "graite";
+      ocr_provider: "auto" | "local" | "graite" | "device";
       /**
        * Provider
        * @default local
        * @enum {string}
        */
-      provider: "local" | "compatible" | "anthropic" | "openrouter" | "graite";
+      provider: "local" | "compatible" | "anthropic" | "openrouter" | "graite" | "device";
       /**
        * Resident
        * @default true
@@ -2537,11 +2753,21 @@ export interface components {
       /** Saved Model Id */
       saved_model_id?: string | null;
       /**
+       * Stt Device Id
+       * @default
+       */
+      stt_device_id: string;
+      /**
+       * Stt Device Name
+       * @default
+       */
+      stt_device_name: string;
+      /**
        * Stt Provider
        * @default auto
        * @enum {string}
        */
-      stt_provider: "auto" | "local" | "graite";
+      stt_provider: "auto" | "local" | "graite" | "device";
       /**
        * Thinking
        * @default auto
@@ -2554,10 +2780,26 @@ export interface components {
        */
       tts_binary_path: string;
       /**
+       * Tts Device Id
+       * @default
+       */
+      tts_device_id: string;
+      /**
+       * Tts Device Name
+       * @default
+       */
+      tts_device_name: string;
+      /**
        * Tts Model
        * @default
        */
       tts_model: string;
+      /**
+       * Tts Provider
+       * @default local
+       * @enum {string}
+       */
+      tts_provider: "local" | "device";
       /**
        * Vision
        * @default false
@@ -2608,7 +2850,7 @@ export interface components {
        * Ocr Source
        * @description Where reading documents (OCR) runs right now; null when unavailable.
        */
-      ocr_source?: ("local" | "graite") | null;
+      ocr_source?: ("local" | "graite" | "device") | null;
       /**
        * Reasoning
        * @description Whether the chat model in use has a thinking switch (`toggle`) and an effort level (`effort`) to offer. The composer hides what is not there.
@@ -2622,7 +2864,7 @@ export interface components {
        * Speech Source
        * @description Where speech to text runs right now (models/sources.py); null when neither a local Whisper nor a Graite Cloud sign-in is available.
        */
-      speech_source?: ("local" | "graite") | null;
+      speech_source?: ("local" | "graite" | "device") | null;
       /**
        * Whisper Binary
        * @description The executable speech to text runs on this computer: the configured whisper-server, else Graite's installed voice engine, else a whisper-server on PATH. Empty when there is none.
@@ -3352,6 +3594,67 @@ export interface components {
       /** To */
       to?: string | null;
     };
+    /** ComputeDevice */
+    ComputeDevice: {
+      /** Chat Model */
+      chat_model?: string | null;
+      /**
+       * Chat Models
+       * @default []
+       */
+      chat_models: string[];
+      /**
+       * Documents
+       * @default false
+       */
+      documents: boolean;
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /**
+       * Speech
+       * @default false
+       */
+      speech: boolean;
+      /**
+       * Uses
+       * @default []
+       */
+      uses: ("chat" | "documents" | "speech" | "voice")[];
+      /**
+       * Voice
+       * @default false
+       */
+      voice: boolean;
+    };
+    /** ComputeStatus */
+    ComputeStatus: {
+      /** Chat Model */
+      chat_model?: string | null;
+      /**
+       * Devices
+       * @default []
+       */
+      devices: components["schemas"]["ComputeDevice"][];
+      /**
+       * Documents
+       * @default false
+       */
+      documents: boolean;
+      /** Serving */
+      serving: boolean;
+      /**
+       * Speech
+       * @default false
+       */
+      speech: boolean;
+      /**
+       * Voice
+       * @default false
+       */
+      voice: boolean;
+    };
     /** Connection */
     Connection: {
       /** Base Url */
@@ -3531,6 +3834,11 @@ export interface components {
     EmbedResult: {
       /** Vectors */
       vectors: number[][];
+    };
+    /** EnableIn */
+    EnableIn: {
+      /** Space Id */
+      space_id?: string | null;
     };
     /** EnabledIn */
     EnabledIn: {
@@ -4329,6 +4637,11 @@ export interface components {
       /** Value */
       value?: unknown;
     };
+    /** PassphraseOut */
+    PassphraseOut: {
+      /** Passphrase */
+      passphrase?: string | null;
+    };
     /** PatchConnection */
     PatchConnection: {
       /** Api Key */
@@ -4881,6 +5194,16 @@ export interface components {
        */
       context_size: number;
       /**
+       * Device Id
+       * @default
+       */
+      device_id: string;
+      /**
+       * Device Name
+       * @default
+       */
+      device_name: string;
+      /**
        * Effort
        * @default medium
        * @enum {string}
@@ -4922,17 +5245,27 @@ export interface components {
        */
       ocr_binary_path: string;
       /**
+       * Ocr Device Id
+       * @default
+       */
+      ocr_device_id: string;
+      /**
+       * Ocr Device Name
+       * @default
+       */
+      ocr_device_name: string;
+      /**
        * Ocr Provider
        * @default auto
        * @enum {string}
        */
-      ocr_provider: "auto" | "local" | "graite";
+      ocr_provider: "auto" | "local" | "graite" | "device";
       /**
        * Provider
        * @default local
        * @enum {string}
        */
-      provider: "local" | "compatible" | "anthropic" | "openrouter" | "graite";
+      provider: "local" | "compatible" | "anthropic" | "openrouter" | "graite" | "device";
       /**
        * Resident
        * @default true
@@ -4941,11 +5274,21 @@ export interface components {
       /** Saved Model Id */
       saved_model_id?: string | null;
       /**
+       * Stt Device Id
+       * @default
+       */
+      stt_device_id: string;
+      /**
+       * Stt Device Name
+       * @default
+       */
+      stt_device_name: string;
+      /**
        * Stt Provider
        * @default auto
        * @enum {string}
        */
-      stt_provider: "auto" | "local" | "graite";
+      stt_provider: "auto" | "local" | "graite" | "device";
       /**
        * Thinking
        * @default auto
@@ -4958,10 +5301,26 @@ export interface components {
        */
       tts_binary_path: string;
       /**
+       * Tts Device Id
+       * @default
+       */
+      tts_device_id: string;
+      /**
+       * Tts Device Name
+       * @default
+       */
+      tts_device_name: string;
+      /**
        * Tts Model
        * @default
        */
       tts_model: string;
+      /**
+       * Tts Provider
+       * @default local
+       * @enum {string}
+       */
+      tts_provider: "local" | "device";
       /**
        * Vision
        * @default false
@@ -5151,6 +5510,11 @@ export interface components {
       /** Text */
       text: string;
     };
+    /** ServeIn */
+    ServeIn: {
+      /** On */
+      on: boolean;
+    };
     /** SpeechResult */
     SpeechResult: {
       /** Seconds */
@@ -5165,6 +5529,63 @@ export interface components {
       /** Instructions */
       instructions?: string | null;
       scope?: components["schemas"]["ScopeBody"] | null;
+    };
+    /** SyncDevice */
+    SyncDevice: {
+      /** Connected */
+      connected: boolean;
+      /** Id */
+      id: string;
+      /** In Sync */
+      in_sync?: boolean | null;
+      /** Last Sync At */
+      last_sync_at?: string | null;
+      /** Name */
+      name: string;
+      /** Platform */
+      platform?: string | null;
+      /** This Device */
+      this_device: boolean;
+    };
+    /** SyncSpace */
+    SyncSpace: {
+      /** Devices */
+      devices: components["schemas"]["SyncDevice"][];
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+    };
+    /** SyncStatus */
+    SyncStatus: {
+      /**
+       * Connected
+       * @default false
+       */
+      connected: boolean;
+      /** Error */
+      error?: string | null;
+      /** Set Up */
+      set_up?: boolean | null;
+      /** Signed In */
+      signed_in: boolean;
+      /** Space Id */
+      space_id?: string | null;
+      /**
+       * Spaces
+       * @default []
+       */
+      spaces: components["schemas"]["SyncSpace"][];
+      /**
+       * Unlocked
+       * @default false
+       */
+      unlocked: boolean;
+      /**
+       * Waiting
+       * @default 0
+       */
+      waiting: number;
     };
     /** TableConflictBody */
     TableConflictBody: {
@@ -5369,12 +5790,35 @@ export interface components {
       /** Total */
       total: number;
     };
+    /** UnlockIn */
+    UnlockIn: {
+      /** Passphrase */
+      passphrase: string;
+    };
     /** UpgradeResult */
     UpgradeResult: {
       /** Created */
       created: number;
       /** Memories */
       memories?: string | null;
+    };
+    /** UseIn */
+    UseIn: {
+      /** Device Id */
+      device_id: string;
+      /** Model */
+      model?: string | null;
+      /**
+       * On
+       * @default true
+       */
+      on: boolean;
+      /**
+       * What
+       * @default chat
+       * @enum {string}
+       */
+      what: "chat" | "documents" | "speech" | "voice";
     };
     /** UseTemplate */
     UseTemplate: {
@@ -7935,6 +8379,92 @@ export interface operations {
       };
     };
   };
+  serve_api_v1_compute_serve_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ServeIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ComputeStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  status_api_v1_compute_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ComputeStatus"];
+        };
+      };
+    };
+  };
+  use_api_v1_compute_use_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UseIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AIConfig"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   read_api_v1_dashboards_get: {
     parameters: {
       query: {
@@ -9450,6 +9980,172 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Warmed"];
+        };
+      };
+    };
+  };
+  disable_api_v1_sync_disable_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SyncStatus"];
+        };
+      };
+    };
+  };
+  enable_api_v1_sync_enable_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EnableIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SyncStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  passphrase_api_v1_sync_passphrase_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PassphraseOut"];
+        };
+      };
+    };
+  };
+  reset_api_v1_sync_reset_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SyncStatus"];
+        };
+      };
+    };
+  };
+  setup_api_v1_sync_setup_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SyncStatus"];
+        };
+      };
+    };
+  };
+  status_api_v1_sync_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SyncStatus"];
+        };
+      };
+    };
+  };
+  unlock_api_v1_sync_unlock_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UnlockIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SyncStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

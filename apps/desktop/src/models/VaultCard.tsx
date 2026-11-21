@@ -3,6 +3,7 @@ import { FolderOpen, FolderSearch, HardDrive } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useVault } from "@/app/vault-context";
+import { VaultList } from "@/app/VaultList";
 import { api, type Health } from "@/lib/api";
 import { vaultName } from "@/lib/storage";
 import "@/app/vault.css";
@@ -20,10 +21,8 @@ export function VaultCard() {
   }, []);
   const path = vault?.info.vault ?? health?.vault ?? null;
   if (!path) return null;
-  const switchVault = async () => {
+  const open = async (picked: string) => {
     if (!vault?.canSwitch) return;
-    const picked = await vault.pickFolder();
-    if (!picked) return;
     setBusy(true);
     try {
       await vault.switchTo(picked, false);
@@ -31,6 +30,10 @@ export function VaultCard() {
       toast.error((e as Error).message);
       setBusy(false);
     }
+  };
+  const switchVault = async () => {
+    const picked = await vault?.pickFolder();
+    if (picked) await open(picked);
   };
   return (
     <section className="settings-card" aria-label="Vault">
@@ -56,13 +59,19 @@ export function VaultCard() {
           ) : null}
           {vault?.canSwitch ? (
             <Button variant="outline" size="sm" disabled={busy} onClick={() => void switchVault()}>
-              <FolderOpen size={14} /> {busy ? "Switching…" : "Switch vault…"}
+              <FolderOpen size={14} /> {busy ? "Switching…" : "Open another folder…"}
             </Button>
           ) : vault?.info.dev ? (
             <small>Managed by the dev daemon</small>
           ) : null}
         </div>
       </div>
+      {vault?.canSwitch && (
+        <>
+          <h3 className="vault-list-title">Your vaults on this computer</h3>
+          <VaultList busy={busy} current={path} onOpen={(next) => void open(next)} />
+        </>
+      )}
     </section>
   );
 }

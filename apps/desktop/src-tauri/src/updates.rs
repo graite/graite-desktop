@@ -1,9 +1,10 @@
 //! The app updating itself from the newest published GitHub release (`tauri-plugin-updater`).
 //!
-//! Only installs that nothing else keeps up to date do this: the macOS app and the Linux
-//! AppImage. The Microsoft Store updates its own package, a `.deb` belongs to the system's
-//! package manager, and a dev run has nothing to replace. Nothing is installed until the user
-//! asks for it.
+//! Only installs that nothing else keeps up to date replace themselves: the macOS app and the
+//! Linux AppImage. A Linux `.deb` belongs to the system's package manager, which knows nothing
+//! of our releases, so there the app only says that a newer version exists and where to get
+//! it. The Microsoft Store updates its own package, and a dev run has nothing to replace.
+//! Nothing is installed until the user asks for it.
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
@@ -15,7 +16,10 @@ const PROGRESS_STEP: u64 = 512 * 1024;
 #[derive(Serialize)]
 pub struct UpdateStatus {
     version: String,
+    /// Whether this install looks for newer versions at all.
     supported: bool,
+    /// Whether it can also put one in place itself; otherwise the user downloads it.
+    installable: bool,
 }
 
 #[derive(Serialize)]
@@ -35,10 +39,22 @@ fn self_updating(appimage: bool) -> bool {
     cfg!(target_os = "macos") || (cfg!(target_os = "linux") && appimage)
 }
 
+/// Whether this kind of install looks for newer versions: everything our releases serve
+/// that no store keeps up to date.
+fn checks_for_updates() -> bool {
+    cfg!(any(target_os = "macos", target_os = "linux"))
+}
+
+fn release_build() -> bool {
+    !cfg!(debug_assertions) && !crate::daemon::dev_mode()
+}
+
 fn supported() -> bool {
-    !cfg!(debug_assertions)
-        && !crate::daemon::dev_mode()
-        && self_updating(std::env::var_os("APPIMAGE").is_some())
+    release_build() && checks_for_updates()
+}
+
+fn installable() -> bool {
+    release_build() && self_updating(std::env::var_os("APPIMAGE").is_some())
 }
 
 fn text(error: impl std::fmt::Display) -> String {
@@ -50,6 +66,7 @@ pub fn update_status(app: AppHandle) -> UpdateStatus {
     UpdateStatus {
         version: app.package_info().version.to_string(),
         supported: supported(),
+        installable: installable(),
     }
 }
 
@@ -68,7 +85,7 @@ pub async fn check_update(app: AppHandle) -> Result<Option<AppUpdate>, String> {
 /// Download the newest version, put it in place and restart. Returns only when that failed.
 #[tauri::command]
 pub async fn install_update(app: AppHandle) -> Result<(), String> {
-    if !supported() {
+    if !installable() {
         return Err("This copy of Graite is updated by the place it was installed from.".into());
     }
     let update = app
@@ -103,7 +120,7 @@ pub async fn install_update(app: AppHandle) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::self_updating;
+    use super::{checks_for_updates, self_updating};
 
     #[test]
     fn only_the_mac_app_and_the_appimage_replace_themselves() {
@@ -112,5 +129,14 @@ mod tests {
             cfg!(any(target_os = "macos", target_os = "linux"))
         );
         assert_eq!(self_updating(false), cfg!(target_os = "macos"));
+    }
+
+    #[test]
+    fn a_linux_package_looks_for_updates_without_installing_them() {
+        assert_eq!(
+            checks_for_updates(),
+            cfg!(any(target_os = "macos", target_os = "linux"))
+        );
+        assert!(!cfg!(target_os = "linux") || !self_updating(false));
     }
 }

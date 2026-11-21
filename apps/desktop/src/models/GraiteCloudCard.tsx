@@ -7,7 +7,6 @@ import {
   Loader2,
   LogOut,
   Clock,
-  MailWarning,
   ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,9 +16,6 @@ import "./cloud.css";
 
 const time = (iso: string) =>
   new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-const day = (iso: string) =>
-  new Date(iso).toLocaleDateString([], { month: "short", day: "numeric" });
-
 /** Graite Cloud in Settings: signing in through the browser, and today's credits. There is
  * nothing to choose: a vault that chats with Graite Cloud uses the model it offers (the first
  * available one), picked here as soon as the account is signed in. */
@@ -124,15 +120,6 @@ export function GraiteCloudCard({
               </Button>
             </div>
           </div>
-          {status.verify_by && (
-            <p className="cloud-reminder">
-              <MailWarning size={15} />
-              <span>
-                Confirm your email by {day(status.verify_by)} to keep using Graite Cloud. We sent
-                you a link when you signed up.
-              </span>
-            </p>
-          )}
           {today &&
             percent !== null &&
             (status.plan_id === "free" ? (

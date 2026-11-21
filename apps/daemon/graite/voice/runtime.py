@@ -95,6 +95,16 @@ class VoiceRuntime:
             "Sign in to Graite Cloud, or download the Whisper speech model under Settings → "
             "Speech.",
         )
+        if config.tts_provider == "device" and config.tts_device_id:
+            # Another of the user's computers speaks; nothing is needed here.
+            known = (self.state.compute.known.get(config.tts_device_id) or {}).get("tts") or {}
+            return {
+                "ready": not missing,
+                "missing": missing,
+                "active": self.session is not None,
+                "model": None,
+                "controls": list(known.get("controls") or ("exaggeration", "cfg", "speed")),
+            }
         model = voice_model(config, self.state.downloads)
         need(model is not None, "tts", "Download a voice model.")
         if model is not None and runs_on_llama(model):
@@ -179,6 +189,10 @@ class VoiceRuntime:
         source = self._stt_source(config)
         if source == "graite":
             return CloudSpeech()
+        if source == "device":
+            from graite.compute.remote import DeviceSpeech
+
+            return DeviceSpeech(self.state.compute, config.stt_device_id)
         path = self._model_path("speech")
         if source is None or path is None:
             raise EngineUnavailable(
@@ -188,6 +202,10 @@ class VoiceRuntime:
         return SpeechServer(str(path), config.whisper_binary_path, config.tts_binary_path)
 
     def make_tts(self, config: Any) -> TTSEngine:
+        if config.tts_provider == "device" and config.tts_device_id:
+            from graite.compute.remote import DeviceVoice
+
+            return DeviceVoice(self.state.compute, config.tts_device_id)
         return get_engine(config, self.state.downloads)
 
     # ----------------------------------------------------------------- sessions

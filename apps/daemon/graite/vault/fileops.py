@@ -239,6 +239,10 @@ def _refuse_formula_writes(columns: list[tbl_schema.Column], ops: list[RowOp]) -
                 raise ValueError(f"{name!r} is a formula; its value is computed, not typed.")
 
 
+class StaleFile(Exception):
+    """The file on disk is not the one a synced change was computed against."""
+
+
 class FileOps:
     def __init__(self, vault: Path, db: sqlite3.Connection, events: EventBus) -> None:
         self.vault = vault
@@ -1921,6 +1925,78 @@ class FileOps:
         pages = [row[0] for row in self.db.execute("SELECT path FROM pages")]
         for rel in self.tables.sync(pages):
             self._table_changed(rel, "system")
+
+    # ----------------------------------------------------------------- sync
+
+    def _sync_target(self, rel_file: str) -> Path:
+        """Where a synced file lives. The sync engine has already checked the path
+        (`sync/state.py::syncable`); this is the writer's own guard against leaving the vault."""
+        target = (self.vault / rel_file).resolve()
+        if not target.is_relative_to(self.vault.resolve()) or target == self.vault.resolve():
+            raise VaultPathError("outside the vault")
+        return self.vault / rel_file
+
+    @staticmethod
+    def _bytes_hash(path: Path) -> str:
+        return hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else ""
+
+    def _keep_replaced(self, target: Path, rel_file: str) -> None:
+        """Keep what a synced change is about to replace: a page as a version of the page,
+        any other file under `.graite/versions/sync/`."""
+        if target.name == PAGE_FILE:
+            text = target.read_text(encoding="utf-8", errors="replace")
+            page = rel_file.rsplit("/", 1)[0] if "/" in rel_file else ""
+            self._snapshot(self._doc_from_text(page, text).id, text)
+            return
+        kept = self.vault / GRAITE_DIR / "versions" / "sync"
+        kept.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(target, kept / f"{int(time.time() * 1000)}-{target.name}")
+
+    async def sync_write(
+        self, rel_file: str, source: Path, expect: str, actor: str, *, keep: bool = False
+    ) -> None:
+        """Put a file made on another device in place, moving `source` there.
+
+        `expect` is the content hash this device last saw at that path ("" for no file); a
+        different file on disk raises `StaleFile` and nothing is written. A replaced page is
+        snapshotted as a version; `keep` does the same for any other file."""
+
+        def run() -> None:
+            target = self._sync_target(rel_file)
+            if self._bytes_hash(target) != expect:
+                raise StaleFile(rel_file)
+            if target.is_file() and (keep or target.name == PAGE_FILE):
+                self._keep_replaced(target, rel_file)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(source, target)
+            self._activity(actor, "sync.write", rel_file, {})
+            self.bump()
+
+        async with self._locks["sync:" + rel_file]:
+            await asyncio.to_thread(run)
+
+    async def sync_delete(self, rel_file: str, expect: str, actor: str) -> None:
+        """Remove a file another device deleted. It is kept under `.graite/sync/deleted/`
+        for a while, and folders it leaves empty are removed."""
+
+        def run() -> None:
+            target = self._sync_target(rel_file)
+            if self._bytes_hash(target) != expect:
+                raise StaleFile(rel_file)
+            if not target.is_file():
+                return
+            kept = self.vault / GRAITE_DIR / "sync" / "deleted" / str(int(time.time() * 1000))
+            (kept / rel_file).parent.mkdir(parents=True, exist_ok=True)
+            os.replace(target, kept / rel_file)
+            folder = target.parent
+            while folder != self.vault and not any(folder.iterdir()):
+                folder.rmdir()
+                folder = folder.parent
+            self._activity(actor, "sync.delete", rel_file, {})
+            self.bump()
+
+        async with self._locks["sync:" + rel_file]:
+            await asyncio.to_thread(run)
 
     def chat_dir(self, conversation_id: str) -> Path:
         if not re.fullmatch(r"[a-f0-9]{32}", conversation_id):

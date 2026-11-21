@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 const aiMock = vi.hoisted(() => ({
   status: vi.fn(),
@@ -53,6 +53,15 @@ vi.mock("@/models/ModelLibrary", () => ({
 vi.mock("@/models/StarterModels", () => ({ StarterModels: () => <div>starter-models</div> }));
 vi.mock("@/models/IndexCard", () => ({ IndexCard: () => <div>index-card</div> }));
 vi.mock("@/models/VaultCard", () => ({ VaultCard: () => <div>vault-card</div> }));
+vi.mock("@/models/WorkstationCard", () => ({
+  WorkstationCard: () => <div>workstation-card</div>,
+}));
+const computeMock = vi.hoisted(() => ({
+  status: vi.fn(async () => ({ serving: false, devices: [] as unknown[] })),
+  serve: vi.fn(),
+  use: vi.fn(),
+}));
+vi.mock("@/lib/compute", () => ({ compute: computeMock }));
 vi.mock("@/models/ConnectorsCard", () => ({ ConnectorsCard: () => <div>connectors-card</div> }));
 vi.mock("@/models/ConnectionsCard", () => ({ ConnectionsCard: () => <div>connections</div> }));
 vi.mock("@/models/GraiteCloudCard", () => ({
@@ -114,12 +123,14 @@ it("lists Graite Cloud first and Local AI as one tab per task", async () => {
   expect(labels()).toEqual([
     "General",
     "Graite Cloud",
+    "Sync devices",
     "AI connectors",
     "API keys",
     "Chat",
     "Search",
     "Documents",
     "Speech",
+    "AI workstation",
   ]);
   for (const title of ["Graite", "Your AI apps", "Your own keys", "Local AI"])
     expect(nav().getByText(title)).toBeTruthy();
@@ -137,12 +148,42 @@ it("lists Graite Cloud first and Local AI as one tab per task", async () => {
   expect(within(panel("Search")).getByText("library:embedding")).toBeTruthy();
   expect(within(panel("AI connectors")).getByText("connectors-card")).toBeTruthy();
   expect(within(panel("General")).getByText("vault-card")).toBeTruthy();
+  expect(within(panel("AI workstation")).getByText("workstation-card")).toBeTruthy();
   // Geek mode lives under General and adds "Your own server" to the sidebar.
   fireEvent.click(
     within(panel("General")).getByRole("switch", { name: "I’m a proper geek", hidden: true }),
   );
   expect(labels()).toContain("Your own server");
   expect(within(panel("Chat")).getByText("engine:llama")).toBeTruthy();
+});
+
+it("hands documents to an AI workstation from the Documents page itself", async () => {
+  computeMock.status.mockResolvedValue({
+    serving: false,
+    devices: [{ id: "r2", name: "Desk", documents: true, speech: false, voice: false }],
+  });
+  computeMock.use.mockResolvedValue({
+    ...CONFIG,
+    ocr_provider: "device",
+    ocr_device_id: "r2",
+    ocr_device_name: "Desk",
+  });
+  render(<ModelsPage onClose={() => {}} initialTab="documents" />);
+  await screen.findByText("voices-card");
+  const documents = within(panel("Documents"));
+  const toggle = await documents.findByRole("switch", { name: "Read documents on Desk" });
+  // It has no speech model, so the Speech page does not offer it.
+  expect(
+    within(panel("Speech")).queryByRole("switch", { name: /on Desk/, hidden: true }),
+  ).toBeNull();
+  fireEvent.click(toggle);
+  await waitFor(() => expect(computeMock.use).toHaveBeenCalledWith("r2", "documents", true));
+  // The workstation does it now: the choice between this computer and the cloud is gone.
+  await waitFor(() =>
+    expect(documents.queryByRole("switch", { name: "Read everything in-house" })).toBeNull(),
+  );
+  expect(toggle.getAttribute("aria-checked")).toBe("true");
+  computeMock.status.mockResolvedValue({ serving: false, devices: [] });
 });
 
 it("runs documents and speech in Graite Cloud until local AI is switched on", async () => {
@@ -160,8 +201,6 @@ it("runs documents and speech in Graite Cloud until local AI is switched on", as
   expect(await documents.findByText(/Documents are read through Graite Cloud/)).toBeTruthy();
   expect(documents.queryByText("library:ocr")).toBeNull();
   const toggle = documents.getByRole("switch", { name: "Read everything in-house" });
-  // Graite Cloud is offered as a convenience, not a requirement.
-  expect(documents.getByText(/Handy, but optional/)).toBeTruthy();
   expect(toggle.getAttribute("aria-checked")).toBe("false");
   fireEvent.click(toggle);
   expect(documents.getByText("library:ocr")).toBeTruthy();
@@ -213,7 +252,7 @@ it("keeps search on this computer and explains why", async () => {
   await screen.findByText("index-card");
   const search = within(panel("Search"));
   expect(search.queryByRole("switch", { name: "Use local AI on my computer" })).toBeNull();
-  expect(search.getByText(/always runs on this computer/)).toBeTruthy();
+  expect(search.getByText(/It runs here, on this computer/)).toBeTruthy();
   expect(search.getByText(/Recommended: download the search model/)).toBeTruthy();
 });
 
@@ -226,17 +265,36 @@ it("explains every section the same way before its controls", async () => {
     "Speech",
     "Search",
     "Documents",
+    "AI workstation",
     "Graite Cloud",
     "AI connectors",
     "API keys",
   ]) {
     const section = within(panel(name));
     expect(section.getByRole("heading", { level: 1, name, hidden: true })).toBeTruthy();
-    for (const question of ["Why", "You need", "Leaves this computer"])
-      expect(section.getByText(question)).toBeTruthy();
+    // One card: the page's icon, a title and a line or two. No table of questions.
+    const card = section.getByRole("heading", { level: 1, name, hidden: true }).closest("header");
+    expect(card?.querySelector("p")?.textContent?.length).toBeGreaterThan(20);
+    expect(card?.querySelectorAll("svg").length).toBe(1);
+    expect(section.queryByText("Leaves this computer")).toBeNull();
   }
-  expect(within(panel("Graite Cloud")).getByText(/Zero data retention/)).toBeTruthy();
-  expect(within(panel("Chat")).getByText("Nothing.")).toBeTruthy();
+});
+
+it("goes to a section it is asked for while it is already open", async () => {
+  render(<ModelsPage onClose={() => {}} initialTab="general" />);
+  await screen.findByText("starter-models");
+  expect(panel("General").hidden).toBe(false);
+  // The vault menu's sync line, clicked with Settings open.
+  act(() => {
+    window.dispatchEvent(new CustomEvent("graite:open-settings", { detail: "sync" }));
+  });
+  expect(panel("Sync devices").hidden).toBe(false);
+  expect(panel("General").hidden).toBe(true);
+  // A name it does not know changes nothing.
+  act(() => {
+    window.dispatchEvent(new CustomEvent("graite:open-settings", { detail: "nowhere" }));
+  });
+  expect(panel("Sync devices").hidden).toBe(false);
 });
 
 it("goes back to the pages from the sidebar", async () => {

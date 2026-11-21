@@ -160,6 +160,38 @@ it("adds Graite to an app in one click, then offers to test that app", async () 
   expect(row.getByText(/claude mcp add/)).toBeTruthy();
 });
 
+it("shows one app at a time, picked from three", async () => {
+  render(<ConnectorsCard />);
+  const local = within(await screen.findByRole("region", { name: "Apps on this computer" }));
+  expect(local.getAllByRole("radio").map((r) => r.textContent)).toEqual([
+    "Claude Code",
+    "Codex",
+    "Cursor",
+  ]);
+  expect(local.getAllByRole("listitem").length).toBe(1);
+  fireEvent.click(local.getByRole("radio", { name: "Cursor" }));
+  expect(local.getByRole("listitem", { name: "Cursor" })).toBeTruthy();
+  expect(local.queryByRole("listitem", { name: "Claude Code" })).toBeNull();
+  expect(local.getByText(/mcp\.json/)).toBeTruthy();
+});
+
+it("explains the browser connection in three steps", async () => {
+  render(<ConnectorsCard />);
+  const browser = within(await screen.findByRole("region", { name: "Apps in the browser" }));
+  expect(
+    browser.getByRole("heading", { name: "Your pages inside Claude and ChatGPT" }),
+  ).toBeTruthy();
+  expect(
+    within(browser.getByRole("list", { name: "How to connect" }))
+      .getAllByRole("listitem")
+      .map((step) => step.textContent),
+  ).toEqual([
+    "Sign in to Graite Cloud",
+    "Switch on remote access",
+    "Paste the address into Claude or ChatGPT",
+  ]);
+});
+
 it("offers Update when an app points at a Graite that has moved", async () => {
   answer({
     "/api/v1/mcp/info": {

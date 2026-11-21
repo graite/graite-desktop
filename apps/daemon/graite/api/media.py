@@ -155,6 +155,8 @@ async def run_extraction(state: Any, payload: ExtractRequest, job: Extraction) -
             )
         if source == "graite":
             text = await _extract_cloud(path, speech, job)
+        elif source == "device":
+            text = await _extract_device(state, path, speech, config, job)
         else:
             async with state.models.lock:
                 text = await _extract_local(state, path, speech, config, job)
@@ -172,7 +174,7 @@ async def run_extraction(state: Any, payload: ExtractRequest, job: Extraction) -
             job.text = text.strip()
         job.title, job.status = title, "done"
         job.progress = (
-            "Saved locally" if source == "local" else "Read by Graite Cloud, saved locally"
+            "Read by Graite Cloud, saved locally" if source == "graite" else "Saved locally"
         )
     except asyncio.CancelledError:
         job.status, job.progress = "cancelled", "Cancelled"
@@ -439,6 +441,34 @@ async def _extract_cloud(path: Path, speech: bool, job: Extraction) -> str:
                 raise ValueError("No speech was detected in this recording.")
             return text
         return await recognize_cloud(working, lambda message: setattr(job, "progress", message))
+
+    return await _with_copy(path, work)
+
+
+async def _extract_device(
+    state: Any, path: Path, speech: bool, config: Any, job: Extraction
+) -> str:
+    """On another of the user's own computers (graite/compute)."""
+    from graite.compute.remote import recognize_device, transcribe_device
+    from graite.models.speech import wav_to_mp3
+
+    async def work(working: Path) -> str:
+        if speech:
+            job.progress = "Preparing audio…"
+            audio = await asyncio.to_thread(audio_wav, working)
+            mp3 = await asyncio.to_thread(wav_to_mp3, audio)
+            job.progress = f"Transcribing on {config.stt_device_name or 'your other computer'}…"
+            result = await transcribe_device(state.compute, config.stt_device_id, mp3, kind="mp3")
+            text = readable_transcript(str(result["text"]))
+            if not text.strip():
+                raise ValueError("No speech was detected in this recording.")
+            return text
+        return await recognize_device(
+            state.compute,
+            config.ocr_device_id,
+            working,
+            lambda message: setattr(job, "progress", message),
+        )
 
     return await _with_copy(path, work)
 

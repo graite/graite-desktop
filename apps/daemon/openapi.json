@@ -38,6 +38,16 @@
             "title": "Context Size",
             "type": "integer"
           },
+          "device_id": {
+            "default": "",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "device_name": {
+            "default": "",
+            "title": "Device Name",
+            "type": "string"
+          },
           "effort": {
             "default": "medium",
             "enum": [
@@ -89,12 +99,23 @@
             "title": "Ocr Binary Path",
             "type": "string"
           },
+          "ocr_device_id": {
+            "default": "",
+            "title": "Ocr Device Id",
+            "type": "string"
+          },
+          "ocr_device_name": {
+            "default": "",
+            "title": "Ocr Device Name",
+            "type": "string"
+          },
           "ocr_provider": {
             "default": "auto",
             "enum": [
               "auto",
               "local",
-              "graite"
+              "graite",
+              "device"
             ],
             "title": "Ocr Provider",
             "type": "string"
@@ -106,7 +127,8 @@
               "compatible",
               "anthropic",
               "openrouter",
-              "graite"
+              "graite",
+              "device"
             ],
             "title": "Provider",
             "type": "string"
@@ -127,12 +149,23 @@
             ],
             "title": "Saved Model Id"
           },
+          "stt_device_id": {
+            "default": "",
+            "title": "Stt Device Id",
+            "type": "string"
+          },
+          "stt_device_name": {
+            "default": "",
+            "title": "Stt Device Name",
+            "type": "string"
+          },
           "stt_provider": {
             "default": "auto",
             "enum": [
               "auto",
               "local",
-              "graite"
+              "graite",
+              "device"
             ],
             "title": "Stt Provider",
             "type": "string"
@@ -152,9 +185,28 @@
             "title": "Tts Binary Path",
             "type": "string"
           },
+          "tts_device_id": {
+            "default": "",
+            "title": "Tts Device Id",
+            "type": "string"
+          },
+          "tts_device_name": {
+            "default": "",
+            "title": "Tts Device Name",
+            "type": "string"
+          },
           "tts_model": {
             "default": "",
             "title": "Tts Model",
+            "type": "string"
+          },
+          "tts_provider": {
+            "default": "local",
+            "enum": [
+              "local",
+              "device"
+            ],
+            "title": "Tts Provider",
             "type": "string"
           },
           "vision": {
@@ -249,7 +301,8 @@
               {
                 "enum": [
                   "local",
-                  "graite"
+                  "graite",
+                  "device"
                 ],
                 "type": "string"
               },
@@ -284,7 +337,8 @@
               {
                 "enum": [
                   "local",
-                  "graite"
+                  "graite",
+                  "device"
                 ],
                 "type": "string"
               },
@@ -2403,6 +2457,119 @@
         "title": "ColumnOpModel",
         "type": "object"
       },
+      "ComputeDevice": {
+        "properties": {
+          "chat_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Model"
+          },
+          "chat_models": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Chat Models",
+            "type": "array"
+          },
+          "documents": {
+            "default": false,
+            "title": "Documents",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "speech": {
+            "default": false,
+            "title": "Speech",
+            "type": "boolean"
+          },
+          "uses": {
+            "default": [],
+            "items": {
+              "enum": [
+                "chat",
+                "documents",
+                "speech",
+                "voice"
+              ],
+              "type": "string"
+            },
+            "title": "Uses",
+            "type": "array"
+          },
+          "voice": {
+            "default": false,
+            "title": "Voice",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ComputeDevice",
+        "type": "object"
+      },
+      "ComputeStatus": {
+        "properties": {
+          "chat_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Model"
+          },
+          "devices": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ComputeDevice"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "documents": {
+            "default": false,
+            "title": "Documents",
+            "type": "boolean"
+          },
+          "serving": {
+            "title": "Serving",
+            "type": "boolean"
+          },
+          "speech": {
+            "default": false,
+            "title": "Speech",
+            "type": "boolean"
+          },
+          "voice": {
+            "default": false,
+            "title": "Voice",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "serving"
+        ],
+        "title": "ComputeStatus",
+        "type": "object"
+      },
       "Connection": {
         "properties": {
           "base_url": {
@@ -2870,6 +3037,23 @@
           "vectors"
         ],
         "title": "EmbedResult",
+        "type": "object"
+      },
+      "EnableIn": {
+        "properties": {
+          "space_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Space Id"
+          }
+        },
+        "title": "EnableIn",
         "type": "object"
       },
       "EnabledIn": {
@@ -4879,6 +5063,23 @@
         "title": "PageProperty",
         "type": "object"
       },
+      "PassphraseOut": {
+        "properties": {
+          "passphrase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Passphrase"
+          }
+        },
+        "title": "PassphraseOut",
+        "type": "object"
+      },
       "PatchConnection": {
         "properties": {
           "api_key": {
@@ -6710,6 +6911,16 @@
             "title": "Context Size",
             "type": "integer"
           },
+          "device_id": {
+            "default": "",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "device_name": {
+            "default": "",
+            "title": "Device Name",
+            "type": "string"
+          },
           "effort": {
             "default": "medium",
             "enum": [
@@ -6761,12 +6972,23 @@
             "title": "Ocr Binary Path",
             "type": "string"
           },
+          "ocr_device_id": {
+            "default": "",
+            "title": "Ocr Device Id",
+            "type": "string"
+          },
+          "ocr_device_name": {
+            "default": "",
+            "title": "Ocr Device Name",
+            "type": "string"
+          },
           "ocr_provider": {
             "default": "auto",
             "enum": [
               "auto",
               "local",
-              "graite"
+              "graite",
+              "device"
             ],
             "title": "Ocr Provider",
             "type": "string"
@@ -6778,7 +7000,8 @@
               "compatible",
               "anthropic",
               "openrouter",
-              "graite"
+              "graite",
+              "device"
             ],
             "title": "Provider",
             "type": "string"
@@ -6799,12 +7022,23 @@
             ],
             "title": "Saved Model Id"
           },
+          "stt_device_id": {
+            "default": "",
+            "title": "Stt Device Id",
+            "type": "string"
+          },
+          "stt_device_name": {
+            "default": "",
+            "title": "Stt Device Name",
+            "type": "string"
+          },
           "stt_provider": {
             "default": "auto",
             "enum": [
               "auto",
               "local",
-              "graite"
+              "graite",
+              "device"
             ],
             "title": "Stt Provider",
             "type": "string"
@@ -6824,9 +7058,28 @@
             "title": "Tts Binary Path",
             "type": "string"
           },
+          "tts_device_id": {
+            "default": "",
+            "title": "Tts Device Id",
+            "type": "string"
+          },
+          "tts_device_name": {
+            "default": "",
+            "title": "Tts Device Name",
+            "type": "string"
+          },
           "tts_model": {
             "default": "",
             "title": "Tts Model",
+            "type": "string"
+          },
+          "tts_provider": {
+            "default": "local",
+            "enum": [
+              "local",
+              "device"
+            ],
+            "title": "Tts Provider",
             "type": "string"
           },
           "vision": {
@@ -7283,6 +7536,19 @@
         "title": "Selection",
         "type": "object"
       },
+      "ServeIn": {
+        "properties": {
+          "on": {
+            "title": "On",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "title": "ServeIn",
+        "type": "object"
+      },
       "SpeechResult": {
         "properties": {
           "seconds": {
@@ -7335,6 +7601,162 @@
           "agent"
         ],
         "title": "StepBody",
+        "type": "object"
+      },
+      "SyncDevice": {
+        "properties": {
+          "connected": {
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "in_sync": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Sync"
+          },
+          "last_sync_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sync At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform"
+          },
+          "this_device": {
+            "title": "This Device",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "this_device",
+          "connected"
+        ],
+        "title": "SyncDevice",
+        "type": "object"
+      },
+      "SyncSpace": {
+        "properties": {
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/SyncDevice"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "devices"
+        ],
+        "title": "SyncSpace",
+        "type": "object"
+      },
+      "SyncStatus": {
+        "properties": {
+          "connected": {
+            "default": false,
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "set_up": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Set Up"
+          },
+          "signed_in": {
+            "title": "Signed In",
+            "type": "boolean"
+          },
+          "space_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Space Id"
+          },
+          "spaces": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SyncSpace"
+            },
+            "title": "Spaces",
+            "type": "array"
+          },
+          "unlocked": {
+            "default": false,
+            "title": "Unlocked",
+            "type": "boolean"
+          },
+          "waiting": {
+            "default": 0,
+            "title": "Waiting",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "signed_in"
+        ],
+        "title": "SyncStatus",
         "type": "object"
       },
       "TableConflictBody": {
@@ -7890,6 +8312,21 @@
         "title": "TypeCheck",
         "type": "object"
       },
+      "UnlockIn": {
+        "properties": {
+          "passphrase": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Passphrase",
+            "type": "string"
+          }
+        },
+        "required": [
+          "passphrase"
+        ],
+        "title": "UnlockIn",
+        "type": "object"
+      },
       "UpgradeResult": {
         "properties": {
           "created": {
@@ -7912,6 +8349,46 @@
           "created"
         ],
         "title": "UpgradeResult",
+        "type": "object"
+      },
+      "UseIn": {
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "on": {
+            "default": true,
+            "title": "On",
+            "type": "boolean"
+          },
+          "what": {
+            "default": "chat",
+            "enum": [
+              "chat",
+              "documents",
+              "speech",
+              "voice"
+            ],
+            "title": "What",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_id"
+        ],
+        "title": "UseIn",
         "type": "object"
       },
       "UseTemplate": {
@@ -11653,6 +12130,111 @@
         ]
       }
     },
+    "/api/v1/compute/serve": {
+      "put": {
+        "description": "Let this account's other devices use this computer's local models, or stop that.",
+        "operationId": "serve_api_v1_compute_serve_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComputeStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Serve",
+        "tags": [
+          "compute"
+        ]
+      }
+    },
+    "/api/v1/compute/status": {
+      "get": {
+        "operationId": "status_api_v1_compute_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComputeStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Status",
+        "tags": [
+          "compute"
+        ]
+      }
+    },
+    "/api/v1/compute/use": {
+      "post": {
+        "description": "Do one kind of AI work on another of the account's devices, or take it back.",
+        "operationId": "use_api_v1_compute_use_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIConfig"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Use",
+        "tags": [
+          "compute"
+        ]
+      }
+    },
     "/api/v1/dashboards": {
       "get": {
         "operationId": "read_api_v1_dashboards_get",
@@ -13720,6 +14302,199 @@
         "summary": "Warm",
         "tags": [
           "search"
+        ]
+      }
+    },
+    "/api/v1/sync/disable": {
+      "post": {
+        "description": "Stop syncing this vault on this device. The files stay; other devices keep syncing.",
+        "operationId": "disable_api_v1_sync_disable_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Disable",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/api/v1/sync/enable": {
+      "post": {
+        "description": "Sync this vault: as a new space, or with one this account already has.",
+        "operationId": "enable_api_v1_sync_enable_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnableIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enable",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/api/v1/sync/passphrase": {
+      "get": {
+        "description": "The passphrase to type on another device. Only a computer that is unlocked has it.",
+        "operationId": "passphrase_api_v1_sync_passphrase_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PassphraseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Passphrase",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/api/v1/sync/reset": {
+      "post": {
+        "description": "Start sync over for the account: for a forgotten passphrase or a lost device. No file\non any device changes; every device enters the new passphrase and joins again.",
+        "operationId": "reset_api_v1_sync_reset_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Reset",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/api/v1/sync/setup": {
+      "post": {
+        "description": "Set sync up for the account (once): makes its keys and a six-word passphrase on this\ncomputer. Graite Cloud never sees the passphrase; `/passphrase` shows it.",
+        "operationId": "setup_api_v1_sync_setup_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Setup",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/api/v1/sync/status": {
+      "get": {
+        "operationId": "status_api_v1_sync_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Status",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/api/v1/sync/unlock": {
+      "post": {
+        "description": "Enter the passphrase on a device that does not have the key.",
+        "operationId": "unlock_api_v1_sync_unlock_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnlockIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unlock",
+        "tags": [
+          "sync"
         ]
       }
     },

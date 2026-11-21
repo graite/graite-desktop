@@ -114,6 +114,9 @@ events tell the phone when a model is loading. SSE streams fine through all thre
 
 ## 3. Mobile app and sync
 
+> Sync between devices is built differently from the sketch below: see `sync.md` (D117).
+> No device is the hub; devices exchange sealed changes through Graite Cloud.
+
 Three readings of "sync", in increasing cost:
 
 - **A. Thin client, no offline.** The PWA over the tunnel. Covered by §2.

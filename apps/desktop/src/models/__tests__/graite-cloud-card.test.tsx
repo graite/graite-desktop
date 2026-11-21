@@ -85,7 +85,8 @@ it("uses the model Graite Cloud offers, without a list to choose from", async ()
   await waitFor(() => expect(onPick).toHaveBeenCalledWith(MODELS[0]));
   expect(screen.queryByRole("button", { name: /Fast|Smart/ })).toBeNull();
   expect(screen.getByText(/Ready to chat with Graite Cloud/)).toBeTruthy();
-  expect(screen.getByText(/Confirm your email by/)).toBeTruthy();
+  // No nagging about the email address here: the confirmation mail is the reminder.
+  expect(screen.queryByText(/Confirm your email/)).toBeNull();
 });
 
 it("shows free accounts no meter, only that today's credits are used up", async () => {

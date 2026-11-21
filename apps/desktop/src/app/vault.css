@@ -173,6 +173,9 @@
   font-weight: 500;
   border-radius: 6px;
   padding: 2px 6px 2px 2px;
+}
+.vault-menu-trigger > img {
+  margin-right: 4px;
   cursor: pointer;
 }
 .vault-menu-trigger:hover:not(:disabled) {
@@ -186,13 +189,23 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* "Vault | name": what the name next to the logo is */
+.vault-menu-name > small {
+  margin-right: 6px;
+  padding-right: 6px;
+  border-right: 1px solid var(--border);
+  font-size: inherit;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
 .vault-menu-path {
   display: block;
   max-width: 260px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: inherit;
+  font-weight: 400;
   color: var(--muted-foreground);
 }
 
@@ -314,4 +327,31 @@
 .page-tab-new:hover {
   background: color-mix(in oklab, var(--foreground) 10%, transparent);
   color: var(--foreground);
+}
+
+/* A vault that syncs with your other devices */
+.vault-synced {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tag-green) 14%, transparent);
+  color: color-mix(in srgb, var(--tag-green) 75%, var(--foreground));
+  font-size: 10.5px;
+  font-weight: 500;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+.vault-picker-vault[aria-current="true"] {
+  cursor: default;
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--foreground) 30%, var(--border));
+}
+.vault-list-title {
+  margin: 16px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted-foreground);
 }

@@ -1,17 +1,9 @@
-import { useEffect, useState } from "react";
-import { FolderOpen, FolderPlus, X } from "lucide-react";
-import { platform, type VaultList, type VaultProbe } from "@/lib/platform";
+import { useState } from "react";
+import { FolderPlus } from "lucide-react";
+import { platform, type VaultProbe } from "@/lib/platform";
+import { VaultList } from "./VaultList";
 import { vaultName } from "@/lib/storage";
 import "./vault.css";
-
-function describe(probe: VaultProbe | undefined): string {
-  if (!probe) return "";
-  if (!probe.exists) return "Folder not found";
-  if (!probe.is_dir) return "Not a folder";
-  if (probe.pages) return `${probe.pages} page${probe.pages === 1 ? "" : "s"}`;
-  if (probe.has_graite) return "Empty vault";
-  return probe.other_files ? "Folder with other files" : "Empty folder";
-}
 
 /**
  * First launch, or no vault remembered: choose the folder Graite opens. Also used as the
@@ -28,20 +20,8 @@ export function VaultPicker({
   onOpen: (path: string, create: boolean) => void;
   onCancel?: () => void;
 }) {
-  const [list, setList] = useState<VaultList>({ current: null, recent: [], dev: false });
-  const [probes, setProbes] = useState<Record<string, VaultProbe>>({});
   const [confirm, setConfirm] = useState<{ path: string; probe: VaultProbe } | null>(null);
   const [local, setLocal] = useState("");
-  const refresh = () => {
-    void platform.vaults?.().then(async (next) => {
-      setList(next);
-      const entries = await Promise.all(
-        next.recent.map(async (path) => [path, await platform.inspectVault?.(path)] as const),
-      );
-      setProbes(Object.fromEntries(entries.filter(([, p]) => p) as [string, VaultProbe][]));
-    });
-  };
-  useEffect(refresh, []);
   const choose = async () => {
     setLocal("");
     const path = await platform.pickFolder?.("Open a vault folder");
@@ -98,36 +78,7 @@ export function VaultPicker({
           </div>
         ) : (
           <>
-            {!!list.recent.length && (
-              <ul className="vault-picker-recent" aria-label="Recent vaults">
-                {list.recent.map((path) => (
-                  <li key={path}>
-                    <button
-                      type="button"
-                      className="vault-picker-vault"
-                      disabled={busy}
-                      onClick={() => onOpen(path, false)}
-                    >
-                      <FolderOpen size={16} />
-                      <span>
-                        <strong>{vaultName(path)}</strong>
-                        <small>{path}</small>
-                      </span>
-                      <em>{path === list.current ? "Current" : describe(probes[path])}</em>
-                    </button>
-                    <button
-                      type="button"
-                      className="vault-picker-forget"
-                      aria-label={`Remove ${vaultName(path)} from the list`}
-                      disabled={busy}
-                      onClick={() => void platform.forgetVault?.(path).then(refresh)}
-                    >
-                      <X size={13} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <VaultList busy={busy} onOpen={(path) => onOpen(path, false)} />
             <div className="vault-picker-actions">
               <button
                 type="button"

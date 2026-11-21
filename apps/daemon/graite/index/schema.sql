@@ -199,6 +199,24 @@ CREATE TABLE IF NOT EXISTS tokens (
   hash TEXT NOT NULL
 );
 
+-- Sync (graite/sync/state.py): what this device holds of a synced space. Deleting the index
+-- only means the next sync compares every file again.
+CREATE TABLE IF NOT EXISTS sync_files (
+  space_id TEXT NOT NULL,
+  path TEXT NOT NULL,
+  hash TEXT NOT NULL,
+  size INTEGER NOT NULL,
+  mtime_ns INTEGER,
+  vector_json TEXT NOT NULL DEFAULT '{}',
+  modified INTEGER NOT NULL DEFAULT 0,
+  author TEXT NOT NULL DEFAULT '',
+  deleted INTEGER NOT NULL DEFAULT 0,
+  base_hash TEXT,
+  sent INTEGER NOT NULL DEFAULT 0,  -- the other devices were told of this version
+  PRIMARY KEY (space_id, path)
+);
+CREATE INDEX IF NOT EXISTS ix_sync_files_hash ON sync_files(space_id, hash);
+
 CREATE TABLE IF NOT EXISTS media_jobs (id TEXT PRIMARY KEY, state TEXT);
 CREATE TABLE IF NOT EXISTS model_downloads (id TEXT PRIMARY KEY, state TEXT);
 

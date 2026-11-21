@@ -4,6 +4,8 @@ import {
   FileText,
   KeyRound,
   MessageSquare,
+  MonitorCog,
+  MonitorSmartphone,
   Plug,
   Search,
   Server,
@@ -20,7 +22,9 @@ export type SettingsSection =
   | "voice"
   | "search"
   | "documents"
+  | "workstation"
   | "graite"
+  | "sync"
   | "connectors"
   | "keys";
 
@@ -42,7 +46,13 @@ export interface NavItem {
  * after, one tab per task, each with its own "Use local AI on my computer" switch. */
 export const NAV: { title?: string; items: NavItem[] }[] = [
   { items: [{ id: "general", label: "General", icon: Settings2 }] },
-  { title: "Graite", items: [{ id: "graite", label: "Graite Cloud", icon: Cloud }] },
+  {
+    title: "Graite",
+    items: [
+      { id: "graite", label: "Graite Cloud", icon: Cloud },
+      { id: "sync", label: "Sync devices", icon: MonitorSmartphone },
+    ],
+  },
   { title: "Your AI apps", items: [{ id: "connectors", label: "AI connectors", icon: Plug }] },
   { title: "Your own keys", items: [{ id: "keys", label: "API keys", icon: KeyRound }] },
   {
@@ -52,6 +62,7 @@ export const NAV: { title?: string; items: NavItem[] }[] = [
       { id: "search", label: "Search", icon: Search },
       { id: "documents", label: "Documents", icon: FileText },
       { id: "voice", label: "Speech", icon: AudioLines },
+      { id: "workstation", label: "AI workstation", icon: MonitorCog },
       { id: "server", label: "Your own server", icon: Server, geek: true },
     ],
   },
@@ -97,6 +108,7 @@ export function isOwnNetwork(host: string): boolean {
 export function chatSection(config: Pick<AIConfig, "provider" | "base_url">): SettingsSection {
   if (config.provider === "local") return "local";
   if (config.provider === "graite") return "graite";
+  if (config.provider === "device") return "workstation";
   if (config.provider === "anthropic") return "keys";
   return isOwnNetwork(hostOf(config.base_url)) ? "server" : "keys";
 }

@@ -10,12 +10,14 @@ import {
   KeyRound,
   Loader2,
   MessageSquare,
+  MonitorCog,
+  MonitorSmartphone,
   Plug,
   Search,
   Server,
   Settings2,
   ShieldCheck,
-  Sparkles,
+  BadgeCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ai, type AIConfig, type AIStatus } from "@/lib/ai";
@@ -32,6 +34,11 @@ import "./ai.css";
 import "@/settings/settings.css";
 import { ConnectionsCard } from "./ConnectionsCard";
 import { GraiteCloudCard } from "./GraiteCloudCard";
+import { WorkstationCard } from "./WorkstationCard";
+import { useWorkstations } from "./useWorkstations";
+import { useSyncStatus } from "@/app/SyncStatus";
+import { compute, type ComputeStatus, type ComputeTask } from "@/lib/compute";
+import { SyncCard } from "./SyncCard";
 import { IndexCard } from "./IndexCard";
 import { EngineCard } from "./EngineCard";
 import { useEngine } from "./useEngine";
@@ -47,8 +54,8 @@ import { SettingsSidebar } from "@/settings/SettingsSidebar";
 import {
   chatSection,
   isOwnNetwork,
-  isThisComputer,
   resolveSection,
+  SECTIONS,
   sectionLabel,
   type SettingsSection,
   type SettingsTab,
@@ -83,6 +90,8 @@ const CHAT_SOURCE: Record<SettingsSection, string> = {
   search: "a model on this computer",
   server: "your own server",
   graite: "Graite Cloud",
+  sync: "another model",
+  workstation: "your AI workstation",
   connectors: "another model",
   keys: "your API key",
 };
@@ -115,6 +124,26 @@ export function ModelsPage({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [techMode, setTechMode] = useTechMode();
+  // Settings is already open and something asks for a section (the vault menu's sync
+  // line, a "set up a model" link): go there.
+  useEffect(() => {
+    const go = (event: Event) => {
+      const tab = (event as CustomEvent<unknown>).detail;
+      if (typeof tab !== "string") return;
+      const known = [...SECTIONS, "chat", "vault"] as string[];
+      if (known.includes(tab)) setSection(resolveSection(tab as SettingsTab, loadedRef.current));
+    };
+    window.addEventListener("graite:open-settings", go);
+    return () => window.removeEventListener("graite:open-settings", go);
+  }, []);
+  const workstations = useWorkstations();
+  const syncStatus = useSyncStatus();
+  /** A task moved to or from a workstation: the saved settings changed under this page. */
+  const moved = (saved: AIConfig) => {
+    loadedRef.current = saved;
+    setConfig(saved);
+    void workstations.refresh();
+  };
   // The config as it was last read from or written to the daemon: a save sends what differs.
   const loadedRef = useRef<AIConfig | null>(null);
   // Each section starts at its top: whichever of the two scrolls (with or without its own
@@ -228,9 +257,6 @@ export function ModelsPage({
       toast(`${created.name} is listed under ${sectionLabel(home)}.`);
     }
   };
-  const activeHost = hostOf(
-    store.connections.find((c) => c.id === config?.connection_id)?.base_url ?? config?.base_url,
-  );
   // "auto" (never switched) follows what is in use: local when its model is installed.
   const documentsLocal =
     config?.ocr_provider === "local" ||
@@ -304,17 +330,7 @@ export function ModelsPage({
                 <Explainer
                   icon={Cloud}
                   title="Graite Cloud"
-                  lede="Hosted models that just work, and the link to Claude and ChatGPT."
-                  why={
-                    <ul>
-                      <li>Nothing to download or set up.</li>
-                      <li>Free daily credits.</li>
-                      <li>Zero data retention: never stored, never used for training.</li>
-                      <li>Lets Claude, ChatGPT and Grok work with your pages.</li>
-                    </ul>
-                  }
-                  need="A free Graite account and an internet connection."
-                  leaves="Your question and the passages needed to answer it. Pages marked “Local models only” or “No AI” are never sent."
+                  text="Good models, zero setup. Sign in and chat; your chats and pages are not stored or used for training."
                 />
                 {chatUse("graite", () =>
                   patch({
@@ -342,15 +358,23 @@ export function ModelsPage({
               </>,
             )}
             {panel(
+              "sync",
+              <>
+                <Explainer
+                  icon={MonitorSmartphone}
+                  title="Sync devices"
+                  text="Your pages, on all your computers. Share this vault once, type six words on the other one, done. Only your devices can read them, not even us."
+                />
+                <SyncCard onOpenCloud={() => setSection("graite")} />
+              </>,
+            )}
+            {panel(
               "connectors",
               <>
                 <Explainer
                   icon={Plug}
                   title="AI connectors"
-                  lede="Let the AI app you already use work with your pages."
-                  why="Keep your favourite assistant, with your own notes as what it knows."
-                  need="Apps in the browser: a Graite account. Apps on this computer: nothing."
-                  leaves="Only the pages the app asks for. Its changes wait for your review."
+                  text="Already attached to Claude, ChatGPT or Cursor? Plug Graite in and it knows your pages. Whatever it wants to change waits for your OK."
                 />
                 <ConnectorsCard onOpenAccount={() => setSection("graite")} />
                 <p className="settings-note settings-note-card">
@@ -367,14 +391,7 @@ export function ModelsPage({
                 <Explainer
                   icon={KeyRound}
                   title="API keys"
-                  lede="Use a model from a provider you have your own account with."
-                  why="The strongest models, billed to your own account."
-                  need="An API key. A ChatGPT or Claude subscription does not include one."
-                  leaves={`Your questions and the passages they need go to ${
-                    activeHost && draftSection === "keys" && !isThisComputer(activeHost)
-                      ? activeHost
-                      : "the provider you choose"
-                  }. Pages marked “Local models only” or “No AI” are never sent.`}
+                  text="Have your own account with OpenAI, Anthropic or another provider? Paste the key and pick a model. The bill goes to you, the chats go straight to them."
                 />
                 {chatUse("keys", undefined, "Pick a saved model below to use it for chat.")}
                 <div className="ai-privacy">
@@ -422,14 +439,7 @@ export function ModelsPage({
                 <Explainer
                   icon={MessageSquare}
                   title="Chat"
-                  lede="Ask about your pages, write with AI, and let agents do routine work."
-                  why="Running chat on your own machine is private and free, and works offline."
-                  need="Enough memory for the model. Graite shows which ones fit."
-                  leaves={
-                    config.provider === "local"
-                      ? "Nothing."
-                      : "With local AI off, your question and the passages it needs go to the model chat uses. Pages marked “Local models only” or “No AI” are never sent."
-                  }
+                  text="The model that answers when you ask about your pages. Pick one that runs on this computer and nothing leaves it."
                 />
                 <LocalSwitch
                   id="local-chat"
@@ -556,27 +566,10 @@ export function ModelsPage({
                 <Explainer
                   icon={Search}
                   title="Search"
-                  lede="How AI finds the right passage without reading every page."
-                  why={
-                    <ul>
-                      <li>
-                        Graite turns each passage of your pages into a list of numbers that captures
-                        its meaning, so it finds “holiday plans” when you ask about “vacation”.
-                      </li>
-                      <li>
-                        This always runs on this computer: private, free, and it works offline.
-                      </li>
-                      <li>
-                        Only the few passages that matter go to the chat model, so answers are
-                        faster, cost fewer tokens and show their sources.
-                      </li>
-                    </ul>
-                  }
-                  need="A small search model (about 100 MB). Without it, keyword search still works."
-                  leaves="Nothing. The index lives in your vault."
+                  text="How AI finds the one paragraph that matters without reading your whole vault. It runs here, on this computer."
                 />
                 <div className="ai-privacy settings-recommend">
-                  <Sparkles size={19} />
+                  <BadgeCheck size={18} />
                   <p>
                     <strong>Recommended: download the search model below.</strong> It is small, runs
                     on this computer and makes finding things much faster and smarter than keywords
@@ -594,32 +587,51 @@ export function ModelsPage({
               </>,
             )}
             {panel(
+              "workstation",
+              <>
+                <Explainer
+                  icon={MonitorCog}
+                  title="AI workstation"
+                  text="Have a strong computer at home? Let it do the AI work for your laptop. Everything travels encrypted between your own devices; nobody else can read it."
+                />
+                <WorkstationCard
+                  status={workstations.status}
+                  shared={syncStatus ? !!syncStatus.space_id : null}
+                  refresh={workstations.refresh}
+                  onStatus={workstations.setStatus}
+                  onUsed={moved}
+                  onOpenSync={() => setSection("sync")}
+                />
+              </>,
+            )}
+            {panel(
               "documents",
               <>
                 <Explainer
                   icon={FileText}
                   title="Documents"
-                  lede="Turn scanned PDFs and images into text."
-                  why="A scan is only a picture. Once read, you can search it and ask about it."
-                  need={
-                    documentsLocal
-                      ? "The chat engine and a document model, both downloaded below."
-                      : "Graite Cloud can read documents for you with a free account. Handy, but optional: switch on reading in-house below and nothing leaves this computer."
-                  }
-                  leaves={
-                    documentsLocal
-                      ? "Nothing."
-                      : "The pages you ask to read, to Graite Cloud, which keeps nothing. Up to 20 pages at a time; longer files are sent in parts."
-                  }
+                  text="Turns scans and photos into text you can search and quote. Drop in a PDF; Graite does the squinting."
                 />
-                <LocalSwitch
-                  id="local-documents"
-                  checked={documentsLocal}
+                <WorkstationSwitch
+                  what="documents"
+                  label="Read documents on"
+                  status={workstations.status}
+                  on={config.ocr_provider === "device"}
+                  deviceId={config.ocr_device_id}
+                  deviceName={config.ocr_device_name}
                   disabled={!!busy}
-                  label="Read everything in-house"
-                  hint="Your scans never leave the building: GLM-OCR reads every page right here, on this computer."
-                  onChange={(on) => patch({ ocr_provider: on ? "local" : "graite" })}
+                  onUsed={moved}
                 />
+                {config.ocr_provider !== "device" && (
+                  <LocalSwitch
+                    id="local-documents"
+                    checked={documentsLocal}
+                    disabled={!!busy}
+                    label="Read everything in-house"
+                    hint="Your scans never leave the building: GLM-OCR reads every page right here, on this computer."
+                    onChange={(on) => patch({ ocr_provider: on ? "local" : "graite" })}
+                  />
+                )}
                 {documentsLocal ? (
                   <>
                     <OcrEngineNote
@@ -634,7 +646,7 @@ export function ModelsPage({
                       disabled={!!busy}
                     />
                   </>
-                ) : (
+                ) : config.ocr_provider === "device" ? null : (
                   <CloudNote
                     signedIn={!!status?.cloud_signed_in}
                     what="Documents are read"
@@ -649,26 +661,27 @@ export function ModelsPage({
                 <Explainer
                   icon={AudioLines}
                   title="Speech"
-                  lede="Dictate, transcribe recordings, and talk with your assistant."
-                  why="Think out loud or dictate notes instead of typing."
-                  need={
-                    speechLocal
-                      ? "A one-time download of the speech model below."
-                      : "A free Graite account. Nothing to install."
-                  }
-                  leaves={
-                    speechLocal
-                      ? "Nothing. Your voice becomes text on this computer."
-                      : "Your recording, to Graite Cloud, which turns it into text and keeps nothing. Up to one hour per recording."
-                  }
+                  text="Talk instead of type. Dictate a note, transcribe a recording, or have a chat with your assistant out loud."
                 />
-                <LocalSwitch
-                  id="local-speech"
-                  checked={speechLocal}
+                <WorkstationSwitch
+                  what="speech"
+                  label="Turn speech into text on"
+                  status={workstations.status}
+                  on={config.stt_provider === "device"}
+                  deviceId={config.stt_device_id}
+                  deviceName={config.stt_device_name}
                   disabled={!!busy}
-                  hint="Turn speech into text here with Whisper, instead of in the cloud."
-                  onChange={(on) => patch({ stt_provider: on ? "local" : "graite" })}
+                  onUsed={moved}
                 />
+                {config.stt_provider !== "device" && (
+                  <LocalSwitch
+                    id="local-speech"
+                    checked={speechLocal}
+                    disabled={!!busy}
+                    hint="Turn speech into text here with Whisper, instead of in the cloud."
+                    onChange={(on) => patch({ stt_provider: on ? "local" : "graite" })}
+                  />
+                )}
                 {speechLocal ? (
                   <ModelLibrary
                     kind="utilities"
@@ -677,7 +690,7 @@ export function ModelsPage({
                     onChoose={() => {}}
                     disabled={!!busy}
                   />
-                ) : (
+                ) : config.stt_provider === "device" ? null : (
                   <CloudNote
                     signedIn={!!status?.cloud_signed_in}
                     what="Speech to text runs"
@@ -686,16 +699,37 @@ export function ModelsPage({
                 )}
                 <div className="ai-section-heading">
                   <h2>Talking with your assistant</h2>
-                  <span>Always on this computer</span>
+                  <span>
+                    {config.tts_provider === "device"
+                      ? "Listening on this computer"
+                      : "Always on this computer"}
+                  </span>
                 </div>
                 <p className="settings-note">
-                  Hearing when you start and stop talking, and your assistant’s own voice, run on
-                  this computer.
+                  {config.tts_provider === "device"
+                    ? "Hearing when you start and stop talking still runs on this computer; the voice itself comes from your workstation."
+                    : "Hearing when you start and stop talking, and your assistant’s own voice, run on this computer."}
                 </p>
-                <EngineCard engineId="crispasr" disabled={!!busy} />
+                <WorkstationSwitch
+                  what="voice"
+                  label="Let your assistant speak with"
+                  status={workstations.status}
+                  on={config.tts_provider === "device"}
+                  deviceId={config.tts_device_id}
+                  deviceName={config.tts_device_name}
+                  disabled={!!busy}
+                  onUsed={moved}
+                />
+                {/* The voice engine runs Whisper and the voice: with both on a workstation
+                    there is nothing for it to do here. */}
+                {!(config.tts_provider === "device" && config.stt_provider === "device") && (
+                  <EngineCard engineId="crispasr" disabled={!!busy} />
+                )}
                 <ModelLibrary
                   kind="utilities"
-                  roles={["vad", "turn", "tts"]}
+                  roles={
+                    config.tts_provider === "device" ? ["vad", "turn"] : ["vad", "turn", "tts"]
+                  }
                   selectedPath=""
                   onChoose={() => {}}
                   voiceModel={config.tts_model ?? ""}
@@ -718,10 +752,7 @@ export function ModelsPage({
                 <Explainer
                   icon={Server}
                   title="Your own server"
-                  lede="Use models you already run with Ollama, LM Studio or llama.cpp."
-                  why="Keep the setup you have, or use a stronger machine in your own network."
-                  need="The server’s address, ending in /v1."
-                  leaves="Only what you ask, to that address. A server on this computer keeps everything here."
+                  text="Already running Ollama, LM Studio or llama.cpp? Point Graite at it and use the models you have."
                 />
                 {chatUse("server", undefined, "Pick a saved model below to use it for chat.")}
                 <fieldset className="ai-setup-card" disabled={!!busy}>
@@ -845,7 +876,7 @@ function GeneralSection({
       <Explainer
         icon={Settings2}
         title="General"
-        lede="Your name, how Graite looks, and where your pages live."
+        text="Your name, light or dark, and where your pages live. The small stuff that makes it yours."
       />
       <section className="settings-card" aria-label="Your name">
         <h2>Your name</h2>
@@ -1028,6 +1059,58 @@ function LocalSwitch({
 }
 
 /** With local AI off: who does the work, or what is missing for it. */
+/** On a task's own page: hand that one task to an AI workstation, or take it back. Shown
+ * when one of your other computers offers the task, or does it now. */
+function WorkstationSwitch({
+  what,
+  label,
+  status,
+  on,
+  deviceId,
+  deviceName,
+  disabled,
+  onUsed,
+}: {
+  what: ComputeTask;
+  /** Ends where the computer's name follows: "Read documents on". */
+  label: string;
+  status: ComputeStatus | null;
+  on: boolean;
+  deviceId?: string;
+  deviceName?: string;
+  disabled?: boolean;
+  onUsed: (config: AIConfig) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const offering = status?.devices.find((d) => (on ? d.id === deviceId : d[what as "documents"]));
+  if (!on && !offering) return null;
+  const id = on ? (deviceId ?? "") : (offering?.id ?? "");
+  const name = (on ? deviceName : offering?.name) || "your workstation";
+  return (
+    <div className="workstation-switch">
+      <LocalSwitch
+        id={`workstation-${what}`}
+        checked={on}
+        disabled={disabled || busy}
+        label={`${label} ${name}`}
+        hint={
+          on && !offering
+            ? `${name} is not connected right now. Until it is back this will not work; switch off to do it here instead.`
+            : "Your AI workstation does the work. It travels encrypted between your own devices."
+        }
+        onChange={(next) => {
+          setBusy(true);
+          compute
+            .use(id, what, next)
+            .then(onUsed)
+            .catch((e: unknown) => toast.error(e instanceof Error ? e.message : "Try again."))
+            .finally(() => setBusy(false));
+        }}
+      />
+    </div>
+  );
+}
+
 function CloudNote({
   signedIn,
   what,
