@@ -22,7 +22,7 @@ POSIX_ONLY = pytest.mark.skipif(
 )
 
 SCRIPT = b"#!/bin/sh\necho fake-engine 1.0\nexit 0\n"
-BROKEN = b"#!/bin/sh\nexit 3\n"
+BROKEN = b"#!/bin/sh\necho 'GLIBCXX_3.4.32 not found' >&2\nexit 3\n"
 
 
 def tarball(
@@ -157,7 +157,7 @@ async def test_install_verifies_tries_and_points_current_at_the_new_version(
 
 @POSIX_ONLY
 async def test_a_bad_download_or_a_build_that_does_not_start_changes_nothing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     good = tarball({"crispasr": SCRIPT})
     engine = fake_engine("v1", good)
@@ -176,6 +176,9 @@ async def test_a_bad_download_or_a_build_that_does_not_start_changes_nothing(
     serve(monkeypatch, {broken.variants[0].archives[0].url: broken_data})
     with pytest.raises(ValueError, match="could not start"):
         await installer.install(broken, broken.variants[0])
+    # The log keeps what the program said, and the failed try leaves no folder behind.
+    assert "GLIBCXX_3.4.32 not found" in caplog.text
+    assert not list((tmp_path / "app" / "bin").rglob(".v3.installing"))
 
     empty_data = tarball({"README": b"nothing here"})
     empty = fake_engine("v4", empty_data)

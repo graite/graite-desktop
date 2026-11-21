@@ -111,6 +111,9 @@ def _configure_logging(level: str, app_dir: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
+    from graite.proc import restore_system_libraries
+
+    restore_system_libraries()
     arguments = sys.argv[1:] if argv is None else argv
     if arguments[:1] == ["mcp"]:
         from graite.mcp import stdio

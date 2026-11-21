@@ -455,7 +455,11 @@ class EngineInstaller:
             await asyncio.to_thread(shutil.rmtree, staging, True)
             raise ValueError("The downloaded engine does not contain the program Graite needs.")
         await asyncio.to_thread(self._prepare, binary)
-        await self._smoke_test(binary)
+        try:
+            await self._smoke_test(binary)
+        except ValueError:
+            await asyncio.to_thread(shutil.rmtree, staging, True)
+            raise
 
         def publish() -> Path:
             previous = self._pointer(engine.id, variant.id)
@@ -526,13 +530,22 @@ class EngineInstaller:
                 "--version",
                 env=library_env(binary),
                 stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.PIPE,
                 creationflags=NO_WINDOW,
             )
-            code = await asyncio.wait_for(process.wait(), 30)
+            _, said = await asyncio.wait_for(process.communicate(), 30)
         except (OSError, TimeoutError) as exc:
+            log.warning("%s did not start: %s", binary.name, exc)
             raise ValueError("The engine could not start on this computer.") from exc
-        if code != 0:
+        if process.returncode != 0:
+            # The user reads one plain sentence; the log keeps what the program itself said.
+            reason = said.decode("utf-8", "replace").strip().splitlines()[-5:]
+            log.warning(
+                "%s --version exited with %s: %s",
+                binary.name,
+                process.returncode,
+                " | ".join(reason) or "no output",
+            )
             raise ValueError("The engine could not start on this computer.")
 
     async def rollback(self, engine_id: str) -> None:
