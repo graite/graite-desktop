@@ -119,7 +119,7 @@ jobs:
           echo "::warning::TAURI_SIGNING_PRIVATE_KEY is missing; building without update files"
 
       # ---- Python sidecar: built on each OS, smoke-tested, placed into src-tauri/resources/daemon ----
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.14"
           enable-cache: true
