@@ -23,6 +23,9 @@ vi.mock("@/lib/api", () => ({
   },
 }));
 
+const toastMock = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }));
+vi.mock("sonner", () => ({ toast: toastMock }));
+
 import { EngineCard } from "../EngineCard";
 
 const VOICE = {
@@ -171,4 +174,21 @@ it("offers the newest upstream build only in geek mode, and installs it on reque
       newest: true,
     }),
   );
+});
+
+it("says a failed install once as a popup and keeps the reason on the card", async () => {
+  enginesMock.list.mockResolvedValue([VOICE]);
+  card();
+  await screen.findByRole("button", { name: /Install · 37 MB/ });
+  const reason = "The engine could not start on this computer.";
+  enginesMock.list.mockResolvedValue([{ ...VOICE, status: "error", error: reason }]);
+  listeners.forEach((l) =>
+    l({ type: "engine_progress", data: { id: "crispasr", status: "error", error: reason } }),
+  );
+  await waitFor(() =>
+    expect(toastMock.error).toHaveBeenCalledWith(reason, { id: "engine-failed-crispasr" }),
+  );
+  const line = await screen.findByRole("alert");
+  expect(line.textContent).toBe(reason);
+  expect(line.className).toBe("ai-failure");
 });

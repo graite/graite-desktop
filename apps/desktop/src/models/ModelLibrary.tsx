@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ModelSources } from "./ModelSources";
 import { useCatalog, type Model } from "./useCatalog";
 import { SpeechCheck } from "./SpeechCheck";
+import { FailureLine } from "./FailureLine";
 
 /** Utility roles beyond speech-to-text; the three voice roles make up a voice conversation. */
 const UTILITY_ROLES: Record<string, { title: string; tag: string }> = {
@@ -169,11 +170,7 @@ export function ModelLibrary({
                   {(m.status === "downloading" || m.status === "verifying") && (
                     <progress max={100} value={m.progress} aria-label={`${m.name} download`} />
                   )}
-                  {m.error && (
-                    <p role="alert" className="ai-error">
-                      {m.error}
-                    </p>
-                  )}
+                  {m.error && <FailureLine>{m.error}</FailureLine>}
                 </div>
               ))}
             </div>
@@ -355,11 +352,7 @@ export function ModelLibrary({
                   <SpeechCheck disabled={disabled} />
                 </details>
               )}
-              {m.error && (
-                <p role="alert" className="ai-error">
-                  {m.error}
-                </p>
-              )}
+              {m.error && <FailureLine>{m.error}</FailureLine>}
               {removing === m.id && (
                 <div className="ai-remove-confirm">
                   <span>
