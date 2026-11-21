@@ -44,7 +44,7 @@ import { scopedKey, vaultName } from "@/lib/storage";
 import type { VaultList } from "@/lib/platform";
 import { PageTreeItem } from "./PageTreeItem";
 import { DaemonStatus } from "./DaemonStatus";
-import { openSyncSettings, SyncStatus, useSyncStatus } from "./SyncStatus";
+import { openSyncSettings, useSyncStatus } from "./SyncStatus";
 import { useVault } from "./vault-context";
 import { setThemeChoice, useTheme } from "@/lib/theme";
 import "./vault.css";
@@ -367,7 +367,6 @@ export function Sidebar({
           Settings
         </button>
         <div className="border-t px-2 py-1.5">
-          <SyncStatus />
           <DaemonStatus compact />
         </div>
       </div>
