@@ -1,6 +1,5 @@
 import { ArrowLeft } from "lucide-react";
 import { DaemonStatus } from "@/app/DaemonStatus";
-import { SyncStatus } from "@/app/SyncStatus";
 import { ThemeToggle, VaultMenu } from "@/app/Sidebar";
 import { useTechMode } from "@/lib/techMode";
 import { visibleNav, type SettingsSection } from "./sections";
@@ -60,7 +59,6 @@ export function SettingsSidebar({
         ))}
       </nav>
       <div className="border-t px-2 py-1.5">
-        <SyncStatus />
         <DaemonStatus compact />
       </div>
     </div>
