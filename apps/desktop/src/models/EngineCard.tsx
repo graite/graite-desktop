@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Check, Download, FlaskConical, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { FailureLine } from "./FailureLine";
 import { Button } from "@/components/ui/button";
 import { engines, megabytes, variantSize, type EngineState, type NewestBuild } from "@/lib/engines";
 import { useTechMode } from "@/lib/techMode";
@@ -107,11 +108,7 @@ export function EngineCard({
           </Button>
         )}
       </div>
-      {state.error && (
-        <p className="ai-error" role="alert">
-          {state.error}
-        </p>
-      )}
+      {state.error && <FailureLine>{state.error}</FailureLine>}
       <details className="ai-advanced">
         <summary>Build options</summary>
         {!!state.variants?.length && (

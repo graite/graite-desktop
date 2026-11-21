@@ -53,10 +53,18 @@
   gap: 6px;
   text-align: left;
 }
+/* Each vault is one card of the same width: the row to open it and, inside the card, the
+   button that takes it off the list. */
 .vault-picker-recent li {
   display: flex;
   align-items: center;
-  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--background);
+  overflow: hidden;
+}
+.vault-picker-recent li:hover:not(.current) {
+  background: var(--muted);
 }
 .vault-picker-vault {
   flex: 1;
@@ -65,16 +73,15 @@
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--background);
+  background: none;
   cursor: pointer;
   text-align: left;
   font: inherit;
   color: inherit;
 }
-.vault-picker-vault:hover:not(:disabled) {
-  background: var(--muted);
+.vault-picker-vault > svg {
+  flex: none;
+  color: var(--muted-foreground);
 }
 .vault-picker-vault > span {
   flex: 1;
@@ -100,13 +107,16 @@
   white-space: nowrap;
 }
 .vault-picker-forget {
+  flex: none;
   color: var(--muted-foreground);
-  padding: 8px;
+  margin-right: 8px;
+  padding: 7px;
   border-radius: 8px;
   cursor: pointer;
 }
 .vault-picker-forget:hover {
-  background: var(--muted);
+  background: color-mix(in srgb, var(--foreground) 10%, transparent);
+  color: var(--foreground);
 }
 .vault-picker-actions {
   display: flex;
@@ -344,10 +354,31 @@
   vertical-align: 1px;
   white-space: nowrap;
 }
+/* The vault that is open now: a green edge and tint, a filled icon and its own label. */
+.vault-picker-recent li.current {
+  border-color: color-mix(in srgb, var(--tag-green) 55%, var(--border));
+  background: color-mix(in srgb, var(--tag-green) 7%, var(--background));
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--tag-green) 70%, transparent);
+}
 .vault-picker-vault[aria-current="true"] {
   cursor: default;
   opacity: 1;
-  border-color: color-mix(in srgb, var(--foreground) 30%, var(--border));
+}
+.vault-picker-recent li.current .vault-picker-vault > svg {
+  color: color-mix(in srgb, var(--tag-green) 80%, var(--foreground));
+}
+.vault-picker-recent li.current strong {
+  font-weight: 600;
+}
+.vault-picker-vault em.vault-open-now {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tag-green) 16%, transparent);
+  color: color-mix(in srgb, var(--tag-green) 75%, var(--foreground));
+  font-weight: 500;
 }
 .vault-list-title {
   margin: 16px 0 0;

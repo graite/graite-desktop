@@ -1,4 +1,5 @@
 mod daemon;
+mod sysenv;
 #[cfg(target_os = "linux")]
 pub use daemon::bundled_sidecar;
 mod updates;
@@ -86,10 +87,10 @@ fn reveal_folder(path: String) -> Result<(), String> {
     let command = "open";
     #[cfg(target_os = "windows")]
     let command = "explorer";
-    std::process::Command::new(command)
-        .arg(folder)
-        .spawn()
-        .map_err(|e| e.to_string())?;
+    let mut command = std::process::Command::new(command);
+    // Inside an AppImage the file manager must not inherit the app's libraries (sysenv.rs).
+    sysenv::apply(&mut command);
+    command.arg(folder).spawn().map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -131,6 +132,7 @@ fn open_path(path: String) -> Result<(), String> {
         c.creation_flags(0x0800_0000); // CREATE_NO_WINDOW: no console flash for `start`
         c
     };
+    sysenv::apply(&mut command);
     command.arg(file).spawn().map_err(|e| e.to_string())?;
     Ok(())
 }

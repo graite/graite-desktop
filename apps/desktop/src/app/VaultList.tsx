@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FolderOpen, MonitorSmartphone, X } from "lucide-react";
+import { Check, Folder, FolderOpen, MonitorSmartphone, X } from "lucide-react";
 import { platform, type VaultList as Vaults, type VaultProbe } from "@/lib/platform";
 import { vaultName } from "@/lib/storage";
 import "./vault.css";
@@ -60,8 +60,9 @@ export function VaultList({
     <ul className="vault-picker-recent" aria-label="Vaults on this computer">
       {list.recent.map((path) => {
         const probe = probes[path];
+        const open = path === current;
         return (
-          <li key={path}>
+          <li key={path} className={open ? "current" : undefined}>
             <button
               type="button"
               className="vault-picker-vault"
@@ -69,7 +70,7 @@ export function VaultList({
               aria-current={path === current ? "true" : undefined}
               onClick={() => onOpen(path)}
             >
-              <FolderOpen size={16} />
+              {open ? <FolderOpen size={16} /> : <Folder size={16} />}
               <span>
                 <strong>
                   {vaultName(path)}
@@ -77,13 +78,13 @@ export function VaultList({
                 </strong>
                 <small>{path}</small>
               </span>
-              <em>
-                {path === current
-                  ? "Open now"
-                  : !current && path === list.current
-                    ? "Current"
-                    : describe(probe)}
-              </em>
+              {open ? (
+                <em className="vault-open-now">
+                  <Check size={11} /> Open now
+                </em>
+              ) : (
+                <em>{!current && path === list.current ? "Current" : describe(probe)}</em>
+              )}
             </button>
             {path !== current && (
               <button

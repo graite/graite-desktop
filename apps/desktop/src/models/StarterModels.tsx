@@ -7,6 +7,7 @@ import type { components } from "@graite/api-types";
 import { BrandMark } from "./BrandMark";
 import { useCatalog } from "./useCatalog";
 import { useEngine } from "./useEngine";
+import { FailureLine } from "./FailureLine";
 
 type Hardware = components["schemas"]["Hardware"];
 
@@ -179,11 +180,7 @@ export function StarterModels({
                   </Button>
                 )}
               </div>
-              {m.error && (
-                <p role="alert" className="ai-error">
-                  {m.error}
-                </p>
-              )}
+              {m.error && <FailureLine>{m.error}</FailureLine>}
               {removing === m.id && (
                 <div className="ai-remove-confirm">
                   <span>Remove this download to free {megabytes(m.size)}?</span>

@@ -265,6 +265,26 @@
   color: #a83d30;
   background: color-mix(in srgb, #ec937c 10%, var(--background));
 }
+/* A failed download or install, as a line inside its card (FailureLine.tsx). */
+.ai-failure {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 1.5;
+  color: #a83d30;
+  overflow-wrap: anywhere;
+}
+.ai-failure svg {
+  flex: none;
+  margin-top: 2px;
+}
+.ai-failure span {
+  min-width: 0;
+}
 .ai-error button {
   display: block;
   margin-top: 8px;

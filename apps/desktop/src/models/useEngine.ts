@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { onDaemonEvent } from "@/lib/api";
 import { engines, type EngineState } from "@/lib/engines";
 
@@ -39,6 +40,9 @@ export function useEngine(engineId: "llama" | "crispasr", onSettled?: () => void
               }
             : old,
         );
+        // Several cards can watch the same engine; the id makes it one popup, not one each.
+        if (data.status === "error" && data.error)
+          toast.error(data.error, { id: `engine-failed-${engineId}` });
         if (data.status === "idle" || data.status === "error") {
           void refresh();
           settled.current?.();
