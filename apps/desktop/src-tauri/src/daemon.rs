@@ -316,6 +316,14 @@ pub fn start(app: &AppHandle, vault: &Path) -> Result<DaemonState, String> {
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         command.creation_flags(CREATE_NO_WINDOW);
     }
+    // The daemon brings its own libraries; what it starts in turn (engines, command-line
+    // tools) must not get the AppImage's (sysenv.rs).
+    for (name, value) in crate::sysenv::changes() {
+        match value {
+            Some(value) => command.env(name, value),
+            None => command.env_remove(name),
+        };
+    }
     let mut child = command
         // Text I/O defaults to UTF-8 on Windows too, not the ANSI code page.
         .env("PYTHONUTF8", "1")
