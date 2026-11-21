@@ -21,7 +21,7 @@ import os
 import subprocess
 import sys
 from collections.abc import Iterable
-from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Final
 
 if sys.platform == "win32":
@@ -37,18 +37,20 @@ def system_library_path(value: str, bundle_dirs: Iterable[str]) -> str | None:
     AppImage) and entries inside any AppImage mount (`.mount_…`), which an update in place
     leaves behind from the copy that was running before.
     """
-    bundles = [Path(folder) for folder in bundle_dirs if folder]
+    # This is a Linux variable: ":" between entries and POSIX paths, on whatever system the
+    # code runs (the tests run on Windows too).
+    bundles = [PurePosixPath(folder) for folder in bundle_dirs if folder]
     kept = []
-    for entry in value.split(os.pathsep):
+    for entry in value.split(":"):
         if not entry:
             continue
-        path = Path(entry)
+        path = PurePosixPath(entry)
         if any(part.startswith(".mount_") for part in path.parts):
             continue
         if any(path == bundle or bundle in path.parents for bundle in bundles):
             continue
         kept.append(entry)
-    return os.pathsep.join(kept) or None
+    return ":".join(kept) or None
 
 
 def restore_system_libraries() -> None:
