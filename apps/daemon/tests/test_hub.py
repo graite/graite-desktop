@@ -159,3 +159,46 @@ def test_importance_matrix_is_not_a_model(tmp_path: Path) -> None:
     path.write_bytes(b"GGUFtest")
     with pytest.raises(ValueError):
         local_file(str(path))
+
+
+def test_models_other_apps_keep_are_found_without_touching_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from graite.models import hub
+
+    # The Hugging Face cache: the model is a link from a snapshot to a blob beside it.
+    cache = tmp_path / "hub"
+    blob = cache / "models--acme--tiny" / "blobs" / "abc123"
+    snapshot = cache / "models--acme--tiny" / "snapshots" / "rev1"
+    blob.parent.mkdir(parents=True)
+    snapshot.mkdir(parents=True)
+    blob.write_bytes(b"GGUFtest")
+    (snapshot / "tiny-Q4_K_M.gguf").symlink_to(blob)
+    # A link that leads out of the folder is never followed.
+    outside = tmp_path / "elsewhere.gguf"
+    outside.write_bytes(b"GGUFtest")
+    (snapshot / "sneaky.gguf").symlink_to(outside)
+    studio = tmp_path / "lmstudio"
+    (studio / "pub" / "repo").mkdir(parents=True)
+    (studio / "pub" / "repo" / "chat-Q8.gguf").write_bytes(b"GGUFtest")
+    (studio / "pub" / "repo" / "mmproj-chat.gguf").write_bytes(b"GGUFtest")  # not a model
+    own = tmp_path / "graite-models"
+    own.mkdir()
+    (own / "mine.gguf").write_bytes(b"GGUFtest")
+    monkeypatch.setattr(
+        hub,
+        "known_folders",
+        lambda: [
+            ("Hugging Face", cache),
+            ("LM Studio", studio),
+            ("Graite", own),
+            ("Jan", tmp_path / "missing"),
+        ],
+    )
+    found = hub.find_local(skip=own)
+    assert [m.name for m in found] == ["chat-Q8.gguf", "tiny-Q4_K_M.gguf"]
+    assert found[1].local_path == str(snapshot / "tiny-Q4_K_M.gguf")
+    assert found[0].notes.startswith("Found in LM Studio") and found[0].status == "installed"
+    # A hand-picked folder still ignores links altogether.
+    with pytest.raises(ValueError):
+        hub.scan(str(cache))
