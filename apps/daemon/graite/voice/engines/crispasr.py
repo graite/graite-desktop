@@ -55,6 +55,24 @@ STABLE_DECODE = (
     {} if sys.platform == "darwin" else {"CRISPASR_CHATTERBOX_DUMP_LOGITS_AT": "999999999"}
 )
 
+# A few words on their own ("Hi Sam.", "Sure.") give the model too little text to hold on to.
+# Measured on 2026-11-23 with v0.8.54, six seeds each: at a guidance of 0.15 "Hi Sam." came out
+# as up to three seconds of invented syllables twice and lost its first sound once more; at 0.5
+# every take was the two words. Sentences showed no such difference. So short texts get at
+# least that much guidance, and a take that runs far past what its text can need is made again
+# with another seed (the engine's own seed is fixed, so the same request repeats the same take).
+SHORT_CHARS = 24
+SHORT_GUIDANCE = 0.5
+SHORT_ATTEMPTS = 3
+PIECE = 32 * 1024
+
+
+def runs_on(text: str, pcm: bytes, rate: int) -> bool:
+    """Whether a short text's audio is longer than those words can take. Good takes of 7 to 10
+    characters measured 0.8 to 1.25 s including the engine's closing silence; runaways 1.6 s
+    and up."""
+    return len(pcm) / 2 / rate > 0.9 + 0.06 * len(text)
+
 
 def resolve_binary(custom_path: str) -> Path | None:
     """The user's own build (Advanced), else the installed voice engine, else `PATH`."""
@@ -242,6 +260,31 @@ class CrispasrEngine:
                 "spoken_disclaimer": False,
                 "marking_attestation": MARKING,
             }
+        if len(text) >= SHORT_CHARS:
+            async for chunk in self._stream(body):
+                yield chunk
+            return
+        # The engine sends a sentence only once it is whole, so holding a short one back to
+        # look at it costs no time.
+        body["cfg_scale"] = max(voice.cfg, SHORT_GUIDANCE)
+        best = b""
+        for attempt in range(SHORT_ATTEMPTS):
+            if attempt:
+                body["seed"] = attempt
+            pcm = b"".join([chunk async for chunk in self._stream(body)])
+            if pcm and (not best or len(pcm) < len(best)):
+                best = pcm
+            if pcm and not runs_on(text, pcm, self.sample_rate):
+                break
+            log.info(
+                "a short sentence (%d characters) came out as %.1f s; trying another take",
+                len(text),
+                len(pcm) / 2 / self.sample_rate,
+            )
+        for start in range(0, len(best), PIECE):
+            yield best[start : start + PIECE]
+
+    async def _stream(self, body: dict[str, Any]) -> AsyncIterator[bytes]:
         headers = {"Authorization": f"Bearer {self._key}"}
         try:
             async for chunk in self._request(body, headers):
@@ -250,6 +293,17 @@ class CrispasrEngine:
             if await self._died():
                 raise EngineCrashed("The speech engine stopped unexpectedly.") from exc
             raise
+
+    def stamp(self) -> str:
+        """Which engine build and model this is: audio kept from another one is not reused."""
+        parts = []
+        for file in (self.binary, self.t3, self.s3gen):
+            try:
+                stat = file.stat()
+                parts.append(f"{file.name}:{stat.st_size}:{stat.st_mtime_ns}")
+            except OSError:
+                parts.append(file.name)
+        return "|".join(parts)
 
     async def _request(self, body: dict[str, Any], headers: dict[str, str]) -> AsyncIterator[bytes]:
         async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=5)) as client:

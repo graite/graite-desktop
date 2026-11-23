@@ -395,12 +395,24 @@ def test_the_assistant_greets_by_name_and_the_greeting_is_not_a_message(
         assert next(e for e in seen if e["type"] == "audio_start")["text"] == "Hoi Sam."
         hang_up(ws)
     assert client.get(f"/api/v1/ai/conversations/{conversation['id']}").json()["messages"] == []
+    # Shown as written; spoken with a comma before the name, which the voice gets right.
+    assert [text for text, _ in tts.spoken] == ["Hoi, Sam."]
     # Synthesized once: the next conversation plays it from the cache.
-    assert list((settings.app_dir / "cache" / "voice").glob("greeting-*.pcm"))
+    folder = settings.app_dir / "cache" / "voice"
+    (kept,) = folder.glob("greeting-*.pcm")
+    (folder / "greeting-0000000000000000.pcm").write_bytes(b"from an older engine")
     with connect(client, conversation["id"]) as ws:
         begin(ws)
         hang_up(ws)
-    assert [t for t, _ in tts.spoken] == ["Hoi Sam."]
+    assert len(tts.spoken) == 1
+    # Another engine build makes its own, and what the older one left behind goes.
+    tts.stamp = lambda: "a newer build"  # type: ignore[attr-defined]
+    with connect(client, conversation["id"]) as ws:
+        begin(ws)
+        hang_up(ws)
+    assert len(tts.spoken) == 2
+    (remade,) = folder.glob("greeting-*.pcm")
+    assert remade != kept
 
 
 def test_a_tool_wait_is_filled_with_speech_and_the_phase_follows_it(

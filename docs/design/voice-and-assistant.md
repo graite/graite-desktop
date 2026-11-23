@@ -230,9 +230,10 @@ something else; an isolated, very short "stop" may not reach six voiced frames.
 
 A conversation opens with the assistant speaking: "Hi <name>." from the definition's
 `user_name`, or "Hi there." without one, from a small per-language table
-(`voice/runtime.py: greeting_text`, English when the language is automatic). It is synthesized
-while the rest of the session loads and cached as PCM per voice and text under
-`<app_dir>/cache/voice/`, so it plays at once on every later start. It arrives as
+(`voice/runtime.py: greeting_text`, English when the language is automatic). The voice is
+handed it with a comma before the name ("Hi, <name>."), which it says more reliably (D127). It is
+synthesized while the rest of the session loads and cached as PCM per voice, text and engine
+build under `<app_dir>/cache/voice/`, so it plays at once on every later start. It arrives as
 `audio_start {greeting: true}`, is shown as the assistant's line and is **not** saved as a
 message — the conversation still starts with whatever the user says. It doubles as the
 quickest proof that sound comes out at all.

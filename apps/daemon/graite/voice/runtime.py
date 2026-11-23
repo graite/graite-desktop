@@ -34,9 +34,20 @@ GREETINGS = {
 }
 
 
-def greeting_text(name: str | None, language: str) -> str:
+# Part of the name the greeting is kept under: raise it when the way it is made changes.
+GREETING_REVISION = 2
+
+
+def greeting_text(name: str | None, language: str, *, spoken: bool = False) -> str:
+    """The greeting as shown, or as handed to the voice. Spoken, the name follows a comma:
+    "Hi, Sam." came out right in six takes of six where "Hi Sam." ran the two words together
+    (measured 2026-11-23, Chatterbox)."""
     named, plain = GREETINGS.get(language, GREETINGS["en"])
-    return named.format(name=name.strip()) if name and name.strip() else plain
+    if not (name and name.strip()):
+        return plain
+    if spoken:
+        named = named.replace(" {name}", ", {name}")
+    return named.format(name=name.strip())
 
 
 class Busy(ValueError):
@@ -236,7 +247,9 @@ class VoiceRuntime:
         they are there before the engine has finished loading."""
         import hashlib
 
-        text = greeting_text(definition.user_name or first_name(), voice.language)
+        name = definition.user_name or first_name()
+        text = greeting_text(name, voice.language)
+        say = greeting_text(name, voice.language, spoken=True)
         stamp = ""
         if voice.reference is not None:
             try:
@@ -244,10 +257,14 @@ class VoiceRuntime:
                 stamp = f"{voice.reference}:{stat.st_size}:{stat.st_mtime_ns}"
             except OSError:
                 stamp = str(voice.reference)
+        engine_stamp = getattr(tts, "stamp", None)
         key = "|".join(
             [
+                str(GREETING_REVISION),
                 tts.name,
-                text,
+                # The engine build and model: a greeting made by an older one is made again.
+                await asyncio.to_thread(engine_stamp) if callable(engine_stamp) else "",
+                say,
                 voice.language,
                 stamp,
                 f"{voice.exaggeration:.2f}",
@@ -262,17 +279,21 @@ class VoiceRuntime:
                 return text, await asyncio.to_thread(cached.read_bytes)
         except OSError:
             pass
-        chunks = [chunk async for chunk in tts.synthesize(text, voice)]
+        chunks = [chunk async for chunk in tts.synthesize(say, voice)]
         pcm = b"".join(chunks)
 
         def keep() -> None:
             folder.mkdir(parents=True, exist_ok=True)
             cached.write_bytes(pcm)
+            for other in folder.glob("greeting-*.pcm"):  # other voices, engines and settings
+                if other != cached:
+                    other.unlink(missing_ok=True)
 
-        try:
-            await asyncio.to_thread(keep)
-        except OSError:
-            pass
+        if pcm:  # an engine that said nothing is asked again next time
+            try:
+                await asyncio.to_thread(keep)
+            except OSError:
+                pass
         return text, pcm
 
     async def open(

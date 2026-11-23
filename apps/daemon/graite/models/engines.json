@@ -199,7 +199,7 @@
       "id": "crispasr",
       "name": "Voice engine",
       "binary": "crispasr",
-      "version": "v0.8.54",
+      "version": "v0.8.55",
       "repo": "CrispStrobe/CrispASR",
       "license": "MIT",
       "purpose": "Turns your assistant’s written replies into speech, in the built-in voice or one you add. Graite starts it on this computer when you talk with your assistant.",
@@ -212,9 +212,9 @@
           "label": "Apple Silicon (Metal)",
           "archives": [
             {
-              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.54/crispasr-macos.tar.gz",
-              "sha256": "3d03315456dec8561d57295464d221dda856ae8b87357bfa600aca6945bcab65",
-              "size": 18679558
+              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.55/crispasr-macos.tar.gz",
+              "sha256": "b828cf1065ab1c4196b595ac04b5cf2f5bffe3edebaf629f0637d433407a1b18",
+              "size": 19075547
             }
           ]
         },
@@ -226,9 +226,9 @@
           "label": "Graphics card (Vulkan)",
           "archives": [
             {
-              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.54/crispasr-linux-x86_64-vulkan.tar.gz",
-              "sha256": "a34b05b39e3b4ae6e83f30c3c64dc486b6f9363d971dcfc3f1bfdddad5ba55ab",
-              "size": 72101582
+              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.55/crispasr-linux-x86_64-vulkan.tar.gz",
+              "sha256": "383e09a387601016daf75024ccb9f891c55e4bb5c5c2c24d2549c0cb08726976",
+              "size": 73095127
             }
           ]
         },
@@ -240,9 +240,9 @@
           "label": "Processor only",
           "archives": [
             {
-              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.54/crispasr-linux-x86_64.tar.gz",
-              "sha256": "a5612bca2dbb096b81972f573ec024a5944d3a63fc18ccd2d9a8489758ddb6f1",
-              "size": 44185817
+              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.55/crispasr-linux-x86_64.tar.gz",
+              "sha256": "93fae68ebd8d22e705447ce01d4953003628ec6b42fddf446ea6892a9c6899ed",
+              "size": 45184598
             }
           ]
         },
@@ -254,9 +254,9 @@
           "label": "Processor only",
           "archives": [
             {
-              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.54/crispasr-linux-arm64.tar.gz",
-              "sha256": "550ea0bd2bcd8cc57d4cb8defb76436bf7bba803a468b2f56c3a9b662159bc6a",
-              "size": 37019019
+              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.55/crispasr-linux-arm64.tar.gz",
+              "sha256": "9d70561bb67d6ff2e6922ea4ebc871b1951e3ede353c44b78a34cd1e1f801697",
+              "size": 37932162
             }
           ]
         },
@@ -268,9 +268,9 @@
           "label": "Graphics card (Vulkan)",
           "archives": [
             {
-              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.54/crispasr-windows-x86_64-vulkan.zip",
-              "sha256": "a05f479cf27842d053b2ba416a537fc0fee830dade1fdd94c4f7688f3c7685ef",
-              "size": 37209010
+              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.55/crispasr-windows-x86_64-vulkan.zip",
+              "sha256": "17c49ce37de0eedb8aa5077564fd29ec5f789c440057c3126cbe09bf7dd88c33",
+              "size": 37841105
             }
           ]
         },
@@ -282,9 +282,9 @@
           "label": "Processor only",
           "archives": [
             {
-              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.54/crispasr-windows-x86_64-cpu.zip",
-              "sha256": "7bfb1f91babc278032235b9210c2b867f6968152b70a9eccc615db488a8a6c1e",
-              "size": 9480964
+              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.55/crispasr-windows-x86_64-cpu.zip",
+              "sha256": "f3b9643b7874e66cd366cda81d37d101677f18ab6e3a3255ff65dae19a439740",
+              "size": 9702256
             }
           ]
         },
@@ -296,9 +296,9 @@
           "label": "NVIDIA (CUDA 13)",
           "archives": [
             {
-              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.54/crispasr-windows-x86_64-cuda13.zip",
-              "sha256": "38bcabd2139c83b9264272a4120309529f15cbebf7d55cbf91ba6064df7676e1",
-              "size": 569785619
+              "url": "https://github.com/CrispStrobe/CrispASR/releases/download/v0.8.55/crispasr-windows-x86_64-cuda13.zip",
+              "sha256": "55110590ae8d32a973ad04b7096884f3eb958e73aa6171ad14481c31c3549c92",
+              "size": 570614503
             }
           ]
         }

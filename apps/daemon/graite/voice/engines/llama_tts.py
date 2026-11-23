@@ -221,6 +221,17 @@ class LlamaTtsEngine:
                 raise EngineCrashed("The voice model's engine stopped unexpectedly.") from exc
             raise
 
+    def stamp(self) -> str:
+        """Which engine build and model this is: audio kept from another one is not reused."""
+        parts = []
+        for file in (self.binary, self.model, self.mmproj):
+            try:
+                stat = file.stat()
+                parts.append(f"{file.name}:{stat.st_size}:{stat.st_mtime_ns}")
+            except OSError:
+                parts.append(file.name)
+        return "|".join(parts)
+
     async def _request(self, body: dict[str, Any]) -> AsyncIterator[bytes]:
         headers = {"Authorization": f"Bearer {self._key}"}
         async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=5)) as client:
