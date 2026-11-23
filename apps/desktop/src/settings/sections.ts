@@ -10,6 +10,7 @@ import {
   Search,
   Server,
   Settings2,
+  Ticket,
   type LucideIcon,
 } from "lucide-react";
 import type { AIConfig } from "@/lib/ai";
@@ -26,6 +27,7 @@ export type SettingsSection =
   | "graite"
   | "sync"
   | "connectors"
+  | "claude"
   | "keys";
 
 /** A section, or a name from before Settings had a sidebar: "chat" opens whichever section
@@ -53,7 +55,13 @@ export const NAV: { title?: string; items: NavItem[] }[] = [
       { id: "sync", label: "Sync devices", icon: MonitorSmartphone },
     ],
   },
-  { title: "Your AI apps", items: [{ id: "connectors", label: "AI connectors", icon: Plug }] },
+  {
+    title: "Your AI apps",
+    items: [
+      { id: "connectors", label: "AI connectors", icon: Plug },
+      { id: "claude", label: "Use Claude subscription", icon: Ticket },
+    ],
+  },
   { title: "Your own keys", items: [{ id: "keys", label: "API keys", icon: KeyRound }] },
   {
     title: "Local AI",
@@ -109,6 +117,7 @@ export function chatSection(config: Pick<AIConfig, "provider" | "base_url">): Se
   if (config.provider === "local") return "local";
   if (config.provider === "graite") return "graite";
   if (config.provider === "device") return "workstation";
+  if (config.provider === "claude_code") return "claude";
   if (config.provider === "anthropic") return "keys";
   return isOwnNetwork(hostOf(config.base_url)) ? "server" : "keys";
 }

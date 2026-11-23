@@ -54,6 +54,8 @@ def ask(client: TestClient, monkeypatch: pytest.MonkeyPatch, scope: dict[str, An
         ("compatible", REMOTE, True),
         ("anthropic", "https://api.anthropic.com", True),
         ("graite", "http://127.0.0.1:8000", True),  # hosted, whatever the address says
+        # The user's own Claude Code still sends what it reads to Anthropic.
+        ("claude_code", "http://127.0.0.1:1234/v1", True),
     ],
 )
 def test_only_this_computer_counts_as_local(provider: str, base_url: str, cloud: bool) -> None:

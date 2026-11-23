@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal
 
+from graite.agent.claude_code import run as claude_code_loop
 from graite.agent.loop import run as agent_loop
 from graite.agent.loop import thoughts, visible
 from graite.index.db import transaction
@@ -46,6 +47,7 @@ PROVIDER_LABELS = {
     "openrouter": "OpenRouter",
     "anthropic": "Claude",
     "graite": "Graite Cloud",
+    "claude_code": "Claude (your subscription)",
 }
 
 
@@ -864,7 +866,9 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                     page_instructions=page_notes,
                 )
                 yield sources_event()
-            async for item in agent_loop(
+            # Claude Code runs the tool loop itself and reports the same events.
+            loop = claude_code_loop if provider.kind == "claude_code" else agent_loop
+            async for item in loop(
                 provider,
                 prompt,
                 registry,

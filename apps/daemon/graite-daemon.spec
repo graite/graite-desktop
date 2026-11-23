@@ -56,6 +56,8 @@ a = Analysis(
     + collect_submodules("keyring.backends")
     + collect_submodules("mcp.server")
     + collect_submodules("mcp.shared")
+    # The Agent SDK is imported lazily, when a chat first goes through Claude Code.
+    + collect_submodules("claude_agent_sdk")
     + ["sqlite_vec", "mcp.types", "numpy", "onnxruntime", "onnxruntime.capi._pybind_state"],
     hookspath=[],
     runtime_hooks=[],
@@ -63,6 +65,14 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
+# The Agent SDK ships a copy of Claude Code (hundreds of MB). Graite only ever runs the copy
+# the user installed and signed in to themselves (agent/claude_code.py), so it stays out.
+def _not_bundled_claude(entry):
+    return "claude_agent_sdk/_bundled" not in entry[0].replace("\\", "/")
+
+
+a.datas = [entry for entry in a.datas if _not_bundled_claude(entry)]
+a.binaries = [entry for entry in a.binaries if _not_bundled_claude(entry)]
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,

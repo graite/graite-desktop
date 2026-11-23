@@ -19,6 +19,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+from graite.agent.claude_code import MODELS as CLAUDE_CODE_MODELS
 from graite.cloud.session import get_cloud
 from graite.jobs.queue import PRIORITY_INTERACTIVE
 from graite.models.config import (
@@ -102,10 +103,18 @@ def active_model(config: AIConfig, catalog: dict[str, Any]) -> ActiveModel | Non
             model=saved.model,
         )
     return ActiveModel(
-        label="Graite Cloud" if config.provider == "graite" else config.model,
+        label=(
+            "Graite Cloud"
+            if config.provider == "graite"
+            else f"Claude {config.model.capitalize()}"
+            if config.provider == "claude_code"
+            else config.model
+        ),
         connection_name=(
             "Graite Cloud"
             if config.provider == "graite"
+            else "Claude subscription"
+            if config.provider == "claude_code"
             else KIND_NAMES.get(config.provider, config.provider)
         ),
         kind=config.provider,
@@ -163,6 +172,8 @@ def _reasoning(config: AIConfig, manager: Any) -> dict[str, bool]:
         return {"toggle": known is not False and probe.reasoning()["toggle"], "effort": False}
     if not config.model:
         return {"toggle": False, "effort": False}
+    if config.provider == "claude_code":
+        return {"toggle": False, "effort": True}
     if config.provider == "device":  # another computer's local engine: the same switch
         return {"toggle": Provider("local", "", "local", "").reasoning()["toggle"], "effort": False}
     return Provider(config.provider, config.base_url, config.model, "").reasoning()
@@ -259,6 +270,8 @@ class ModelList(BaseModel):
 async def discover(body: SaveConfig) -> ModelList:
     if body.provider == "local":
         return ModelList(models=[])
+    if body.provider == "claude_code":
+        return ModelList(models=list(CLAUDE_CODE_MODELS))
     try:
         key = body.api_key or await asyncio.to_thread(get_key, body)
         provider = Provider(body.provider, body.base_url, body.model, key or "")
@@ -1003,7 +1016,11 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
                 if isinstance(exc, ValueError)
                 else "Could not reach the model. Check Settings → Chat."
             )
-            await queue.put({"type": "error", "text": detail})
+            failure: dict[str, Any] = {"type": "error", "text": detail}
+            action = getattr(exc, "action", None)  # the button that fixes it (Claude Code)
+            if action:
+                failure["action"] = action
+            await queue.put(failure)
         except Exception as exc:  # noqa: BLE001
             log.exception("chat turn failed")
             await queue.put(
@@ -1155,6 +1172,10 @@ async def add_hub(body: HubImport, request: Request) -> CatalogModel:
     return CatalogModel.model_validate(downloads.start(item.id))
 
 
+class FoundModels(BaseModel):
+    ids: list[str] = Field(max_length=500)
+
+
 @router.post("/hub/folder", response_model=list[CatalogModel])
 async def add_folder(body: LocalFolder, request: Request) -> list[CatalogModel]:
     from graite.models.hub import scan
@@ -1166,6 +1187,29 @@ async def add_folder(body: LocalFolder, request: Request) -> list[CatalogModel]:
             400, str(exc) if isinstance(exc, ValueError) else "Could not read this folder."
         ) from exc
     return [request.app.state.downloads.register(item) for item in models]
+
+
+@router.get("/hub/found", response_model=list[CatalogModel])
+async def find_local_models(request: Request) -> list[CatalogModel]:
+    """GGUF models other apps (LM Studio, the Hugging Face cache, llama.cpp…) already keep on
+    this computer and that are not in the library yet. Nothing is added by looking."""
+    from graite.models.hub import find_local
+
+    downloads = request.app.state.downloads
+    found = await asyncio.to_thread(find_local, downloads.directory)
+    known = set(downloads.items)
+    return [item for item in found if item.id not in known]
+
+
+@router.post("/hub/found", response_model=list[CatalogModel])
+async def add_found_models(body: FoundModels, request: Request) -> list[CatalogModel]:
+    """Add models from the list above to the library, by id: only what was found is taken,
+    never a path from the request."""
+    from graite.models.hub import find_local
+
+    downloads = request.app.state.downloads
+    found = await asyncio.to_thread(find_local, downloads.directory)
+    return [downloads.register(item) for item in found if item.id in set(body.ids)]
 
 
 @router.post("/hub/file", response_model=CatalogModel)

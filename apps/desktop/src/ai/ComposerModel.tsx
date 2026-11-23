@@ -11,10 +11,12 @@ import {
   Settings2,
   SlidersHorizontal,
   Telescope,
+  Ticket,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ai, type AIConfig, type AIStatus } from "@/lib/ai";
 import { cloud, type CloudModel } from "@/lib/cloud";
+import { claudeCode } from "@/lib/claudeCode";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -104,6 +106,8 @@ export function ComposerModel({
       mounted.current = false;
     };
   }, []);
+  // A Claude subscription, when Claude Code is signed in: its models, by family.
+  const [claudeModels, setClaudeModels] = useState<string[]>([]);
   const refreshCloud = useCallback(async () => {
     let offered: CloudModel | null = null;
     try {
@@ -112,7 +116,16 @@ export function ComposerModel({
     } catch {
       offered = null;
     }
-    if (mounted.current) setCloudModel(offered);
+    let claude: string[] = [];
+    try {
+      const found = await claudeCode.status();
+      if (found.signed_in) claude = found.models;
+    } catch {
+      claude = [];
+    }
+    if (!mounted.current) return;
+    setCloudModel(offered);
+    setClaudeModels(claude);
   }, []);
   useEffect(() => {
     void refreshCloud();
@@ -159,12 +172,34 @@ export function ComposerModel({
               // Graite Cloud and a workstation are not saved connections: leaving either as
               // the provider would make the daemon drop the saved model again.
               provider:
-                fresh.provider === "graite" || fresh.provider === "device"
+                fresh.provider === "graite" ||
+                fresh.provider === "device" ||
+                fresh.provider === "claude_code"
                   ? "compatible"
                   : fresh.provider,
               saved_model_id: option.saved_model_id ?? null,
             };
       await ai.save(next);
+      await refresh();
+      onModelChanged?.();
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  const chooseClaude = async (model: string) => {
+    if (!config || saving || busy || working) return;
+    setSaving(true);
+    try {
+      const fresh = (await ai.status()).config;
+      await ai.save({
+        ...fresh,
+        provider: "claude_code",
+        model,
+        saved_model_id: null,
+        connection_id: null,
+      });
       await refresh();
       onModelChanged?.();
     } catch (error) {
@@ -193,6 +228,20 @@ export function ComposerModel({
             <span className="flex-1 truncate">Graite Cloud</span>
             {config?.provider === "graite" && <Check size={14} />}
           </DropdownMenuItem>
+        </div>
+      )}
+      {claudeModels.length > 0 && (
+        <div>
+          <DropdownMenuLabel className="ai-model-group">Claude subscription</DropdownMenuLabel>
+          {claudeModels.map((model) => (
+            <DropdownMenuItem key={model} onSelect={() => void chooseClaude(model)}>
+              <Ticket size={15} />
+              <span className="flex-1 truncate">
+                Claude {model.charAt(0).toUpperCase() + model.slice(1)}
+              </span>
+              {config?.provider === "claude_code" && config.model === model && <Check size={14} />}
+            </DropdownMenuItem>
+          ))}
         </div>
       )}
       {groups.map((group) =>
@@ -228,11 +277,14 @@ export function ComposerModel({
           ))}
         </div>
       ))}
-      {!cloudModel && !stations.length && !groups.some((g) => g.options.length) && (
-        <DropdownMenuItem disabled>
-          No model yet. Download one or connect a server in Settings.
-        </DropdownMenuItem>
-      )}
+      {!cloudModel &&
+        !claudeModels.length &&
+        !stations.length &&
+        !groups.some((g) => g.options.length) && (
+          <DropdownMenuItem disabled>
+            No model yet. Download one or connect a server in Settings.
+          </DropdownMenuItem>
+        )}
       {onSettings && !compact && (
         <>
           <DropdownMenuSeparator />

@@ -17,6 +17,7 @@ import {
   Server,
   Settings2,
   ShieldCheck,
+  Ticket,
   BadgeCheck,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -34,6 +35,7 @@ import "./ai.css";
 import "@/settings/settings.css";
 import { ConnectionsCard } from "./ConnectionsCard";
 import { GraiteCloudCard } from "./GraiteCloudCard";
+import { ClaudeCodeCard } from "./ClaudeCodeCard";
 import { WorkstationCard } from "./WorkstationCard";
 import { useWorkstations } from "./useWorkstations";
 import { useSyncStatus } from "@/app/SyncStatus";
@@ -66,7 +68,7 @@ import { setThemeChoice, useThemeChoice, type ThemeChoice } from "@/lib/theme";
 export type { SettingsTab };
 
 /** Sections that set the chat model: they end in "Save & check connection". */
-const MODEL_SECTIONS: SettingsSection[] = ["local", "server", "graite", "keys"];
+const MODEL_SECTIONS: SettingsSection[] = ["local", "server", "graite", "claude", "keys"];
 /** Sections that edit the shared draft of the model settings, and so show the Save bar. */
 const DRAFT_SECTIONS: SettingsSection[] = [...MODEL_SECTIONS, "voice", "search", "documents"];
 
@@ -93,6 +95,7 @@ const CHAT_SOURCE: Record<SettingsSection, string> = {
   sync: "another model",
   workstation: "your AI workstation",
   connectors: "another model",
+  claude: "your Claude subscription",
   keys: "your API key",
 };
 
@@ -383,6 +386,38 @@ export function ModelsPage({
                   the connectors (or apps) settings in Claude, ChatGPT, Gemini or your other app,
                   find Graite, and sync or reconnect it.
                 </p>
+              </>,
+            )}
+            {panel(
+              "claude",
+              <>
+                <Explainer
+                  icon={Ticket}
+                  title="Use Claude subscription"
+                  text="Already paying for Claude? Make it earn its keep here too. No API key, no second bill: you sign in with Anthropic, and Graite just borrows the brain."
+                />
+                {chatUse("claude", () =>
+                  patch({
+                    provider: "claude_code",
+                    model: "sonnet",
+                    saved_model_id: null,
+                    connection_id: null,
+                  }),
+                )}
+                <fieldset className="ai-setup-card" disabled={!!busy}>
+                  <ClaudeCodeCard
+                    activeModel={config.provider === "claude_code" ? config.model : null}
+                    disabled={!!busy}
+                    onPick={(model) =>
+                      patch({
+                        provider: "claude_code",
+                        model,
+                        saved_model_id: null,
+                        connection_id: null,
+                      })
+                    }
+                  />
+                </fieldset>
               </>,
             )}
             {panel(

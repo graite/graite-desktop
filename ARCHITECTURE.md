@@ -256,6 +256,10 @@ class Provider(Protocol):
 keychain via `keyring`, never in the vault. Model resolution: page/folder `model:` →
 vault config → app default; unavailable → default plus a `model_status` event.
 
+A Claude subscription is the one provider that is not an HTTP endpoint (`claude_code`, D125):
+the daemon runs the user's own Claude Code through the Agent SDK. Graite holds no credential
+for it; Claude Code runs the tool loop over Graite's registry, with its own tools switched off.
+
 ## 6. Skills and the agent loop
 
 Registry (`@skill` decorator, signature → JSON Schema, `SkillResult`,
