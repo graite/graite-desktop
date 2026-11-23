@@ -125,6 +125,7 @@ it("lists Graite Cloud first and Local AI as one tab per task", async () => {
     "Graite Cloud",
     "Sync devices",
     "AI connectors",
+    "Use Claude subscription",
     "API keys",
     "Chat",
     "Search",
@@ -268,6 +269,7 @@ it("explains every section the same way before its controls", async () => {
     "AI workstation",
     "Graite Cloud",
     "AI connectors",
+    "Use Claude subscription",
     "API keys",
   ]) {
     const section = within(panel(name));

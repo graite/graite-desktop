@@ -553,8 +553,8 @@
   .review-changes[data-highlight-changes]
   .review-markdown[data-kind] {
   padding: 9px 12px;
-  border-left: 2px solid var(--review-change-edge);
-  border-radius: 0 6px 6px 0;
+  border: 1px solid var(--review-change-edge);
+  border-radius: 6px;
   background: var(--review-change-bg);
   color: var(--review-change-ink);
 }

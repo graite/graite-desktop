@@ -128,7 +128,8 @@
               "anthropic",
               "openrouter",
               "graite",
-              "device"
+              "device",
+              "claude_code"
             ],
             "title": "Provider",
             "type": "string"
@@ -1933,6 +1934,52 @@
         "title": "CheckResult",
         "type": "object"
       },
+      "ClaudeCodeInfo": {
+        "properties": {
+          "can_open_terminal": {
+            "title": "Can Open Terminal",
+            "type": "boolean"
+          },
+          "connected": {
+            "default": false,
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "installed": {
+            "default": false,
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "method": {
+            "default": "",
+            "title": "Method",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "plan": {
+            "default": "",
+            "title": "Plan",
+            "type": "string"
+          },
+          "signed_in": {
+            "default": false,
+            "title": "Signed In",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "models",
+          "can_open_terminal"
+        ],
+        "title": "ClaudeCodeInfo",
+        "type": "object"
+      },
       "ClientLog": {
         "properties": {
           "context": {
@@ -3501,6 +3548,23 @@
         "title": "FormulaCheck",
         "type": "object"
       },
+      "FoundModels": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "title": "FoundModels",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -3913,6 +3977,29 @@
           "at"
         ],
         "title": "LastUsed",
+        "type": "object"
+      },
+      "Launch": {
+        "properties": {
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "opened": {
+            "title": "Opened",
+            "type": "boolean"
+          },
+          "url": {
+            "default": "",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "opened",
+          "command"
+        ],
+        "title": "Launch",
         "type": "object"
       },
       "LocalFolder": {
@@ -7001,7 +7088,8 @@
               "anthropic",
               "openrouter",
               "graite",
-              "device"
+              "device",
+              "claude_code"
             ],
             "title": "Provider",
             "type": "string"
@@ -9303,6 +9391,69 @@
         ]
       }
     },
+    "/api/v1/ai/claude-code/install": {
+      "post": {
+        "operationId": "claude_code_install_api_v1_ai_claude_code_install_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Launch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Claude Code Install",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/api/v1/ai/claude-code/login": {
+      "post": {
+        "operationId": "claude_code_login_api_v1_ai_claude_code_login_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Launch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Claude Code Login",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/api/v1/ai/claude-code/status": {
+      "get": {
+        "operationId": "claude_code_status_api_v1_ai_claude_code_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaudeCodeInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Claude Code Status",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
     "/api/v1/ai/config": {
       "put": {
         "operationId": "configure_api_v1_ai_config_put",
@@ -10380,6 +10531,76 @@
           }
         },
         "summary": "Add Folder",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/api/v1/ai/hub/found": {
+      "get": {
+        "description": "GGUF models other apps (LM Studio, the Hugging Face cache, llama.cpp\u2026) already keep on\nthis computer and that are not in the library yet. Nothing is added by looking.",
+        "operationId": "find_local_models_api_v1_ai_hub_found_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogModel"
+                  },
+                  "title": "Response Find Local Models Api V1 Ai Hub Found Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Find Local Models",
+        "tags": [
+          "AI"
+        ]
+      },
+      "post": {
+        "description": "Add models from the list above to the library, by id: only what was found is taken,\nnever a path from the request.",
+        "operationId": "add_found_models_api_v1_ai_hub_found_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FoundModels"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogModel"
+                  },
+                  "title": "Response Add Found Models Api V1 Ai Hub Found Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Found Models",
         "tags": [
           "AI"
         ]

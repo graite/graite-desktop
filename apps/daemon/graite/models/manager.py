@@ -122,6 +122,20 @@ class Manager:
                     max_tokens=config.max_output_tokens,
                 )
                 return
+            if config.provider == "claude_code":
+                from graite.agent.claude_code import (
+                    NOT_INSTALLED,
+                    ClaudeCodeError,
+                    ClaudeCodeProvider,
+                    find_cli,
+                )
+
+                # The user's own Claude Code and its own sign-in: no key or token here.
+                cli = await asyncio.to_thread(find_cli)
+                if cli is None:
+                    raise ClaudeCodeError(NOT_INSTALLED, "claude_install")
+                yield ClaudeCodeProvider(config.model, max_tokens=config.max_output_tokens, cli=cli)
+                return
             key = await asyncio.to_thread(get_key, config)
             if config.provider == "anthropic" and not key:
                 raise ValueError("Add your Anthropic API key in Settings → Chat.")

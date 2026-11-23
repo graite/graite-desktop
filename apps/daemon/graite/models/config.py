@@ -24,9 +24,12 @@ class AIConfig(BaseModel):
     # of connections, and `base_url` follows the configured cloud (see Manager.use).
     # "device" is the local model of another of the user's own computers, reached through the
     # sync connection (graite/compute); `device_id` says which, `model` is its model's name.
-    provider: Literal["local", "compatible", "anthropic", "openrouter", "graite", "device"] = (
-        "local"
-    )
+    # "claude_code" is the user's own Claude Code, signed in with their Claude subscription
+    # (graite/agent/claude_code.py): Graite holds no key or token for it, `base_url` is unused
+    # and `model` is one of Claude Code's model names ("sonnet", "opus", "haiku").
+    provider: Literal[
+        "local", "compatible", "anthropic", "openrouter", "graite", "device", "claude_code"
+    ] = "local"
     device_id: str = ""
     device_name: str = ""
     base_url: str = "http://127.0.0.1:1234/v1"
@@ -198,7 +201,9 @@ def delete_connection_key(connection_id: str) -> None:
 
 
 def get_key(config: AIConfig) -> str:
-    if config.provider in ("local", "graite"):  # Graite Cloud: graite/cloud/session.py
+    # Graite Cloud signs in through graite/cloud/session.py, and Claude Code keeps its own
+    # sign-in: Graite never holds a credential for it.
+    if config.provider in ("local", "graite", "claude_code"):
         return ""
     try:
         return _read_key(config.provider, config.base_url, config.connection_id)
@@ -220,7 +225,8 @@ def _link(config: AIConfig) -> AIConfig:
     that only names provider/endpoint/model (older rows, API clients) gets a connection and a
     saved model created for it, so the chat picker can offer it later.
     """
-    if config.provider in ("graite", "device"):  # neither is a connection in the store
+    # None of these is a connection in the store: each signs in somewhere else.
+    if config.provider in ("graite", "device", "claude_code"):
         return config.model_copy(update={"connection_id": None, "saved_model_id": None})
     store = get_store()
     if store is None:

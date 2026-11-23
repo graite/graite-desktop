@@ -347,25 +347,25 @@
   margin-left: 8px;
   padding: 1px 7px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--tag-green) 14%, transparent);
-  color: color-mix(in srgb, var(--tag-green) 75%, var(--foreground));
+  background: color-mix(in srgb, var(--foreground) 9%, transparent);
+  color: var(--muted-foreground);
   font-size: 10.5px;
   font-weight: 500;
   vertical-align: 1px;
   white-space: nowrap;
 }
-/* The vault that is open now: a green edge and tint, a filled icon and its own label. */
+/* The vault that is open now: a shade darker than the others, a stronger outline and its
+   own label. Grey on purpose, and no accent edge down the side. */
 .vault-picker-recent li.current {
-  border-color: color-mix(in srgb, var(--tag-green) 55%, var(--border));
-  background: color-mix(in srgb, var(--tag-green) 7%, var(--background));
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--tag-green) 70%, transparent);
+  border-color: color-mix(in srgb, var(--foreground) 28%, var(--border));
+  background: color-mix(in srgb, var(--foreground) 7%, var(--background));
 }
 .vault-picker-vault[aria-current="true"] {
   cursor: default;
   opacity: 1;
 }
 .vault-picker-recent li.current .vault-picker-vault > svg {
-  color: color-mix(in srgb, var(--tag-green) 80%, var(--foreground));
+  color: var(--foreground);
 }
 .vault-picker-recent li.current strong {
   font-weight: 600;
@@ -376,8 +376,8 @@
   gap: 4px;
   padding: 2px 9px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--tag-green) 16%, transparent);
-  color: color-mix(in srgb, var(--tag-green) 75%, var(--foreground));
+  background: color-mix(in srgb, var(--foreground) 12%, transparent);
+  color: var(--foreground);
   font-weight: 500;
 }
 .vault-list-title {

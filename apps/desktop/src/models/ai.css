@@ -1659,3 +1659,35 @@
 .ai-engine-newest a {
   text-decoration: underline;
 }
+
+/* Models found in other apps' folders (ModelSources). */
+.ai-found-models {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+.ai-found-models li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ai-found-models li > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.ai-found-models strong {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-found-models small {
+  color: var(--muted-foreground);
+  font-size: 11.5px;
+}

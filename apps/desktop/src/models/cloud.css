@@ -394,3 +394,38 @@
 .sync-merge:hover:not(:disabled) {
   color: var(--foreground);
 }
+
+/* Claude subscription card (ClaudeCodeCard): shares the Graite Cloud card's layout. */
+.claude-command {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--muted);
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: nowrap;
+  user-select: all;
+}
+.claude-default {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+.claude-default small {
+  color: var(--muted-foreground);
+}
+.claude-models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cloud-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

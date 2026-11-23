@@ -508,3 +508,22 @@ def test_reasoning_settings_save_without_unloading_the_model(client: TestClient)
 
     config(client)  # an OpenAI-compatible server
     assert client.get("/api/v1/ai/status").json()["reasoning"] == {"toggle": True, "effort": True}
+
+
+def test_found_models_are_listed_then_added_by_id(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from graite.models import hub
+
+    folder = tmp_path / "other-app"
+    folder.mkdir()
+    (folder / "found-Q4.gguf").write_bytes(b"GGUFtest")
+    monkeypatch.setattr(hub, "known_folders", lambda: [("LM Studio", folder)])
+    listed = client.get("/api/v1/ai/hub/found").json()
+    assert [m["name"] for m in listed] == ["found-Q4.gguf"]
+    catalog = client.get("/api/v1/ai/catalog").json()
+    assert listed[0]["id"] not in {m["id"] for m in catalog}  # looking adds nothing
+    assert client.post("/api/v1/ai/hub/found", json={"ids": ["local-nope"]}).json() == []
+    added = client.post("/api/v1/ai/hub/found", json={"ids": [listed[0]["id"]]}).json()
+    assert added[0]["local_path"] == str(folder / "found-Q4.gguf")
+    assert client.get("/api/v1/ai/hub/found").json() == []  # in the library now

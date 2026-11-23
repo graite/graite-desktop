@@ -34,6 +34,9 @@ from graite.api import (
     trash,
 )
 from graite.api import assistant as assistant_api
+from graite.api import (
+    claude_code as claude_code_api,
+)
 from graite.api import compute as compute_api
 from graite.api import engines as engines_api
 from graite.api import mcp as mcp_api
@@ -225,6 +228,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(workspace.router, prefix=API_PREFIX)
     app.include_router(ai.router, prefix=API_PREFIX)
     app.include_router(connections.router, prefix=API_PREFIX)
+    app.include_router(claude_code_api.router, prefix=API_PREFIX)
     app.include_router(cloud.router, prefix=API_PREFIX)
     app.include_router(sync.router, prefix=API_PREFIX)
     app.include_router(compute_api.router, prefix=API_PREFIX)

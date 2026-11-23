@@ -26,6 +26,7 @@ dependencies = [
   "onnxruntime>=1.32",
   "pynacl>=1.5",
   "merge3>=0.0.15",
+  "claude-agent-sdk>=0.2.187",
 ]
 
 [project.urls]

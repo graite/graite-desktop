@@ -125,6 +125,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/ai/claude-code/install": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Claude Code Install */
+    post: operations["claude_code_install_api_v1_ai_claude_code_install_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/ai/claude-code/login": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Claude Code Login */
+    post: operations["claude_code_login_api_v1_ai_claude_code_login_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/ai/claude-code/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Claude Code Status */
+    get: operations["claude_code_status_api_v1_ai_claude_code_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/ai/config": {
     parameters: {
       query?: never;
@@ -415,6 +466,32 @@ export interface paths {
     put?: never;
     /** Add Folder */
     post: operations["add_folder_api_v1_ai_hub_folder_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/ai/hub/found": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Find Local Models
+     * @description GGUF models other apps (LM Studio, the Hugging Face cache, llama.cpp…) already keep on
+     *     this computer and that are not in the library yet. Nothing is added by looking.
+     */
+    get: operations["find_local_models_api_v1_ai_hub_found_get"];
+    put?: never;
+    /**
+     * Add Found Models
+     * @description Add models from the list above to the library, by id: only what was found is taken,
+     *     never a path from the request.
+     */
+    post: operations["add_found_models_api_v1_ai_hub_found_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2744,7 +2821,8 @@ export interface components {
        * @default local
        * @enum {string}
        */
-      provider: "local" | "compatible" | "anthropic" | "openrouter" | "graite" | "device";
+      provider:
+        "local" | "compatible" | "anthropic" | "openrouter" | "graite" | "device" | "claude_code";
       /**
        * Resident
        * @default true
@@ -3441,6 +3519,38 @@ export interface components {
       /** Tokens Per Second */
       tokens_per_second?: number | null;
     };
+    /** ClaudeCodeInfo */
+    ClaudeCodeInfo: {
+      /** Can Open Terminal */
+      can_open_terminal: boolean;
+      /**
+       * Connected
+       * @default false
+       */
+      connected: boolean;
+      /**
+       * Installed
+       * @default false
+       */
+      installed: boolean;
+      /**
+       * Method
+       * @default
+       */
+      method: string;
+      /** Models */
+      models: string[];
+      /**
+       * Plan
+       * @default
+       */
+      plan: string;
+      /**
+       * Signed In
+       * @default false
+       */
+      signed_in: boolean;
+    };
     /** ClientLog */
     ClientLog: {
       /** Context */
@@ -4041,6 +4151,11 @@ export interface components {
       /** Sample */
       sample?: unknown[];
     };
+    /** FoundModels */
+    FoundModels: {
+      /** Ids */
+      ids: string[];
+    };
     /** HTTPValidationError */
     HTTPValidationError: {
       /** Detail */
@@ -4198,6 +4313,18 @@ export interface components {
       at: string;
       /** Client */
       client: string;
+    };
+    /** Launch */
+    Launch: {
+      /** Command */
+      command: string;
+      /** Opened */
+      opened: boolean;
+      /**
+       * Url
+       * @default
+       */
+      url: string;
     };
     /** LocalFolder */
     LocalFolder: {
@@ -5265,7 +5392,8 @@ export interface components {
        * @default local
        * @enum {string}
        */
-      provider: "local" | "compatible" | "anthropic" | "openrouter" | "graite" | "device";
+      provider:
+        "local" | "compatible" | "anthropic" | "openrouter" | "graite" | "device" | "claude_code";
       /**
        * Resident
        * @default true
@@ -6300,6 +6428,66 @@ export interface operations {
       };
     };
   };
+  claude_code_install_api_v1_ai_claude_code_install_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Launch"];
+        };
+      };
+    };
+  };
+  claude_code_login_api_v1_ai_claude_code_login_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Launch"];
+        };
+      };
+    };
+  };
+  claude_code_status_api_v1_ai_claude_code_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClaudeCodeInfo"];
+        };
+      };
+    };
+  };
   configure_api_v1_ai_config_put: {
     parameters: {
       query?: never;
@@ -7057,6 +7245,59 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["LocalFolder"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CatalogModel"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  find_local_models_api_v1_ai_hub_found_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CatalogModel"][];
+        };
+      };
+    };
+  };
+  add_found_models_api_v1_ai_hub_found_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FoundModels"];
       };
     };
     responses: {

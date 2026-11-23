@@ -1,6 +1,6 @@
 import { ModelSelect } from "./ModelSelect";
 import { useState } from "react";
-import { Download, FolderPlus, FilePlus2, Link2 } from "lucide-react";
+import { Download, FolderPlus, FilePlus2, Link2, ScanSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { request } from "@/lib/api";
 import { platform } from "@/lib/platform";
@@ -28,7 +28,9 @@ export function ModelSources({
   disabled: boolean;
   onChange: () => Promise<void>;
 }) {
-  const [panel, setPanel] = useState<"discover" | "folder" | "file" | null>(null);
+  const [panel, setPanel] = useState<"discover" | "folder" | "file" | "found" | null>(null);
+  // Models other apps already keep on this computer, not yet in the library.
+  const [found, setFound] = useState<Model[]>([]);
   // Repositories looked up in this session, as `owner/name`; the dropdown switches between them.
   const [repositories, setRepositories] = useState<string[]>([]);
   const [repository, setRepository] = useState("");
@@ -83,6 +85,25 @@ export function ModelSources({
         : "Model added to your library.",
     );
   };
+  const find = () =>
+    void action("find", async () => {
+      setFound(await request<Model[]>("/api/v1/ai/hub/found"));
+      setPanel("found");
+    });
+  const addFound = (ids: string[]) =>
+    void action("found", async () => {
+      const added = await request<Model[]>("/api/v1/ai/hub/found", {
+        method: "POST",
+        body: JSON.stringify({ ids }),
+      });
+      setFound((list) => list.filter((m) => !ids.includes(m.id)));
+      await onChange();
+      setNotice(
+        added.length === 1
+          ? `${added[0].name} added to your library.`
+          : `${added.length} models added to your library.`,
+      );
+    });
   const pick = (kind: "folder" | "file") =>
     void action("picker", async () => {
       if (!platform.pickModelPath) {
@@ -115,11 +136,61 @@ export function ModelSources({
         <Button variant="outline" size="sm" disabled={locked} onClick={() => pick("file")}>
           <FilePlus2 size={14} /> Add model file
         </Button>
+        <Button
+          variant={panel === "found" ? "secondary" : "outline"}
+          size="sm"
+          disabled={locked}
+          onClick={find}
+        >
+          <ScanSearch size={14} /> Find on this computer
+        </Button>
       </div>
       <p className="ai-source-hint">
-        Paste a link to a GGUF model on Hugging Face, or pick a model file or a folder of models on
-        this computer.
+        Paste a link to a GGUF model on Hugging Face, pick a model file or a folder of models, or
+        let Graite look where LM Studio, Hugging Face, llama.cpp, Jan and GPT4All keep theirs.
       </p>
+      {panel === "found" && (
+        <div className="ai-source-panel" aria-label="Models found on this computer">
+          {found.length === 0 ? (
+            <p className="ai-source-hint">
+              Nothing new found. Models from Ollama are not listed: add Ollama under Your own server
+              instead.
+            </p>
+          ) : (
+            <>
+              <ul className="ai-found-models">
+                {found.map((model) => (
+                  <li key={model.id}>
+                    <span>
+                      <strong>{model.name}</strong>
+                      <small>
+                        {megabytes(model.size)} · {model.notes.split(".")[0]}
+                      </small>
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={locked}
+                      onClick={() => addFound([model.id])}
+                    >
+                      Add
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              {found.length > 1 && (
+                <Button
+                  size="sm"
+                  disabled={locked}
+                  onClick={() => addFound(found.map((m) => m.id))}
+                >
+                  Add all {found.length}
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+      )}
       {panel === "discover" && (
         <div className="ai-source-panel">
           <div className="ai-discovery-heading">

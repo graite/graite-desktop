@@ -58,7 +58,9 @@ def entry(repo: str, revision: str, files: list[ModelFile], *, local: bool = Fal
     gemma = embedding and "gemma" in (repo + first.filename).lower()
     return CatalogModel(
         id=("local-" if local else "hf-") + hashlib.sha256(identity.encode()).hexdigest()[:20],
-        name=PurePosixPath(first.filename).name,
+        # A local model's filename is a path on this computer (backslashes on Windows); a
+        # Hugging Face one is a path inside the repository, always with forward slashes.
+        name=Path(first.filename).name if local else PurePosixPath(first.filename).name,
         role="embedding" if embedding else "chat",
         repo=repo,
         revision=revision,
@@ -115,10 +117,12 @@ async def browse(value: str) -> list[CatalogModel]:
     return models
 
 
-def scan(value: str) -> list[CatalogModel]:
-    root = Path(value).expanduser().resolve(strict=True)
-    if not root.is_dir():
-        raise ValueError("Choose a folder containing GGUF files.")
+def _gguf_files(root: Path, *, links: bool = False) -> list[ModelFile]:
+    """GGUF files under `root`, at most four folders deep.
+
+    `links` also takes a link whose target is a file inside `root`: the Hugging Face cache
+    keeps every model as a link from its snapshot folder to a blob beside it. A link that
+    leads out of the folder is never followed."""
     files = []
     visited = 0
     for directory, folders, names in os.walk(root, followlinks=False):
@@ -130,16 +134,83 @@ def scan(value: str) -> list[CatalogModel]:
             if visited > 10000:
                 raise ValueError("This folder is too large to scan. Choose a smaller model folder.")
             path = Path(directory) / name
-            if path.suffix.lower() != ".gguf" or path.is_symlink() or not path.is_file():
+            if path.suffix.lower() != ".gguf":
+                continue
+            if path.is_symlink():
+                target = path.resolve()
+                if not links or root not in target.parents:
+                    continue
+            if not path.is_file():
                 continue
             with path.open("rb") as handle:
                 if handle.read(4) != b"GGUF":
                     continue
             files.append(ModelFile(filename=str(path), size=path.stat().st_size, sha256=""))
-    models = [entry("", "", group, local=True) for group in model_groups(files)]
+    return files
+
+
+def scan(value: str) -> list[CatalogModel]:
+    root = Path(value).expanduser().resolve(strict=True)
+    if not root.is_dir():
+        raise ValueError("Choose a folder containing GGUF files.")
+    models = [entry("", "", group, local=True) for group in model_groups(_gguf_files(root))]
     if not models:
         raise ValueError("No complete GGUF models found. Check that all split files are present.")
     return models
+
+
+def known_folders() -> list[tuple[str, Path]]:
+    """Where other apps on this computer keep GGUF models, as (app, folder).
+
+    Ollama is not here: it stores models as unnamed blobs behind its own manifests, so
+    there is no file name to show; a running Ollama is reached as a model server instead."""
+    home = Path.home()
+    cache = Path(os.environ.get("XDG_CACHE_HOME") or home / ".cache")
+    hf_home = Path(os.environ.get("HF_HOME") or cache / "huggingface")
+    folders = [
+        ("Hugging Face", Path(os.environ.get("HF_HUB_CACHE") or hf_home / "hub")),
+        ("LM Studio", home / ".lmstudio" / "models"),
+        ("LM Studio", cache / "lm-studio" / "models"),
+        ("llama.cpp", Path(os.environ.get("LLAMA_CACHE") or cache / "llama.cpp")),
+        ("llama.cpp", home / "Library" / "Caches" / "llama.cpp"),
+        ("Jan", home / "jan" / "models"),
+        ("GPT4All", home / ".local" / "share" / "nomic.ai" / "GPT4All"),
+        ("GPT4All", home / "Library" / "Application Support" / "nomic.ai" / "GPT4All"),
+        ("Your models folder", home / "models"),
+        ("Your models folder", home / "Models"),
+    ]
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        folders += [
+            ("llama.cpp", Path(local_app_data) / "llama.cpp"),
+            ("GPT4All", Path(local_app_data) / "nomic.ai" / "GPT4All"),
+        ]
+    return folders
+
+
+def find_local(skip: Path | None = None) -> list[CatalogModel]:
+    """Complete GGUF models other apps already downloaded to this computer. Read-only:
+    nothing is copied or registered, and `skip` (Graite's own folder) is left out."""
+    found: dict[str, CatalogModel] = {}
+    seen: set[Path] = set()
+    avoid = skip.expanduser().resolve() if skip else None
+    for app, folder in known_folders():
+        try:
+            root = folder.expanduser().resolve(strict=True)
+        except OSError:
+            continue
+        if root in seen or not root.is_dir() or root == avoid:
+            continue
+        seen.add(root)
+        try:
+            files = _gguf_files(root, links=True)
+        except ValueError, OSError:
+            continue  # too large or unreadable: the user can still add a folder by hand
+        for group in model_groups(files):
+            item = entry("", "", group, local=True)
+            item.notes = f"Found in {app}. Uses the original file where it is."
+            found.setdefault(item.id, item)
+    return sorted(found.values(), key=lambda m: m.name.lower())
 
 
 def local_file(value: str) -> CatalogModel:
