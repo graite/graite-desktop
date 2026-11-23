@@ -58,7 +58,9 @@ def entry(repo: str, revision: str, files: list[ModelFile], *, local: bool = Fal
     gemma = embedding and "gemma" in (repo + first.filename).lower()
     return CatalogModel(
         id=("local-" if local else "hf-") + hashlib.sha256(identity.encode()).hexdigest()[:20],
-        name=PurePosixPath(first.filename).name,
+        # A local model's filename is a path on this computer (backslashes on Windows); a
+        # Hugging Face one is a path inside the repository, always with forward slashes.
+        name=Path(first.filename).name if local else PurePosixPath(first.filename).name,
         role="embedding" if embedding else "chat",
         repo=repo,
         revision=revision,
