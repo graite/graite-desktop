@@ -372,8 +372,8 @@
   flex-shrink: 0;
   padding: 0 6px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--tag-green) 18%, var(--background));
-  color: color-mix(in srgb, var(--tag-green) 75%, var(--foreground));
+  background: color-mix(in srgb, var(--foreground) 10%, var(--background));
+  color: var(--muted-foreground);
   font-size: 10px;
   line-height: 17px;
 }
