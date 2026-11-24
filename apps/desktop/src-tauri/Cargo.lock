@@ -1207,7 +1207,7 @@ dependencies = [
 
 [[package]]
 name = "graite-desktop"
-version = "0.5.6"
+version = "0.6.0"
 dependencies = [
  "hex",
  "rand",

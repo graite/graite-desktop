@@ -6,7 +6,7 @@ list below is the status.
 
 ## Where we are
 
-The current release is **v0.5.6**.
+The current release is **v0.6.0**.
 
 **Shipped**
 
@@ -37,6 +37,10 @@ The current release is **v0.5.6**.
   and self-update for the macOS app and the AppImage (D91).
 - From M8 and M9: the MCP server with a stdio bridge for local clients, and remote access
   for hosted clients through Graite Cloud.
+- Mail, first version (D128 to D132): any number of mailboxes over IMAP with an app password
+  or Sign in with Microsoft, a local copy with search and conversations, reading with
+  attachments that open in the app and go onto pages, archive and delete, drafts and sending,
+  and Ask AI, draft and page lookup per conversation (`docs/design/mail.md`).
 
 **In progress / remaining in the milestones above**
 
@@ -61,7 +65,8 @@ the PWA of M9, and M10.
   Cmd+K search UI.
 - **Jan – Feb 2027:** a template gallery with one-click install, board and calendar views of
   tables, a Dutch UI translation and an i18n framework.
-- **Feb – Apr 2027:** the Email tab (spec to follow as an RFC).
+- **Feb – Apr 2027:** mail, next steps: agents that read mail and propose from it, Sign in
+  with Google, a unified inbox, formatting and attachments when writing.
 - **Mar – Jun 2027:** M9 remote access and PWA, M10 sync.
 
 ## M0 — Scaffold
