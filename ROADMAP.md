@@ -6,7 +6,7 @@ list below is the status.
 
 ## Where we are
 
-The current release is **v0.6.0**.
+The current release is **v0.6.1**.
 
 **Shipped**
 
@@ -41,6 +41,9 @@ The current release is **v0.6.0**.
   or Sign in with Microsoft, a local copy with search and conversations, reading with
   attachments that open in the app and go onto pages, archive and delete, drafts and sending,
   and Ask AI, draft and page lookup per conversation (`docs/design/mail.md`).
+- Mail, writing (D133, D134): formatted mail with attachments, recipient suggestions and
+  forwarding, a vault per mailbox, mail in the onboarding, and Ask AI beside a mail that can
+  propose page changes.
 
 **In progress / remaining in the milestones above**
 
@@ -66,7 +69,7 @@ the PWA of M9, and M10.
 - **Jan – Feb 2027:** a template gallery with one-click install, board and calendar views of
   tables, a Dutch UI translation and an i18n framework.
 - **Feb – Apr 2027:** mail, next steps: agents that read mail and propose from it, Sign in
-  with Google, a unified inbox, formatting and attachments when writing.
+  with Google, a unified inbox.
 - **Mar – Jun 2027:** M9 remote access and PWA, M10 sync.
 
 ## M0 — Scaffold
