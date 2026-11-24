@@ -2725,6 +2725,11 @@ class FileOps:
 
     async def attach_recording(self, page_id: str, file: str, name: str) -> None:
         """Keep a stopped recording discoverable if its editor was closed during upload."""
+        await self.attach_file(page_id, file, name, "audio")
+
+    async def attach_file(self, page_id: str, file: str, name: str, kind: str) -> None:
+        """Show one of the page's own files on the page: a media block at its end, unless the
+        page already shows that file."""
         import yaml
 
         rel = self.page_by_id(page_id)
@@ -2740,7 +2745,7 @@ class FileOps:
                 fence = (
                     "```graite:media\n"
                     + yaml.safe_dump(
-                        {"file": file, "name": name, "kind": "audio"},
+                        {"file": file, "name": name, "kind": kind},
                         allow_unicode=True,
                         sort_keys=False,
                     )

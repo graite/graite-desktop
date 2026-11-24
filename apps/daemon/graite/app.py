@@ -39,6 +39,7 @@ from graite.api import (
 )
 from graite.api import compute as compute_api
 from graite.api import engines as engines_api
+from graite.api import mail as mail_api
 from graite.api import mcp as mcp_api
 from graite.api import profile as profile_api
 from graite.api import search as search_api
@@ -58,6 +59,9 @@ from graite.jobs.cron import Cron
 from graite.jobs.handlers import HANDLERS
 from graite.jobs.queue import PRIORITY_BULK, PRIORITY_HOT, PRIORITY_SUMMARY, JobQueue
 from graite.jobs.worker import Worker
+from graite.mail.accounts import Account, AccountStore
+from graite.mail.oauth import SignIns
+from graite.mail.service import MailService
 from graite.mcp import runtime
 from graite.mcp.server import McpEndpoint, McpService
 from graite.models.config import initialize
@@ -176,6 +180,22 @@ def create_app(settings: Settings) -> FastAPI:
             app.state.vec_version,
             count,
         )
+        app.state.mail = MailService(
+            AccountStore(settings.app_dir / "mail.json"),
+            settings.graite_dir / "mail",
+            app.state.events,
+        )
+
+        def signed_in(account: Account) -> None:
+            # A new account starts syncing; one that signed in again tries at once.
+            app.state.mail.watch(account.id)
+            app.state.mail.refresh(account.id)
+            app.state.events.publish("mail_changed", {"account_id": account.id, "state": "syncing"})
+
+        app.state.mail_sign_ins = SignIns(
+            app.state.mail.accounts, settings.microsoft_client_id, signed_in
+        )
+        await app.state.mail.start()
         try:
             # The MCP session manager owns a task group for the lifetime of the app.
             async with mcp_service.manager.run():
@@ -183,6 +203,8 @@ def create_app(settings: Settings) -> FastAPI:
                 app.state.sync.start()
                 yield
         finally:
+            await app.state.mail_sign_ins.stop()
+            await app.state.mail.stop()
             await app.state.sync.stop()
             await app.state.compute_close()
             await app.state.relay.stop()
@@ -239,6 +261,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(assistant_api.router, prefix=API_PREFIX)
     app.include_router(voice_api.router, prefix=API_PREFIX)
     app.include_router(engines_api.router, prefix=API_PREFIX)
+    app.include_router(mail_api.router, prefix=API_PREFIX)
     app.include_router(builder.router, prefix=API_PREFIX)
     app.include_router(media.router, prefix=API_PREFIX)
     app.include_router(health.router, prefix=API_PREFIX)

@@ -2994,6 +2994,81 @@
         "title": "DiscoveredModels",
         "type": "object"
       },
+      "Draft": {
+        "properties": {
+          "account_id": {
+            "title": "Account Id",
+            "type": "string"
+          },
+          "bcc": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "Bcc",
+            "type": "string"
+          },
+          "body": {
+            "default": "",
+            "maxLength": 400000,
+            "title": "Body",
+            "type": "string"
+          },
+          "cc": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "Cc",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "in_reply_to": {
+            "default": "",
+            "title": "In Reply To",
+            "type": "string"
+          },
+          "references": {
+            "items": {
+              "type": "string"
+            },
+            "title": "References",
+            "type": "array"
+          },
+          "subject": {
+            "default": "",
+            "maxLength": 998,
+            "title": "Subject",
+            "type": "string"
+          },
+          "thread_id": {
+            "default": "",
+            "title": "Thread Id",
+            "type": "string"
+          },
+          "to": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "To",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "account_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "Draft",
+        "type": "object"
+      },
       "EffectiveSettings": {
         "properties": {
           "instructions": {
@@ -4097,6 +4172,510 @@
         "title": "LoopState",
         "type": "object"
       },
+      "MailAccount": {
+        "properties": {
+          "auth": {
+            "description": "password, or microsoft: signed in at Microsoft.",
+            "title": "Auth",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "drafts": {
+            "title": "Drafts",
+            "type": "integer"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "needs_password": {
+            "title": "Needs Password",
+            "type": "boolean"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "sender_name": {
+            "description": "Your name on sent mail; empty: only the address.",
+            "title": "Sender Name",
+            "type": "string"
+          },
+          "smtp_host": {
+            "description": "The outgoing server in use, set or worked out.",
+            "title": "Smtp Host",
+            "type": "string"
+          },
+          "smtp_port": {
+            "title": "Smtp Port",
+            "type": "integer"
+          },
+          "state": {
+            "description": "waiting, syncing, ok or error",
+            "title": "State",
+            "type": "string"
+          },
+          "synced_at": {
+            "title": "Synced At",
+            "type": "string"
+          },
+          "unread": {
+            "title": "Unread",
+            "type": "integer"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email",
+          "host",
+          "port",
+          "username",
+          "created_at",
+          "state",
+          "error",
+          "needs_password",
+          "synced_at",
+          "unread",
+          "drafts",
+          "auth",
+          "sender_name",
+          "smtp_host",
+          "smtp_port"
+        ],
+        "title": "MailAccount",
+        "type": "object"
+      },
+      "MailAccounts": {
+        "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/MailAccount"
+            },
+            "title": "Accounts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "accounts"
+        ],
+        "title": "MailAccounts",
+        "type": "object"
+      },
+      "MailAttachment": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "size"
+        ],
+        "title": "MailAttachment",
+        "type": "object"
+      },
+      "MailDrafts": {
+        "properties": {
+          "drafts": {
+            "items": {
+              "$ref": "#/components/schemas/Draft"
+            },
+            "title": "Drafts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "drafts"
+        ],
+        "title": "MailDrafts",
+        "type": "object"
+      },
+      "MailFileInfo": {
+        "properties": {
+          "kind": {
+            "description": "pdf, image or other: whether it can be looked at here.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pages": {
+            "title": "Pages",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "pages",
+          "size"
+        ],
+        "title": "MailFileInfo",
+        "type": "object"
+      },
+      "MailFolder": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "synced_at": {
+            "title": "Synced At",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "unread": {
+            "title": "Unread",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "title",
+          "role",
+          "synced_at",
+          "unread",
+          "total"
+        ],
+        "title": "MailFolder",
+        "type": "object"
+      },
+      "MailFolders": {
+        "properties": {
+          "folders": {
+            "items": {
+              "$ref": "#/components/schemas/MailFolder"
+            },
+            "title": "Folders",
+            "type": "array"
+          }
+        },
+        "required": [
+          "folders"
+        ],
+        "title": "MailFolders",
+        "type": "object"
+      },
+      "MailMessage": {
+        "properties": {
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/MailAttachment"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
+          "body_html": {
+            "title": "Body Html",
+            "type": "string"
+          },
+          "body_text": {
+            "title": "Body Text",
+            "type": "string"
+          },
+          "cc": {
+            "items": {
+              "$ref": "#/components/schemas/MailPerson"
+            },
+            "title": "Cc",
+            "type": "array"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "flagged": {
+            "title": "Flagged",
+            "type": "boolean"
+          },
+          "folders": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Folders",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "message_id": {
+            "title": "Message Id",
+            "type": "string"
+          },
+          "partial": {
+            "description": "Too large to keep whole: only its headers are here.",
+            "title": "Partial",
+            "type": "boolean"
+          },
+          "recipients": {
+            "items": {
+              "$ref": "#/components/schemas/MailPerson"
+            },
+            "title": "Recipients",
+            "type": "array"
+          },
+          "seen": {
+            "title": "Seen",
+            "type": "boolean"
+          },
+          "sender_email": {
+            "title": "Sender Email",
+            "type": "string"
+          },
+          "sender_name": {
+            "title": "Sender Name",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "message_id",
+          "subject",
+          "sender_name",
+          "sender_email",
+          "recipients",
+          "cc",
+          "date",
+          "seen",
+          "flagged",
+          "body_text",
+          "body_html",
+          "attachments",
+          "size",
+          "folders",
+          "partial"
+        ],
+        "title": "MailMessage",
+        "type": "object"
+      },
+      "MailMoved": {
+        "properties": {
+          "moved": {
+            "title": "Moved",
+            "type": "integer"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "moved"
+        ],
+        "title": "MailMoved",
+        "type": "object"
+      },
+      "MailPerson": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "email"
+        ],
+        "title": "MailPerson",
+        "type": "object"
+      },
+      "MailSent": {
+        "properties": {
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "saved_copy": {
+            "description": "A copy is in the mailbox's Sent folder.",
+            "title": "Saved Copy",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "saved_copy"
+        ],
+        "title": "MailSent",
+        "type": "object"
+      },
+      "MailThread": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/MailMessage"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "thread_id": {
+            "title": "Thread Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "thread_id",
+          "subject",
+          "messages"
+        ],
+        "title": "MailThread",
+        "type": "object"
+      },
+      "MailThreadSummary": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "flagged": {
+            "title": "Flagged",
+            "type": "boolean"
+          },
+          "has_attachments": {
+            "title": "Has Attachments",
+            "type": "boolean"
+          },
+          "participants": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Participants",
+            "type": "array"
+          },
+          "sender_email": {
+            "title": "Sender Email",
+            "type": "string"
+          },
+          "sender_name": {
+            "title": "Sender Name",
+            "type": "string"
+          },
+          "snippet": {
+            "title": "Snippet",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "thread_id": {
+            "title": "Thread Id",
+            "type": "string"
+          },
+          "unread": {
+            "title": "Unread",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "thread_id",
+          "subject",
+          "sender_name",
+          "sender_email",
+          "participants",
+          "snippet",
+          "date",
+          "count",
+          "unread",
+          "flagged",
+          "has_attachments"
+        ],
+        "title": "MailThreadSummary",
+        "type": "object"
+      },
+      "MailThreads": {
+        "properties": {
+          "more": {
+            "title": "More",
+            "type": "boolean"
+          },
+          "threads": {
+            "items": {
+              "$ref": "#/components/schemas/MailThreadSummary"
+            },
+            "title": "Threads",
+            "type": "array"
+          }
+        },
+        "required": [
+          "threads",
+          "more"
+        ],
+        "title": "MailThreads",
+        "type": "object"
+      },
       "McpInfo": {
         "properties": {
           "clients": {
@@ -4627,6 +5206,34 @@
         "title": "ModelList",
         "type": "object"
       },
+      "MoveMail": {
+        "properties": {
+          "threads": {
+            "description": "Conversation ids.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Threads",
+            "type": "array"
+          },
+          "to": {
+            "enum": [
+              "archive",
+              "trash"
+            ],
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "threads",
+          "to"
+        ],
+        "title": "MoveMail",
+        "type": "object"
+      },
       "MoveMediaRequest": {
         "properties": {
           "base_hash": {
@@ -4827,6 +5434,106 @@
           }
         },
         "title": "NewConversation",
+        "type": "object"
+      },
+      "NewMailAccount": {
+        "properties": {
+          "email": {
+            "maxLength": 320,
+            "minLength": 3,
+            "title": "Email",
+            "type": "string"
+          },
+          "host": {
+            "default": "",
+            "maxLength": 255,
+            "title": "Host",
+            "type": "string"
+          },
+          "name": {
+            "default": "",
+            "maxLength": 80,
+            "title": "Name",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "port": {
+            "default": 993,
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Port",
+            "type": "integer"
+          },
+          "username": {
+            "default": "",
+            "maxLength": 320,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "NewMailAccount",
+        "type": "object"
+      },
+      "NewMailDraft": {
+        "properties": {
+          "bcc": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "Bcc",
+            "type": "string"
+          },
+          "body": {
+            "default": "",
+            "maxLength": 400000,
+            "title": "Body",
+            "type": "string"
+          },
+          "cc": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "Cc",
+            "type": "string"
+          },
+          "reply_all": {
+            "default": false,
+            "title": "Reply All",
+            "type": "boolean"
+          },
+          "reply_to": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Id of the mail this answers: recipients, subject and the quoted text are filled in.",
+            "title": "Reply To"
+          },
+          "subject": {
+            "default": "",
+            "maxLength": 998,
+            "title": "Subject",
+            "type": "string"
+          },
+          "to": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "title": "NewMailDraft",
         "type": "object"
       },
       "NewSavedModel": {
@@ -5255,6 +5962,140 @@
           }
         },
         "title": "PatchConversation",
+        "type": "object"
+      },
+      "PatchMailAccount": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "sender_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sender Name"
+          },
+          "smtp_host": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Host"
+          },
+          "smtp_port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Port"
+          }
+        },
+        "title": "PatchMailAccount",
+        "type": "object"
+      },
+      "PatchMailDraft": {
+        "properties": {
+          "bcc": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bcc"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "maxLength": 400000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "cc": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cc"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "maxLength": 998,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To"
+          }
+        },
+        "title": "PatchMailDraft",
         "type": "object"
       },
       "PatchPage": {
@@ -7184,6 +8025,61 @@
         "title": "SaveConfig",
         "type": "object"
       },
+      "SaveMailFile": {
+        "properties": {
+          "extract": {
+            "default": false,
+            "description": "Also read its text (OCR) into the page, next to the file.",
+            "title": "Extract",
+            "type": "boolean"
+          },
+          "page_id": {
+            "title": "Page Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page_id"
+        ],
+        "title": "SaveMailFile",
+        "type": "object"
+      },
+      "SavedMailFile": {
+        "properties": {
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The text extraction that was started, if asked.",
+            "title": "Job Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "page_path": {
+            "title": "Page Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "name",
+          "page_path",
+          "job_id"
+        ],
+        "title": "SavedMailFile",
+        "type": "object"
+      },
       "SavedModel": {
         "properties": {
           "added_at": {
@@ -7637,6 +8533,61 @@
         "title": "ServeIn",
         "type": "object"
       },
+      "SignInStarted": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "opened": {
+            "title": "Opened",
+            "type": "boolean"
+          },
+          "url": {
+            "description": "Microsoft's sign-in page; also shown, in case no browser opened.",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "opened"
+        ],
+        "title": "SignInStarted",
+        "type": "object"
+      },
+      "SignInState": {
+        "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "status": {
+            "description": "waiting, done or error",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "error",
+          "account_id"
+        ],
+        "title": "SignInState",
+        "type": "object"
+      },
       "SpeechResult": {
         "properties": {
           "seconds": {
@@ -7653,6 +8604,24 @@
           "seconds"
         ],
         "title": "SpeechResult",
+        "type": "object"
+      },
+      "StartSignIn": {
+        "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An account whose sign-in ran out, to sign in again.",
+            "title": "Account Id"
+          }
+        },
+        "title": "StartSignIn",
         "type": "object"
       },
       "StepBody": {
@@ -12976,6 +13945,1237 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/api/v1/mail/accounts": {
+      "get": {
+        "operationId": "list_accounts_api_v1_mail_accounts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailAccounts"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Accounts",
+        "tags": [
+          "Mail"
+        ]
+      },
+      "post": {
+        "description": "Signs in once before anything is saved, so a wrong password never leaves an account.",
+        "operationId": "add_account_api_v1_mail_accounts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewMailAccount"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailAccount"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Account",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}": {
+      "delete": {
+        "description": "Removes the account, its password and its local copy. The mailbox itself is untouched.",
+        "operationId": "delete_account_api_v1_mail_accounts__account_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete Account Api V1 Mail Accounts  Account Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Account",
+        "tags": [
+          "Mail"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_account_api_v1_mail_accounts__account_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchMailAccount"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailAccount"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Account",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/drafts": {
+      "get": {
+        "operationId": "list_drafts_api_v1_mail_accounts__account_id__drafts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailDrafts"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Drafts",
+        "tags": [
+          "Mail"
+        ]
+      },
+      "post": {
+        "description": "A new mail, or with `reply_to` a reply. Writing a draft never sends anything.",
+        "operationId": "create_draft_api_v1_mail_accounts__account_id__drafts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewMailDraft"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Draft"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Draft",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/drafts/{draft_id}": {
+      "delete": {
+        "operationId": "delete_draft_api_v1_mail_accounts__account_id__drafts__draft_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete Draft Api V1 Mail Accounts  Account Id  Drafts  Draft Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Draft",
+        "tags": [
+          "Mail"
+        ]
+      },
+      "put": {
+        "operationId": "update_draft_api_v1_mail_accounts__account_id__drafts__draft_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchMailDraft"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Draft"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Draft",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/drafts/{draft_id}/send": {
+      "post": {
+        "description": "Send a draft. The only way mail leaves Graite: the user pressing Send on a draft\nthey can read in full. If sending fails, the draft is kept.",
+        "operationId": "send_draft_api_v1_mail_accounts__account_id__drafts__draft_id__send_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailSent"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send Draft",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/folders": {
+      "get": {
+        "operationId": "list_folders_api_v1_mail_accounts__account_id__folders_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailFolders"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Folders",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/messages/{message_id}/attachments/{index}": {
+      "get": {
+        "description": "An attachment's content, to save or to hand to the chat.",
+        "operationId": "read_attachment_api_v1_mail_accounts__account_id__messages__message_id__attachments__index__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "title": "Message Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "index",
+            "required": true,
+            "schema": {
+              "title": "Index",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Attachment",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/messages/{message_id}/attachments/{index}/info": {
+      "get": {
+        "operationId": "attachment_info_api_v1_mail_accounts__account_id__messages__message_id__attachments__index__info_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "title": "Message Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "index",
+            "required": true,
+            "schema": {
+              "title": "Index",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailFileInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attachment Info",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/messages/{message_id}/attachments/{index}/preview": {
+      "get": {
+        "description": "One page of a PDF, or a picture, drawn by the daemon as a PNG: the app shows a plain\nimage and never opens the file itself.",
+        "operationId": "attachment_preview_api_v1_mail_accounts__account_id__messages__message_id__attachments__index__preview_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "title": "Message Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "index",
+            "required": true,
+            "schema": {
+              "title": "Index",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "title": "Page",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/png": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attachment Preview",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/messages/{message_id}/attachments/{index}/save": {
+      "post": {
+        "description": "Put an attachment on a page: the file becomes the page's own and shows at its end.\nWith `extract`, its text is read into the page as well (a PDF's text, or OCR).",
+        "operationId": "save_attachment_api_v1_mail_accounts__account_id__messages__message_id__attachments__index__save_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "title": "Message Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "index",
+            "required": true,
+            "schema": {
+              "title": "Index",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveMailFile"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedMailFile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Attachment",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/move": {
+      "post": {
+        "description": "Archive or delete several conversations at once, over one connection.",
+        "operationId": "move_threads_api_v1_mail_accounts__account_id__move_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveMail"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailMoved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Move Threads",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/sync": {
+      "post": {
+        "operationId": "sync_account_api_v1_mail_accounts__account_id__sync_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sync Account Api V1 Mail Accounts  Account Id  Sync Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sync Account",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/threads": {
+      "get": {
+        "operationId": "list_threads_api_v1_mail_accounts__account_id__threads_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Folder name; empty means every folder.",
+            "in": "query",
+            "name": "folder",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "Folder name; empty means every folder.",
+              "title": "Folder",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Search the whole account.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "Search the whole account.",
+              "maxLength": 200,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only conversations older than this date.",
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "Only conversations older than this date.",
+              "title": "Before",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailThreads"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Threads",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/threads/{thread_id}": {
+      "get": {
+        "operationId": "read_thread_api_v1_mail_accounts__account_id__threads__thread_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "title": "Thread Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailThread"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Thread",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/threads/{thread_id}/archive": {
+      "post": {
+        "description": "Take a conversation out of the inbox, into the mailbox's Archive (Gmail: All Mail).",
+        "operationId": "archive_thread_api_v1_mail_accounts__account_id__threads__thread_id__archive_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "title": "Thread Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailMoved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Thread",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/threads/{thread_id}/read": {
+      "post": {
+        "description": "Mark a conversation as read, here at once and in the mailbox in the background, so\nopening a mail never waits for the mail server.",
+        "operationId": "read_thread_mark_api_v1_mail_accounts__account_id__threads__thread_id__read_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "title": "Thread Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailMoved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Thread Mark",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/threads/{thread_id}/trash": {
+      "post": {
+        "description": "Move a conversation to the mailbox's Trash. The provider erases it later, not Graite.",
+        "operationId": "trash_thread_api_v1_mail_accounts__account_id__threads__thread_id__trash_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "title": "Thread Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailMoved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Trash Thread",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/image": {
+      "get": {
+        "description": "Fetch a picture a mail links to, when the user asked to see a mail's pictures.\nFetching tells the sender's server that the mail was opened, as in any mail app.",
+        "operationId": "remote_image_api_v1_mail_image_get",
+        "parameters": [
+          {
+            "description": "The picture a mail links to.",
+            "in": "query",
+            "name": "url",
+            "required": true,
+            "schema": {
+              "description": "The picture a mail links to.",
+              "maxLength": 4000,
+              "title": "Url",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/*": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remote Image",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/oauth/microsoft": {
+      "post": {
+        "description": "Open Microsoft's sign-in page in the browser. The password is typed there, never in\nGraite; what comes back is a token for that mailbox, kept in the OS keychain.",
+        "operationId": "start_microsoft_api_v1_mail_oauth_microsoft_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartSignIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInStarted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Microsoft",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/oauth/{sign_in_id}": {
+      "get": {
+        "operationId": "sign_in_state_api_v1_mail_oauth__sign_in_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sign_in_id",
+            "required": true,
+            "schema": {
+              "title": "Sign In Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign In State",
+        "tags": [
+          "Mail"
+        ]
       }
     },
     "/api/v1/mcp/clients/{client}": {
