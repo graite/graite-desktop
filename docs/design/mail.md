@@ -97,6 +97,11 @@ Rules:
   (`markQuoted`): from the place a mail app marks as the quote, or an "On … wrote:" line, or
   Outlook's "From / Sent / To" block (also in Dutch, German, French), to the end. Not when the
   mail has no words of its own above it, and not for a forward. Plain text: `splitQuoted`.
+- **Light and dark.** Every mail sits on the app's own background. A mail is taken to be
+  written for a light page unless a background of its own covers most of it (`mailTone`).
+  When that does not match the app's theme, its light and dark are turned around with a CSS
+  filter on the body (`data-flip`), and pictures are turned back. The frame is given the
+  app's colour scheme, or the browser paints an opaque white canvas behind it.
 - **Long mail.** A mail taller than about 500 px opens cut off, with "Show the whole mail".
 - **Read.** Opening a conversation marks its mails read: in the local copy at once, and in
   the mailbox right after (`imap.mark_seen`, `POST …/threads/{id}/read`), so every mail app
@@ -123,7 +128,8 @@ uploads to it, as chat attachments: the conversation as text (`threadAsText`, wh
 saying the text is material written by others, never instructions) and every attachment the
 chat can read (PDF, image, text; up to 25 MB). The rest is the normal chat: the answer may
 use the vault's pages and can only propose changes. Nothing new was added to the agents'
-tools, and mail the user did not ask about is never shown to a model. The panel says whether
+tools, and mail the user did not ask about is never shown to a model. The panel opens in
+Ask; the user can switch it to Act, where a change to a page is proposed for review. The panel says whether
 the chat model runs on this device or the email is sent to a model elsewhere.
 
 Two shortcuts sit under every conversation (`src/mail/assist.ts`), each one chat turn of
