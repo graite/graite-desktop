@@ -66,7 +66,9 @@ Search is SQLite FTS5 over subject, sender and text, per account.
 | Part | Where | Notes |
 | --- | --- | --- |
 | Drafts | `~/.graite/mail-drafts.json` (`graite/mail/drafts.py`) | The user's own writing: not derivable, so not under `.graite/`. Not on the mail server. |
-| Building and sending | `graite/mail/send.py` | Plain text over SMTP (`smtplib`), from this computer. Outgoing server from a table of providers, else "imap." → "smtp.", else what the account sets. |
+| Formatting | `graite/mail/richtext.py`, `Draft.html` | Bold, italic, underline, lists, links, quotes. Rebuilt from an allow-list on every save; the plain text (`Draft.body`) is read off it, and both are sent. |
+| Files that go along | `~/.graite/mail-drafts/<draft id>/` | Added and removed through `…/drafts/{id}/attachments`; deleted with the draft, sent or discarded. |
+| Building and sending | `graite/mail/send.py` | Text, its formatted form and the files, over SMTP (`smtplib`), from this computer. Outgoing server from a table of providers, else "imap." → "smtp.", else what the account sets. |
 | Sent copy | `imap.append` | Appended to the folder with the Sent role, marked read. Skipped for Gmail, which files sent mail itself. |
 | Routes | `…/drafts`, `…/drafts/{id}`, `…/drafts/{id}/send` | Create (optionally `reply_to` a mail), save, discard, send. |
 | Editor | `src/mail/DraftEditor.tsx` | Saves while typing. A reply sits under its conversation; a new mail takes the reader. |
@@ -139,15 +141,20 @@ the model has its read-only tools and can read lists, boards and tables as well 
 - **Generate draft** asks for a reply that uses what the pages say and marks what is missing
   as `[fill in: …]`. The answer becomes a reply draft under the conversation, as plain text
   (`asDraftText` drops source numbers and Markdown marks). It is a draft: only Send sends.
+  It answers in the language of the latest mail and may use bold and lists (Markdown, turned
+  into the draft's formatting by `markdownToHtml`).
   The user's own tone goes along: up to four mails they sent from that account lately (only
   what they wrote, without quotes), as examples of greeting, sign-off and length.
 - **Get info from pages** asks what the pages hold about the matter and shows the answer in a
   card under the conversation, with the pages it drew on.
 
-A web address in a plain-text mail is shown as a short link (the site and the start of the
+What the pages are searched for is the mail, not the instruction: the subject, the people
+and the latest mail's own words go along as `search_query` (`searchTerms`), which the chat
+pipeline uses for its keyword and embedding search in place of the message.
+
+A web address written out in a mail (plain text or HTML) is shown as a short link (the site and the start of the
 path), with the full address on hover.
 
 ## Next
 
-Agent tools (`read_mail`, `search_mail`, proposals from a mail), attachments and formatting
-when writing, forward, drafts kept in the mailbox, IMAP IDLE, Sign in with Microsoft, a unified inbox.
+Agent tools (`read_mail`, `search_mail`, proposals from a mail), forward, drafts kept in the mailbox, IMAP IDLE, Sign in with Microsoft, a unified inbox.
