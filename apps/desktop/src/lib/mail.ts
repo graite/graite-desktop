@@ -19,7 +19,8 @@ const base = (id: string) => `/api/v1/mail/accounts/${enc(id)}`;
 
 /** Mail accounts and the local, read-only copy of their mail. */
 export const mail = {
-  accounts: () => request<{ accounts: MailAccount[] }>("/api/v1/mail/accounts"),
+  /** The mailboxes shown in this vault, and this vault's folder. */
+  accounts: () => request<{ accounts: MailAccount[]; vault?: string }>("/api/v1/mail/accounts"),
   add: (body: {
     email: string;
     password: string;
@@ -36,6 +37,8 @@ export const mail = {
       sender_name?: string;
       smtp_host?: string;
       smtp_port?: number;
+      /** Keep the mailbox to these vault folders; empty shows it in every vault. */
+      vaults?: string[];
     },
   ) => request<MailAccount>(base(id), { method: "PATCH", ...json(body) }),
   remove: (id: string) => request<{ ok: boolean }>(base(id), { method: "DELETE" }),
@@ -90,6 +93,9 @@ export const mail = {
     request<{ status: string; error: string; account_id: string | null }>(
       `/api/v1/mail/oauth/${enc(signInId)}`,
     ),
+  /** People this mailbox has written with, to fill in an address while typing. */
+  contacts: (id: string, q: string) =>
+    request<{ contacts: { name: string; email: string }[] }>(`${base(id)}/contacts?q=${enc(q)}`),
   drafts: (id: string) => request<{ drafts: MailDraft[] }>(`${base(id)}/drafts`),
   /** A new mail, or with `reply_to` (a mail's id) a reply to it. Nothing is sent. */
   createDraft: (
@@ -97,6 +103,8 @@ export const mail = {
     body: {
       reply_to?: number;
       reply_all?: boolean;
+      /** A mail to pass on: its text and files are filled in. */
+      forward?: number;
       to?: string;
       subject?: string;
       body?: string;

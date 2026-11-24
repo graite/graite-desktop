@@ -6,6 +6,7 @@ import {
   FileText,
   Keyboard,
   Loader2,
+  Mail,
   MousePointerClick,
   Search,
   Sparkles,
@@ -13,7 +14,9 @@ import {
 import { toast } from "sonner";
 import { AiAppIcons } from "@/components/AiAppIcons";
 import { Button } from "@/components/ui/button";
+import { mail, type MailAccount } from "@/lib/mail";
 import { templates, type Template } from "@/lib/templates";
+import { AddAccountDialog } from "@/mail/AddAccountDialog";
 import { useCloudSignIn } from "@/lib/useCloudSignIn";
 import { NameQuestion, saveFirstName } from "../FirstRunName";
 import { WelcomeShot, type WelcomeShotName } from "../WelcomeShot";
@@ -28,6 +31,7 @@ export const STEPS = [
   "settings",
   "review",
   "account",
+  "mail",
   "page",
 ] as const;
 export type StepId = (typeof STEPS)[number];
@@ -44,7 +48,7 @@ interface Nav {
 }
 
 /** The first run, once per computer: the name, a welcome, the basics, connecting AI apps, a
- * page's AI settings, reviewing changes, the Graite account and a first page. Every step can be passed;
+ * page's AI settings, reviewing changes, the Graite account, mail and a first page. Every step can be passed;
  * the last one ends it. */
 export function Onboarding({
   initialName = "",
@@ -87,6 +91,8 @@ export function Onboarding({
           <ReviewStep nav={nav} />
         ) : step === "account" ? (
           <AccountStep nav={nav} />
+        ) : step === "mail" ? (
+          <MailStep nav={nav} />
         ) : (
           <PageStep nav={nav} onCreateBlankPage={onCreateBlankPage} />
         )}
@@ -378,6 +384,72 @@ function AccountStep({ nav }: { nav: Nav }) {
         nav={nav}
         onSkip={signedIn ? undefined : nav.next}
         primary={{ label: "Continue", onClick: nav.next, disabled: !signedIn }}
+      />
+    </>
+  );
+}
+
+/** Mail is optional and can hold several mailboxes: add one, add another, or skip. */
+function MailStep({ nav }: { nav: Nav }) {
+  const [accounts, setAccounts] = useState<MailAccount[]>([]);
+  const [adding, setAdding] = useState(false);
+  const load = () =>
+    void mail
+      .accounts()
+      .then((found) => setAccounts(found.accounts))
+      .catch(() => {});
+  useEffect(load, []);
+  return (
+    <>
+      <div className="onboarding-apps">
+        <span className="ai-app-icon">
+          <Mail size={30} strokeWidth={1.4} />
+        </span>
+      </div>
+      <Text title="Bring your mail in">
+        <p>
+          Read and answer your mail next to your pages. Add <b>as many mailboxes as you have</b>:
+          work and private, Gmail, Outlook, iCloud or any other. You switch between them in the
+          sidebar.
+        </p>
+        <p>
+          Your mail is copied to this computer and never passes through a Graite server. AI reads a
+          mail only when you ask it to.
+        </p>
+        <p className="onboarding-note">Prefer to wait? Mail is under the menu next to Studio.</p>
+      </Text>
+      <div className="onboarding-account">
+        {accounts.length > 0 && (
+          <ul className="grid gap-1 text-sm" aria-label="Mailboxes added">
+            {accounts.map((account) => (
+              <li key={account.id} className="onboarding-success">
+                <Check size={15} /> {account.email}
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant={accounts.length ? "outline" : "default"}
+            onClick={() => setAdding(true)}
+          >
+            {accounts.length ? "Add another mailbox" : "Add a mailbox"}
+          </Button>
+        </div>
+      </div>
+      <AddAccountDialog
+        open={adding}
+        onClose={() => setAdding(false)}
+        onAdded={() => {
+          setAdding(false);
+          load();
+        }}
+      />
+      <Footer
+        nav={nav}
+        onSkip={accounts.length ? undefined : nav.next}
+        primary={{ label: "Continue", onClick: nav.next, disabled: !accounts.length }}
       />
     </>
   );

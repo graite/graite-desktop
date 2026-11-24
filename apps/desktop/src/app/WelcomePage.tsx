@@ -8,6 +8,7 @@ import {
   Lock,
   Monitor,
   Inbox,
+  Mail,
   MessageSquare,
   MessageSquareHeart,
   MonitorSmartphone,
@@ -109,6 +110,26 @@ function Chapter({
   );
 }
 
+/** Several mailboxes coming together in one place. */
+function MailVisual() {
+  return (
+    <div className="welcome-sync" aria-label="Several mailboxes in one place">
+      <span className="ai-app-icon">
+        <Mail size={30} strokeWidth={1.4} />
+      </span>
+      <span className="ai-app-icon ml-2">
+        <Mail size={30} strokeWidth={1.4} />
+      </span>
+      <span className="welcome-sync-line" aria-hidden="true">
+        <i />
+      </span>
+      <span className="ai-app-icon">
+        <Inbox size={34} strokeWidth={1.4} />
+      </span>
+    </div>
+  );
+}
+
 /** First screen in a vault, and the place to come back to: how Graite works, where things
  * are, and where to start. */
 export function WelcomePage({
@@ -116,6 +137,7 @@ export function WelcomePage({
   onSettings,
   onStudio,
   onTemplates,
+  onMail,
   onFeedback,
   firstName,
 }: {
@@ -125,6 +147,8 @@ export function WelcomePage({
   onStudio: (section: Section) => void;
   /** Open the templates, where the example instructions are. */
   onTemplates?: () => void;
+  /** Open Mail, where mailboxes are added. Absent where mail is not offered. */
+  onMail?: () => void;
   /** Absent when this build has nowhere to send feedback. */
   onFeedback?: () => void;
   firstName?: string;
@@ -165,6 +189,17 @@ export function WelcomePage({
       action: "Build an agent",
       onClick: () => onStudio("agents"),
     },
+    ...(onMail
+      ? [
+          {
+            icon: Mail,
+            title: "Bring your mail in",
+            text: "Add all your mailboxes and answer from your pages.",
+            action: "Open Mail",
+            onClick: onMail,
+          },
+        ]
+      : []),
     {
       icon: MonitorSmartphone,
       title: "Use it on all your devices",
@@ -245,6 +280,15 @@ export function WelcomePage({
             text="The same pages on all your computers. Share once, type six words on the other. Only your devices can read them."
             action={{ label: "Open Sync devices", onClick: () => onSettings("sync") }}
           />
+          {onMail && (
+            <Chapter
+              n={6}
+              title="All your mail, next to your pages"
+              visual={<MailVisual />}
+              text="Add every mailbox you have, work and private. Graite drafts replies from what your pages say, and nothing is sent until you press Send."
+              action={{ label: "Open Mail", onClick: onMail }}
+            />
+          )}
         </div>
 
         <h2 className="welcome-start-title">Start here</h2>

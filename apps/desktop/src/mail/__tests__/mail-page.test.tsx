@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   attachmentPreview: vi.fn(),
   saveAttachmentToPage: vi.fn(),
   attachment: vi.fn(),
+  contacts: vi.fn(),
   archive: vi.fn(),
   trash: vi.fn(),
   markRead: vi.fn(),
@@ -62,6 +63,7 @@ import { MailRail } from "../MailRail";
 import { AddAccountDialog } from "../AddAccountDialog";
 import { useMail } from "../useMail";
 import { TabBar } from "@/app/TabBar";
+import { formatRecipients, parseRecipients } from "../RecipientField";
 import { asDraftHtml, DRAFT_PROMPT, inMyVoice, INFO_PROMPT } from "../assist";
 
 /** The pieces as the workspace puts them together: accounts in the sidebar, the tab's page. */
@@ -126,6 +128,7 @@ const account = (id: string, name: string, extra: object = {}) => ({
   synced_at: "2026-11-20T10:00:00Z",
   unread: 0,
   drafts: 0,
+  vaults: [],
   auth: "password",
   sender_name: "",
   smtp_host: "smtp.example.org",
@@ -222,6 +225,7 @@ beforeEach(() => {
     ],
   });
   api.sync.mockResolvedValue({ ok: true });
+  api.contacts.mockResolvedValue({ contacts: [] });
   api.markRead.mockResolvedValue({ ok: true, moved: 1 });
   api.drafts.mockResolvedValue({ drafts: [] });
   api.saveDraft.mockImplementation((_a: string, _d: string, body: object) =>
@@ -440,9 +444,10 @@ it("replies under the conversation and lists drafts in the sidebar", async () =>
   await screen.findByText("We can start in May.");
   fireEvent.click(screen.getByRole("button", { name: "Reply" }));
   expect(api.createDraft).toHaveBeenCalledWith("work", { reply_to: 1, reply_all: undefined });
-  expect(((await screen.findByLabelText("To")) as HTMLInputElement).value).toContain(
-    "kim@roof.example",
-  );
+  // The recipient is a pill with the name; the address is one hover away.
+  const pill = await screen.findByRole("button", { name: "To: Kim Roofer" });
+  expect(pill.textContent).toBe("Kim Roofer");
+  expect(pill.getAttribute("title")).toBe("kim@roof.example");
   expect(screen.getByLabelText("Message").textContent).toContain("> We can");
   // One reply at a time: the button makes way for the draft.
   expect(screen.queryByRole("button", { name: "Reply" })).toBeNull();
@@ -450,7 +455,8 @@ it("replies under the conversation and lists drafts in the sidebar", async () =>
   api.drafts.mockResolvedValue({ drafts: [reply] });
   fireEvent.click(screen.getAllByRole("button", { name: /^Drafts/ })[0]!);
   fireEvent.click(await screen.findByText("To Kim Roofer <kim@roof.example>"));
-  fireEvent.click(screen.getByRole("button", { name: /Discard/ }));
+  // The conversation is fetched before the draft shows under it.
+  fireEvent.click(await screen.findByRole("button", { name: /Discard/ }));
   await waitFor(() => expect(api.discardDraft).toHaveBeenCalledWith("work", "d2"));
 });
 
@@ -696,7 +702,7 @@ it("renames an account from its options", async () => {
   render(<Harness />);
   await screen.findByText("Quote for the roof");
   fireEvent.pointerDown(screen.getByRole("button", { name: "Account options" }), { button: 0 });
-  fireEvent.click(await screen.findByText("Rename and sending settings…"));
+  fireEvent.click(await screen.findByText("Account settings…"));
   const field = (await screen.findByLabelText(
     "Name of this account in Graite",
   )) as HTMLInputElement;
@@ -881,4 +887,142 @@ it("attaches files to a draft and formats with the toolbar", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Remove plan.pdf" }));
   await waitFor(() => expect(detach).toHaveBeenCalledWith("work", "d1", "f1"));
   await waitFor(() => expect(screen.queryByText("plan.pdf")).toBeNull());
+});
+
+it("keeps a mailbox to the vaults that are chosen", async () => {
+  api.accounts.mockResolvedValue({
+    accounts: [account("work", "Work", { unread: 2 })],
+    vault: "/vaults/Notes",
+  });
+  api.update.mockResolvedValue(account("work", "Work", { vaults: ["/vaults/Notes"] }));
+  render(<Harness />);
+  await screen.findByText("Quote for the roof");
+  fireEvent.pointerDown(screen.getByRole("button", { name: "Account options" }), { button: 0 });
+  fireEvent.click(await screen.findByText("Account settings…"));
+  // Every vault unless you say otherwise.
+  const every = (await screen.findByLabelText("Every vault on this computer")) as HTMLInputElement;
+  expect(every.checked).toBe(true);
+  fireEvent.click(screen.getByLabelText("Only the vaults I choose"));
+  // It starts from the vault you are in, which can be unticked with a word on what follows.
+  const here = (await screen.findByRole("checkbox")) as HTMLInputElement;
+  expect(here.checked).toBe(true);
+  expect(screen.getByText(/this vault/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() =>
+    expect(api.update).toHaveBeenCalledWith(
+      "work",
+      expect.objectContaining({ vaults: ["/vaults/Notes"] }),
+    ),
+  );
+});
+
+it("turns typed addresses into pills and suggests people the mailbox knows", async () => {
+  // The line is stored as text; names with a comma keep their quotes.
+  const line =
+    'Kim Roofer <kim@roof.example>, "Berg, Jonas" <jonas@berg.example>; sam@x.example, nonsense';
+  const people = parseRecipients(line);
+  expect(people).toEqual([
+    { name: "Kim Roofer", email: "kim@roof.example" },
+    { name: "Berg, Jonas", email: "jonas@berg.example" },
+    { name: "", email: "sam@x.example" },
+    { name: "nonsense", email: "" },
+  ]);
+  expect(formatRecipients(people)).toBe(
+    'Kim Roofer <kim@roof.example>, "Berg, Jonas" <jonas@berg.example>, sam@x.example, nonsense',
+  );
+
+  api.createDraft.mockResolvedValue(draftOf({}));
+  api.drafts.mockResolvedValue({ drafts: [draftOf({})] });
+  api.contacts.mockImplementation((_id: string, q: string) =>
+    Promise.resolve({
+      contacts: q.startsWith("ro") ? [{ name: "Robin Client", email: "robin@client.example" }] : [],
+    }),
+  );
+  render(<Harness />);
+  await screen.findByText("Quote for the roof");
+  fireEvent.click(screen.getByRole("button", { name: "New email" }));
+  const to = (await screen.findByLabelText("To")) as HTMLInputElement;
+
+  // A space after a whole address makes it a pill; half an address stays text.
+  fireEvent.change(to, { target: { value: "kim@roof" } });
+  expect(screen.queryByRole("button", { name: /^To: / })).toBeNull();
+  fireEvent.change(to, { target: { value: "kim@roof.example " } });
+  expect(screen.getByRole("button", { name: "To: kim@roof.example" })).toBeTruthy();
+  expect(to.value).toBe("");
+
+  // A suggestion from the mailbox, picked with Enter: the pill shows the name.
+  fireEvent.change(to, { target: { value: "ro" } });
+  expect(await screen.findByRole("option", { name: /Robin Client/ })).toBeTruthy();
+  fireEvent.keyDown(to, { key: "Enter" });
+  expect(screen.getByRole("button", { name: "To: Robin Client" }).textContent).toBe("Robin Client");
+  await waitFor(() =>
+    expect(api.saveDraft).toHaveBeenLastCalledWith(
+      "work",
+      "d1",
+      expect.objectContaining({
+        to: "kim@roof.example, Robin Client <robin@client.example>",
+      }),
+    ),
+  );
+
+  // Something that is no address is kept and marked, not silently dropped.
+  fireEvent.change(to, { target: { value: "robin at client," } });
+  expect(screen.getByRole("button", { name: "To: robin at client" }).className).toContain(
+    "destructive",
+  );
+  // The x on a pill takes that person away, whichever it is.
+  fireEvent.click(screen.getByRole("button", { name: "Remove kim@roof.example" }));
+  expect(screen.queryByRole("button", { name: "To: kim@roof.example" })).toBeNull();
+  expect(screen.getByRole("button", { name: "To: Robin Client" })).toBeTruthy();
+  // Backspace on an empty line takes the last pill away.
+  fireEvent.keyDown(to, { key: "Backspace" });
+  expect(screen.queryByRole("button", { name: "To: robin at client" })).toBeNull();
+});
+
+it("keeps the cursor in the recipients while a reply saves itself", async () => {
+  // A reply already has someone in To. Typing a second name saves the draft, and the saved
+  // draft coming back must not take the cursor away: that made a pill of one letter.
+  const reply = draftOf({
+    id: "d7",
+    to: "Kim Roofer <kim@roof.example>",
+    in_reply_to: "<a@x>",
+    thread_id: "t1",
+  });
+  api.createDraft.mockResolvedValue(reply);
+  api.saveDraft.mockImplementation((_a: string, _d: string, body: { to: string }) => {
+    const saved = { ...reply, ...body };
+    api.drafts.mockResolvedValue({ drafts: [saved] });
+    return Promise.resolve(saved);
+  });
+  render(<Harness />);
+  fireEvent.click(await screen.findByText("Quote for the roof"));
+  await screen.findByText("We can start in May.");
+  fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+  const to = (await screen.findByLabelText("To")) as HTMLInputElement;
+  to.focus();
+  fireEvent.change(to, { target: { value: "R" } });
+  const before = api.drafts.mock.calls.length;
+  await waitFor(() => expect(api.saveDraft).toHaveBeenCalled());
+  // The saved draft, with the new recipients line, comes back into the page.
+  await waitFor(() => expect(api.drafts.mock.calls.length).toBeGreaterThan(before));
+  await new Promise((done) => setTimeout(done, 50));
+  // Still typing: one pill (Kim), the letter still in the line, the cursor still there.
+  expect(screen.getAllByRole("button", { name: /^To: / }).length).toBe(1);
+  expect(to.value).toBe("R");
+  expect(document.activeElement).toBe(to);
+});
+
+it("forwards a mail, from the conversation or from one mail in it", async () => {
+  const passed = draftOf({ id: "d5", subject: "Fwd: Quote for the roof", forwarded: true });
+  api.createDraft.mockResolvedValue(passed);
+  api.drafts.mockResolvedValue({ drafts: [passed] });
+  render(<Harness />);
+  fireEvent.click(await screen.findByText("Quote for the roof"));
+  await screen.findByText("We can start in May.");
+  fireEvent.click(screen.getByRole("button", { name: "Forward" }));
+  await waitFor(() => expect(api.createDraft).toHaveBeenLastCalledWith("work", { forward: 1 }));
+  expect(await screen.findByText("Forward", { selector: "span" })).toBeTruthy();
+  expect((screen.getByLabelText("Subject") as HTMLInputElement).value).toBe(
+    "Fwd: Quote for the roof",
+  );
 });
