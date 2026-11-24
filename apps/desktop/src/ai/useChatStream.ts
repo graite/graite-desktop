@@ -66,6 +66,8 @@ export interface SendOptions {
   pagePath?: string;
   /** Pages pinned with @ in the message. */
   pinned?: string[];
+  /** What to look for in the pages, when that is not the message itself. */
+  searchQuery?: string;
 }
 
 function asContext(sources: Source[], previous: ContextEntry[], turn: number): ContextEntry[] {
@@ -241,6 +243,7 @@ export function useChatStream(options: {
             // Draft and Act always work with tools; a question is quick unless Deep is on.
             depth: (opts.mode ?? "ask") === "ask" ? chatDepth() : undefined,
             pinned_paths: opts.pinned?.length ? opts.pinned : undefined,
+            search_query: opts.searchQuery || undefined,
           },
           controller.signal,
           (event) => handle(event, id),

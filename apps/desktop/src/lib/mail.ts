@@ -94,13 +94,49 @@ export const mail = {
   /** A new mail, or with `reply_to` (a mail's id) a reply to it. Nothing is sent. */
   createDraft: (
     id: string,
-    body: { reply_to?: number; reply_all?: boolean; to?: string; subject?: string; body?: string },
+    body: {
+      reply_to?: number;
+      reply_all?: boolean;
+      to?: string;
+      subject?: string;
+      body?: string;
+      /** The message with formatting; given instead of `body`. */
+      html?: string;
+    },
   ) => request<MailDraft>(`${base(id)}/drafts`, { method: "POST", ...json(body) }),
   saveDraft: (
     id: string,
     draftId: string,
-    body: { to?: string; cc?: string; bcc?: string; subject?: string; body?: string },
+    body: {
+      to?: string;
+      cc?: string;
+      bcc?: string;
+      subject?: string;
+      body?: string;
+      html?: string;
+    },
   ) => request<MailDraft>(`${base(id)}/drafts/${enc(draftId)}`, { method: "PUT", ...json(body) }),
+  /** Add a file to a draft; it goes along when the mail is sent. */
+  attachToDraft: async (id: string, draftId: string, file: Blob, name: string) => {
+    const { url, token } = await platform.getDaemonInfo();
+    const response = await fetch(
+      `${url}${base(id)}/drafts/${enc(draftId)}/attachments?name=${enc(name)}`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" },
+        body: file,
+      },
+    );
+    if (!response.ok) {
+      const error = (await response.json().catch(() => ({}))) as { detail?: string };
+      throw new Error(error.detail || `Could not attach the file (${response.status})`);
+    }
+    return (await response.json()) as MailDraft;
+  },
+  detachFromDraft: (id: string, draftId: string, fileId: string) =>
+    request<MailDraft>(`${base(id)}/drafts/${enc(draftId)}/attachments/${enc(fileId)}`, {
+      method: "DELETE",
+    }),
   discardDraft: (id: string, draftId: string) =>
     request<{ ok: boolean }>(`${base(id)}/drafts/${enc(draftId)}`, { method: "DELETE" }),
   /** The one call that makes mail leave Graite: behind the Send button only. */
@@ -264,6 +300,10 @@ export function mailDocument(html: string): string {
     `padding-left:.8em;border-left:2px solid #8884}a{color:inherit}` +
     `img[src^="http"],img:not([src]){display:none}` +
     `body[data-fold] [data-q]{display:none!important}` +
+    `a[data-short]{display:inline-block;max-width:100%;padding:0 .45em;border-radius:5px;` +
+    `background:#8882;text-decoration:none;font-size:.92em;color:inherit;white-space:nowrap;` +
+    `overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}` +
+    `a[data-short]:hover{background:#8884}a[data-short]::after{content:" ↗";opacity:.55}` +
     `body[data-flip]{filter:${turn}}` +
     `body[data-flip] img,body[data-flip] video,body[data-flip] [background],` +
     `body[data-flip] [style*="background-image"]{filter:invert(1) hue-rotate(180deg)}` +
@@ -333,8 +373,12 @@ export async function saveAttachment(
 }
 
 const AI_READABLE = /\.(pdf|png|jpe?g|webp|gif|md|markdown|txt)$/i;
-/** Whether the chat can read a file of this name (the kinds it accepts as uploads). */
-export const aiReadable = (name: string) => AI_READABLE.test(name);
+/** Text in another wrapping: the chat reads these as plain text. */
+const AI_AS_TEXT = /\.(csv|tsv|json|log|ya?ml|xml|ics)$/i;
+/** Whether the chat can read a file of this name. */
+export const aiReadable = (name: string) => AI_READABLE.test(name) || AI_AS_TEXT.test(name);
+/** The name to hand a file to the chat under: text kinds it does not know go as `.txt`. */
+export const aiUploadName = (name: string) => (AI_AS_TEXT.test(name) ? `${name}.txt` : name);
 
 /**
  * A conversation as text for the model. It opens by saying what it is: a mail is written by
@@ -400,4 +444,135 @@ export function textWithLinks(text: string): ({ text: string } | { url: string }
 export function ownWords(message: MailMessage, limit = 700): string {
   const own = splitQuoted(message.body_text).own.trim();
   return own.length > limit ? `${own.slice(0, limit)}…` : own;
+}
+
+const escapeHtml = (text: string) =>
+  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** Plain text as the editor's HTML: a paragraph per block, line breaks kept. */
+export function textToHtml(text: string): string {
+  return text
+    .replace(/\r\n/g, "\n")
+    .split(/\n{2,}/)
+    .filter((block) => block.trim())
+    .map(
+      (block) =>
+        `<p>${block
+          .replace(/^\n+|\n+$/g, "")
+          .split("\n")
+          .map(escapeHtml)
+          .join("<br>")}</p>`,
+    )
+    .join("");
+}
+
+const inlineMarks = (text: string) =>
+  escapeHtml(text)
+    .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+    .replace(/__(.+?)__/g, "<b>$1</b>")
+    // Emphasis hugs its words: "2 * 3 * 4" is a sum, not italics.
+    .replace(/(^|[^*\w])\*(\S(?:[^*\n]*?\S)?)\*(?!\w)/g, "$1<i>$2</i>")
+    .replace(/(^|[^_\w])_(\S(?:[^_\n]*?\S)?)_(?!\w)/g, "$1<i>$2</i>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2">$1</a>');
+
+/**
+ * The formatting a mail can carry, from the Markdown a model writes: paragraphs, bold,
+ * italic, bullet and numbered lists, links. Everything is escaped first, so the result holds
+ * only these tags; the daemon rebuilds it from its own allow-list once more.
+ */
+export function markdownToHtml(markdown: string): string {
+  const out: string[] = [];
+  let list: "ul" | "ol" | null = null;
+  let paragraph: string[] = [];
+  const endParagraph = () => {
+    if (paragraph.length) out.push(`<p>${paragraph.map(inlineMarks).join("<br>")}</p>`);
+    paragraph = [];
+  };
+  const endList = () => {
+    if (list) out.push(`</${list}>`);
+    list = null;
+  };
+  for (const raw of markdown.replace(/\r\n/g, "\n").split("\n")) {
+    const line = raw.trimEnd();
+    const bullet = line.match(/^\s*[-*•]\s+(.*)$/);
+    const numbered = line.match(/^\s*\d+[.)]\s+(.*)$/);
+    const item = bullet ?? numbered;
+    if (item) {
+      endParagraph();
+      const kind = bullet ? "ul" : "ol";
+      if (list !== kind) {
+        endList();
+        out.push(`<${kind}>`);
+        list = kind;
+      }
+      out.push(`<li>${inlineMarks(item[1]!)}</li>`);
+      continue;
+    }
+    if (!line.trim()) {
+      endParagraph();
+      // A blank line between two items of one list does not end the list.
+      continue;
+    }
+    endList();
+    paragraph.push(line.replace(/^#{1,6}\s+/, ""));
+  }
+  endParagraph();
+  endList();
+  return out.join("");
+}
+
+/** What to look for in the pages for a conversation: its subject, who it is with, and what
+ * the latest mail says. This, not the instruction given to the model, is what is searched. */
+export function searchTerms(thread: MailThread): string {
+  const last = thread.messages[thread.messages.length - 1];
+  const subject = thread.subject.replace(/^\s*((re|fw|fwd|aw|antw)\s*:\s*)+/i, "");
+  const who = [...new Set(thread.messages.map((m) => m.sender_name).filter(Boolean))].join(", ");
+  const said = last ? splitQuoted(last.body_text).own.replace(/\s+/g, " ").slice(0, 320) : "";
+  return [subject, who, said].filter(Boolean).join(". ").slice(0, 580);
+}
+
+const BARE_URL = /^(https?:\/\/|www\.)\S+$/i;
+
+/**
+ * Web addresses written out in a mail become short links: the site and the start of the
+ * path, with the whole address on hover. Links that have words of their own are left alone.
+ */
+export function shortenLinks(doc: Document): void {
+  const body = doc.body;
+  if (body.hasAttribute("data-links-done")) return;
+  body.setAttribute("data-links-done", "");
+  for (const link of body.querySelectorAll("a[href]")) {
+    const words = (link.textContent ?? "").trim();
+    if (!BARE_URL.test(words) || link.querySelector("img")) continue;
+    const address = words.startsWith("www.") ? `https://${words}` : words;
+    link.setAttribute("title", link.getAttribute("href") ?? address);
+    link.setAttribute("data-short", "");
+    link.textContent = shortLink(address);
+  }
+  // Addresses that are only text, not yet a link.
+  const walker = doc.createTreeWalker(body, 4);
+  const texts: Text[] = [];
+  for (let node = walker.nextNode(); node && texts.length < 400; node = walker.nextNode()) {
+    const parent = node.parentElement;
+    if (parent && !parent.closest("a, style, script") && /https?:\/\//.test(node.textContent ?? ""))
+      texts.push(node as Text);
+  }
+  for (const text of texts) {
+    const parts = textWithLinks(text.textContent ?? "");
+    if (!parts.some((part) => "url" in part)) continue;
+    const pieces = doc.createDocumentFragment();
+    for (const part of parts) {
+      if ("text" in part) {
+        pieces.append(part.text);
+        continue;
+      }
+      const link = doc.createElement("a");
+      link.setAttribute("href", part.url);
+      link.setAttribute("title", part.url);
+      link.setAttribute("data-short", "");
+      link.textContent = shortLink(part.url);
+      pieces.append(link);
+    }
+    text.replaceWith(pieces);
+  }
 }

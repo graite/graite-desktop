@@ -62,7 +62,7 @@ import { MailRail } from "../MailRail";
 import { AddAccountDialog } from "../AddAccountDialog";
 import { useMail } from "../useMail";
 import { TabBar } from "@/app/TabBar";
-import { asDraftText, DRAFT_PROMPT, inMyVoice, INFO_PROMPT } from "../assist";
+import { asDraftHtml, DRAFT_PROMPT, inMyVoice, INFO_PROMPT } from "../assist";
 
 /** The pieces as the workspace puts them together: accounts in the sidebar, the tab's page. */
 function Harness() {
@@ -101,8 +101,11 @@ import {
   mailDate,
   mailDocument,
   mailTone,
+  markdownToHtml,
   markQuoted,
   ownWords,
+  searchTerms,
+  shortenLinks,
   shortLink,
   splitQuoted,
   textWithLinks,
@@ -159,6 +162,8 @@ const draftOf = (extra: object) => ({
   bcc: "",
   subject: "",
   body: "",
+  html: "",
+  attachments: [],
   in_reply_to: "",
   references: [],
   thread_id: "",
@@ -393,7 +398,9 @@ it("writes a new mail that saves itself and is sent only by Send", async () => {
   fireEvent.click(screen.getByRole("button", { name: "New email" }));
   fireEvent.change(await screen.findByLabelText("To"), { target: { value: "kim@roof.example" } });
   fireEvent.change(screen.getByLabelText("Subject"), { target: { value: "Hello" } });
-  fireEvent.change(screen.getByLabelText("Message"), { target: { value: "See you in May." } });
+  const box = screen.getByLabelText("Message");
+  box.innerHTML = "<p>See you in <b>May</b>.</p>";
+  fireEvent.input(box);
   expect(screen.getByText("Nothing is sent until you press Send.")).toBeTruthy();
   await waitFor(() =>
     expect(api.saveDraft).toHaveBeenLastCalledWith(
@@ -402,7 +409,7 @@ it("writes a new mail that saves itself and is sent only by Send", async () => {
       expect.objectContaining({
         to: "kim@roof.example",
         subject: "Hello",
-        body: "See you in May.",
+        html: "<p>See you in <b>May</b>.</p>",
       }),
     ),
   );
@@ -436,7 +443,7 @@ it("replies under the conversation and lists drafts in the sidebar", async () =>
   expect(((await screen.findByLabelText("To")) as HTMLInputElement).value).toContain(
     "kim@roof.example",
   );
-  expect((screen.getByLabelText("Message") as HTMLTextAreaElement).value).toContain("> We can");
+  expect(screen.getByLabelText("Message").textContent).toContain("> We can");
   // One reply at a time: the button makes way for the draft.
   expect(screen.queryByRole("button", { name: "Reply" })).toBeNull();
 
@@ -579,24 +586,24 @@ it("gets info from the pages and generates a draft, both shown under the email",
     text: "Hi Kim,\n\nMay works for us [1]. The agreed price is **4,800 euros** [2, 3].\n\nSam",
     pages: [],
   });
-  api.createDraft.mockImplementation((_id: string, body: { body?: string }) =>
+  api.createDraft.mockImplementation((_id: string, body: { html?: string }) =>
     Promise.resolve(draftOf({ id: "d9", thread_id: "t1", in_reply_to: "<a@x>", ...body })),
   );
   fireEvent.click(screen.getByRole("button", { name: /Generate draft/ }));
   await waitFor(() => expect(helper.assist.mock.calls[1]?.[1]).toBe(DRAFT_PROMPT));
-  const message = (await screen.findByLabelText("Message")) as HTMLTextAreaElement;
-  // The draft is plain text: no source numbers, no Markdown marks. Nothing was sent.
-  expect(message.value).toBe(
-    "Hi Kim,\n\nMay works for us. The agreed price is 4,800 euros.\n\nSam",
-  );
+  const message = await screen.findByLabelText("Message");
+  // The answer's Markdown became the mail's formatting; source numbers are gone. Not sent.
+  const html =
+    "<p>Hi Kim,</p><p>May works for us. The agreed price is <b>4,800 euros</b>.</p><p>Sam</p>";
+  expect(message.innerHTML).toBe(html);
   expect(api.createDraft).toHaveBeenCalledWith("work", {
     reply_to: 1,
     reply_all: undefined,
-    body: message.value,
+    html,
   });
   expect(api.sendDraft).not.toHaveBeenCalled();
   expect(screen.queryByRole("button", { name: /Generate draft/ })).toBeNull();
-  expect(asDraftText("```\nHello\n```")).toBe("Hello");
+  expect(asDraftHtml("```\nHello\n```")).toBe("<p>Hello</p>");
   expect(DRAFT_PROMPT + INFO_PROMPT).toMatch(/lists, boards and tables/);
 });
 
@@ -790,4 +797,88 @@ it("puts every mail on the app's own background, light or dark", () => {
   expect(page).toContain("body[data-flip]{filter:invert(var(--flip, 1)) hue-rotate(180deg)}");
   expect(page).toContain("body[data-flip] img");
   expect(page).toContain("background:transparent");
+});
+
+it("turns a model's Markdown into the formatting a mail can carry", () => {
+  expect(
+    markdownToHtml(
+      "Hoi Kim,\n\nDrie punten:\n- **Dak** in mei\n- Goot <later>\n\n1. Eerst *dit*\n2. Dan [de offerte](https://example.org/o)\n\n## Groet\nSam",
+    ),
+  ).toBe(
+    "<p>Hoi Kim,</p><p>Drie punten:</p><ul><li><b>Dak</b> in mei</li><li>Goot &lt;later&gt;</li></ul>" +
+      '<ol><li>Eerst <i>dit</i></li><li>Dan <a href="https://example.org/o">de offerte</a></li></ol>' +
+      "<p>Groet<br>Sam</p>",
+  );
+  // Nothing a model writes can become a tag of its own.
+  expect(markdownToHtml("<script>x</script> 2 * 3 * 4")).toBe(
+    "<p>&lt;script&gt;x&lt;/script&gt; 2 * 3 * 4</p>",
+  );
+  // Both helpers answer in the mail's language and may use lists.
+  expect(DRAFT_PROMPT).toMatch(/^Language: write in the language of the latest email/);
+  expect(INFO_PROMPT).toMatch(/^Language:/);
+  expect(DRAFT_PROMPT).toMatch(/bullet or numbered lists/);
+});
+
+it("searches the pages for what the mail is about, not for the instruction", () => {
+  const thread = {
+    thread_id: "t",
+    subject: "Re: Fwd: Densities in the price view",
+    messages: [
+      { sender_name: "Jan", body_text: "Where does the density value live?" },
+      {
+        sender_name: "Kim",
+        body_text: "It is the column density in the Blending view.\n\nOn Mon Jan wrote:\n> Where?",
+      },
+    ],
+  };
+  expect(searchTerms(thread as never)).toBe(
+    "Densities in the price view. Jan, Kim. It is the column density in the Blending view.",
+  );
+});
+
+it("shows web addresses in a formatted mail as short links, and keeps worded links", () => {
+  const doc = new DOMParser().parseFromString(
+    '<p>See <a href="https://shop.example.org/orders/2026/11/55120/track">https://shop.example.org/orders/2026/11/55120/track</a>' +
+      ' or <a href="https://example.org/x">our site</a>, or https://docs.example.org/guide here.</p>',
+    "text/html",
+  );
+  shortenLinks(doc);
+  const links = [...doc.querySelectorAll("a")];
+  expect(links.map((a) => a.textContent)).toEqual([
+    "shop.example.org/orders/2026/11/55120…",
+    "our site",
+    "docs.example.org/guide",
+  ]);
+  expect(links[0]!.getAttribute("title")).toBe(
+    "https://shop.example.org/orders/2026/11/55120/track",
+  );
+  expect(links[1]!.hasAttribute("data-short")).toBe(false);
+  expect(links[2]!.getAttribute("href")).toBe("https://docs.example.org/guide");
+  expect(doc.body.textContent).toContain(" here.");
+});
+
+it("attaches files to a draft and formats with the toolbar", async () => {
+  api.createDraft.mockResolvedValue(draftOf({ to: "kim@roof.example" }));
+  api.drafts.mockResolvedValue({ drafts: [draftOf({ to: "kim@roof.example" })] });
+  const withFile = draftOf({
+    to: "kim@roof.example",
+    attachments: [{ id: "f1", name: "plan.pdf", type: "application/pdf", size: 2048 }],
+  });
+  const attach = vi.fn().mockResolvedValue(withFile);
+  const detach = vi.fn().mockResolvedValue(draftOf({ to: "kim@roof.example" }));
+  Object.assign(api, { attachToDraft: attach, detachFromDraft: detach });
+  render(<Harness />);
+  await screen.findByText("Quote for the roof");
+  fireEvent.click(screen.getByRole("button", { name: "New email" }));
+  await screen.findByLabelText("Message");
+  for (const name of ["Bold", "Italic", "Bulleted list", "Numbered list"])
+    expect(screen.getByRole("button", { name })).toBeTruthy();
+
+  const file = new File(["%PDF"], "plan.pdf", { type: "application/pdf" });
+  fireEvent.change(screen.getByLabelText("Files to attach"), { target: { files: [file] } });
+  await screen.findByText("plan.pdf");
+  expect(attach).toHaveBeenCalledWith("work", "d1", file, "plan.pdf");
+  fireEvent.click(screen.getByRole("button", { name: "Remove plan.pdf" }));
+  await waitFor(() => expect(detach).toHaveBeenCalledWith("work", "d1", "f1"));
+  await waitFor(() => expect(screen.queryByText("plan.pdf")).toBeNull());
 });

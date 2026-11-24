@@ -61,7 +61,7 @@ import "@/models/ai.css";
 import type { TreeNode } from "@/lib/api";
 import { STAYS_LOCAL } from "./AddAccountDialog";
 import { AttachmentDialog, type OpenFile } from "./AttachmentDialog";
-import { asDraftText, assist, DRAFT_PROMPT, INFO_PROMPT } from "./assist";
+import { asDraftHtml, assist, DRAFT_PROMPT, INFO_PROMPT } from "./assist";
 import { DraftEditor } from "./DraftEditor";
 import { MailAskPanel } from "./MailAskPanel";
 import { MessageBody } from "./MessageBody";
@@ -126,7 +126,7 @@ export function MailPage({
   useEffect(() => void loadDrafts(), [loadDrafts, version]);
 
   /** Start writing: a new mail, or a reply to a mail of the open conversation. */
-  const compose = async (reply?: { to: number; all?: boolean; body?: string }) => {
+  const compose = async (reply?: { to: number; all?: boolean; html?: string }) => {
     if (!current) return;
     // "New email" twice does not leave an empty draft behind: the empty one is used again.
     const blank = drafts.find((d) => !d.in_reply_to && !d.to && !d.subject && !d.body);
@@ -138,7 +138,7 @@ export function MailPage({
     try {
       const made = await mail.createDraft(
         current,
-        reply ? { reply_to: reply.to, reply_all: reply.all, body: reply.body } : {},
+        reply ? { reply_to: reply.to, reply_all: reply.all, html: reply.html } : {},
       );
       if (!reply) setOpenId(null);
       setDrafts((old) => [made, ...old]);
@@ -311,7 +311,7 @@ export function MailPage({
       setHelp(null);
       if (kind === "info") setFound(result);
       else {
-        if (last) await compose({ to: last.id, body: asDraftText(result.text) });
+        if (last) await compose({ to: last.id, html: asDraftHtml(result.text) });
       }
     } catch (e) {
       if (controller.signal.aborted) return;
@@ -995,7 +995,7 @@ export function MailPage({
           onClose={() => setAsking(false)}
           onUseAsDraft={(text) => {
             const last = thread.messages[thread.messages.length - 1];
-            if (last) void compose({ to: last.id, body: text });
+            if (last) void compose({ to: last.id, html: asDraftHtml(text) });
           }}
           onSettings={onSettings}
           onNavigate={onNavigate ?? (() => {})}

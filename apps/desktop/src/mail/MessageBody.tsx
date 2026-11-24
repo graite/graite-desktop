@@ -5,6 +5,7 @@ import {
   mailDocument,
   mailTone,
   markQuoted,
+  shortenLinks,
   shortLink,
   splitQuoted,
   textWithLinks,
@@ -84,6 +85,7 @@ export function MessageBody({
       observer?.disconnect();
       observer = new ResizeObserver(measure);
       observer.observe(doc.body);
+      shortenLinks(doc);
       setHasQuoted(fold && markQuoted(doc));
       doc.body.toggleAttribute("data-fold", hide);
       // The mail on the app's own background: a light mail is turned dark in the dark
