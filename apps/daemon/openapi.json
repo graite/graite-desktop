@@ -3042,6 +3042,11 @@
             "title": "Created At",
             "type": "string"
           },
+          "forwarded": {
+            "default": false,
+            "title": "Forwarded",
+            "type": "boolean"
+          },
           "html": {
             "default": "",
             "maxLength": 800000,
@@ -4299,6 +4304,14 @@
           "username": {
             "title": "Username",
             "type": "string"
+          },
+          "vaults": {
+            "description": "The vault folders it is shown in; empty: every vault on this computer.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Vaults",
+            "type": "array"
           }
         },
         "required": [
@@ -4315,6 +4328,7 @@
           "synced_at",
           "unread",
           "drafts",
+          "vaults",
           "auth",
           "sender_name",
           "smtp_host",
@@ -4331,6 +4345,12 @@
             },
             "title": "Accounts",
             "type": "array"
+          },
+          "vault": {
+            "default": "",
+            "description": "The folder of the vault this daemon serves.",
+            "title": "Vault",
+            "type": "string"
           }
         },
         "required": [
@@ -4360,6 +4380,40 @@
           "size"
         ],
         "title": "MailAttachment",
+        "type": "object"
+      },
+      "MailContact": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "email"
+        ],
+        "title": "MailContact",
+        "type": "object"
+      },
+      "MailContacts": {
+        "properties": {
+          "contacts": {
+            "items": {
+              "$ref": "#/components/schemas/MailContact"
+            },
+            "title": "Contacts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "contacts"
+        ],
+        "title": "MailContacts",
         "type": "object"
       },
       "MailDrafts": {
@@ -5557,6 +5611,18 @@
             "title": "Cc",
             "type": "string"
           },
+          "forward": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Id of a mail to pass on: its subject, text and files are filled in, and the recipients are left to choose.",
+            "title": "Forward"
+          },
           "html": {
             "default": "",
             "description": "The message with formatting (bold, italic, lists, links). Anything else is taken out. Given instead of `body`.",
@@ -6088,6 +6154,22 @@
               }
             ],
             "title": "Smtp Port"
+          },
+          "vaults": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 200,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Keep the mailbox to these vault folders; an empty list shows it in every vault again.",
+            "title": "Vaults"
           }
         },
         "title": "PatchMailAccount",
@@ -14171,6 +14253,72 @@
           }
         },
         "summary": "Patch Account",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/contacts": {
+      "get": {
+        "description": "People this mailbox has written with, to fill in an address while typing. Read from\nthe local copy of the mail; nothing is looked up elsewhere.",
+        "operationId": "find_contacts_api_v1_mail_accounts__account_id__contacts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 100,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 8,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailContacts"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Find Contacts",
         "tags": [
           "Mail"
         ]

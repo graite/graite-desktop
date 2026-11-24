@@ -94,6 +94,21 @@ def quoted(sender: str, date: str, text: str) -> str:
     )
 
 
+def forwarded(sender: str, date: str, subject: str, to: str, text: str) -> str:
+    """A mail that is passed on, under what the user writes above it."""
+    head = "<br>".join(
+        escape(line)
+        for line in (
+            "---------- Forwarded message ----------",
+            f"From: {sender}",
+            f"Date: {date}",
+            f"Subject: {subject}",
+            f"To: {to}",
+        )
+    )
+    return f"<p><br></p><p>{head}</p>{from_text(text.strip())}"
+
+
 def page(html: str) -> str:
     """The HTML part as it is sent: a small complete document."""
     return (

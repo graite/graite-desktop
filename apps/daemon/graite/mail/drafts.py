@@ -42,6 +42,8 @@ class Draft(BaseModel):
     in_reply_to: str = ""
     references: list[str] = Field(default_factory=list)
     thread_id: str = ""
+    # A mail passed on to someone else: starts a conversation of its own.
+    forwarded: bool = False
     created_at: str
     updated_at: str
 

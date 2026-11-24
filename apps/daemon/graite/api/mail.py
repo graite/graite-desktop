@@ -6,6 +6,7 @@ Every route names its account, so any number of accounts sit side by side.
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from pathlib import Path
 from typing import Any, Literal
@@ -20,6 +21,7 @@ from graite.mail.accounts import (
     delete_password,
     domain_of,
     set_password,
+    shown_in,
 )
 from graite.mail.drafts import Draft
 from graite.mail.service import MailService
@@ -48,6 +50,9 @@ class MailAccount(BaseModel):
     synced_at: str
     unread: int
     drafts: int
+    vaults: list[str] = Field(
+        description="The vault folders it is shown in; empty: every vault on this computer."
+    )
     auth: str = Field(description="password, or microsoft: signed in at Microsoft.")
     sender_name: str = Field(description="Your name on sent mail; empty: only the address.")
     smtp_host: str = Field(description="The outgoing server in use, set or worked out.")
@@ -56,6 +61,7 @@ class MailAccount(BaseModel):
 
 class MailAccounts(BaseModel):
     accounts: list[MailAccount]
+    vault: str = Field(default="", description="The folder of the vault this daemon serves.")
 
 
 class NewMailAccount(BaseModel):
@@ -70,6 +76,12 @@ class NewMailAccount(BaseModel):
 class PatchMailAccount(BaseModel):
     name: str | None = Field(default=None, max_length=80)
     password: str | None = Field(default=None, min_length=1, max_length=1024)
+    vaults: list[str] | None = Field(
+        default=None,
+        max_length=200,
+        description="Keep the mailbox to these vault folders; an empty list shows it in every "
+        "vault again.",
+    )
     sender_name: str | None = Field(default=None, max_length=120)
     smtp_host: str | None = Field(default=None, max_length=255)
     smtp_port: int | None = Field(default=None, ge=0, le=65535)
@@ -151,8 +163,8 @@ def _service(request: Request) -> MailService:
 
 
 def _account(service: MailService, account_id: str) -> Account:
-    account = service.accounts.account(account_id)
-    if account is None:
+    account = service.account_here(account_id)
+    if account is None:  # not there, or kept to other vaults
         raise HTTPException(404, "Mail account not found.")
     return account
 
@@ -184,8 +196,11 @@ def _refusal(account: Account, exc: imap.MailError) -> str:
 @router.get("/accounts", response_model=MailAccounts)
 async def list_accounts(request: Request) -> MailAccounts:
     service = _service(request)
+    shown = service.here()
+    for account in shown:  # one that was just given to this vault from another window
+        service.watch(account.id)
     return MailAccounts(
-        accounts=[await _view(service, account) for account in service.accounts.accounts()]
+        accounts=[await _view(service, account) for account in shown], vault=service.vault
     )
 
 
@@ -229,6 +244,26 @@ async def patch_account(account_id: str, body: PatchMailAccount, request: Reques
         service.refresh(account.id)
     if body.name is not None:
         account = service.accounts.rename(account_id, body.name)
+    if body.vaults is not None:
+        account = service.accounts.set_vaults(account_id, body.vaults)
+        if not shown_in(account, service.vault):
+            # Taken out of this vault: its mail is no longer kept here. The account, its
+            # sign-in and its drafts stay, for the vaults it is still in.
+            await service.forget(account_id, drafts=False)
+            request.app.state.events.publish(
+                "mail_changed", {"account_id": account_id, "state": "ok"}
+            )
+            return MailAccount(
+                **account.model_dump(exclude={"smtp_host", "smtp_port", "client_id"}),
+                smtp_host="",
+                smtp_port=0,
+                drafts=0,
+                state="waiting",
+                error="",
+                needs_password=False,
+                synced_at="",
+                unread=0,
+            )
     if body.sender_name is not None or body.smtp_host is not None or body.smtp_port is not None:
         account = service.accounts.set_sending(
             account_id,
@@ -504,6 +539,11 @@ class NewMailDraft(BaseModel):
         "quoted text are filled in.",
     )
     reply_all: bool = False
+    forward: int | None = Field(
+        default=None,
+        description="Id of a mail to pass on: its subject, text and files are filled in, "
+        "and the recipients are left to choose.",
+    )
     to: str = Field(default="", max_length=4000)
     cc: str = Field(default="", max_length=4000)
     bcc: str = Field(default="", max_length=4000)
@@ -582,8 +622,12 @@ async def create_draft(account_id: str, body: NewMailDraft, request: Request) ->
     """A new mail, or with `reply_to` a reply. Writing a draft never sends anything."""
     service = _service(request)
     account = _account(service, account_id)
-    fields: dict[str, Any] = body.model_dump(exclude={"reply_to", "reply_all", "body", "html"})
+    fields: dict[str, Any] = body.model_dump(
+        exclude={"reply_to", "reply_all", "forward", "body", "html"}
+    )
     written = _written(body.body or None, body.html or None)
+    if body.forward is not None:
+        return await _forward(service, account, body.forward, fields, written)
     if body.reply_to is not None:
         mail = await asyncio.to_thread(service.box(account_id).message, body.reply_to)
         if mail is None:
@@ -597,6 +641,85 @@ async def create_draft(account_id: str, body: NewMailDraft, request: Request) ->
         written = {"html": html, "body": richtext.to_text(html)}
     fields.update(written)
     return await asyncio.to_thread(lambda: service.drafts.create(account_id, **fields))
+
+
+async def _forward(
+    service: MailService,
+    account: Account,
+    mail_id: int,
+    fields: dict[str, Any],
+    written: dict[str, str],
+) -> Draft:
+    """A draft that passes a mail on: what it said under a line for your own words, and its
+    files, fetched from the mail server now and kept with the draft."""
+    box = service.box(account.id)
+    mail = await asyncio.to_thread(box.message, mail_id)
+    if mail is None:
+        raise HTTPException(404, "Mail not found.")
+    subject = str(mail["subject"])
+    if not subject.strip().lower().startswith(("fwd:", "fw:")):
+        subject = "Fwd: " + subject
+    html = written.get("html", "") + richtext.forwarded(
+        _person(mail["sender_name"], mail["sender_email"]),
+        str(mail["date"])[:16].replace("T", " "),
+        str(mail["subject"]),
+        ", ".join(_person(p["name"], p["email"]) for p in mail["recipients"]),
+        mail["body_text"],
+    )
+    fields = {
+        **{k: v for k, v in fields.items() if v},
+        "subject": fields.get("subject") or subject,
+        "html": html,
+        "body": richtext.to_text(html),
+        "forwarded": True,
+    }
+    draft = await asyncio.to_thread(lambda: service.drafts.create(account.id, **fields))
+    if (
+        json.loads(mail["attachments"])
+        if isinstance(mail["attachments"], str)
+        else mail["attachments"]
+    ):
+        try:
+            password = await asyncio.to_thread(oauth.secret, account)
+            raw = await asyncio.to_thread(
+                imap.fetch, account, password, mail["folder"], mail["uid"], service.connect
+            )
+            total = 0
+            for name, kind, content in await asyncio.to_thread(parse.files, raw):
+                if not content or total + len(content) > DRAFT_FILES_BYTES:
+                    continue
+                total += len(content)
+                changed = await asyncio.to_thread(
+                    service.drafts.add_file, account.id, draft.id, name, kind, content
+                )
+                draft = changed or draft
+        except imap.MailError:
+            pass  # the words are passed on; the files can be added by hand
+    return draft
+
+
+class MailContact(BaseModel):
+    name: str
+    email: str
+
+
+class MailContacts(BaseModel):
+    contacts: list[MailContact]
+
+
+@router.get("/accounts/{account_id}/contacts", response_model=MailContacts)
+async def find_contacts(
+    account_id: str,
+    request: Request,
+    q: str = Query(default="", max_length=100),
+    limit: int = Query(default=8, ge=1, le=20),
+) -> MailContacts:
+    """People this mailbox has written with, to fill in an address while typing. Read from
+    the local copy of the mail; nothing is looked up elsewhere."""
+    service = _service(request)
+    account = _account(service, account_id)
+    found = await asyncio.to_thread(service.box(account_id).contacts, q, account.email, limit)
+    return MailContacts(contacts=[MailContact.model_validate(c) for c in found])
 
 
 @router.put("/accounts/{account_id}/drafts/{draft_id}", response_model=Draft)

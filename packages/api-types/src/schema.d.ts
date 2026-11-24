@@ -1531,6 +1531,27 @@ export interface paths {
     patch: operations["patch_account_api_v1_mail_accounts__account_id__patch"];
     trace?: never;
   };
+  "/api/v1/mail/accounts/{account_id}/contacts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Find Contacts
+     * @description People this mailbox has written with, to fill in an address while typing. Read from
+     *     the local copy of the mail; nothing is looked up elsewhere.
+     */
+    get: operations["find_contacts_api_v1_mail_accounts__account_id__contacts_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/mail/accounts/{account_id}/drafts": {
     parameters: {
       query?: never;
@@ -4363,6 +4384,11 @@ export interface components {
       /** Created At */
       created_at: string;
       /**
+       * Forwarded
+       * @default false
+       */
+      forwarded: boolean;
+      /**
        * Html
        * @default
        */
@@ -4904,11 +4930,22 @@ export interface components {
       unread: number;
       /** Username */
       username: string;
+      /**
+       * Vaults
+       * @description The vault folders it is shown in; empty: every vault on this computer.
+       */
+      vaults: string[];
     };
     /** MailAccounts */
     MailAccounts: {
       /** Accounts */
       accounts: components["schemas"]["MailAccount"][];
+      /**
+       * Vault
+       * @description The folder of the vault this daemon serves.
+       * @default
+       */
+      vault: string;
     };
     /** MailAttachment */
     MailAttachment: {
@@ -4918,6 +4955,18 @@ export interface components {
       size: number;
       /** Type */
       type: string;
+    };
+    /** MailContact */
+    MailContact: {
+      /** Email */
+      email: string;
+      /** Name */
+      name: string;
+    };
+    /** MailContacts */
+    MailContacts: {
+      /** Contacts */
+      contacts: components["schemas"]["MailContact"][];
     };
     /** MailDrafts */
     MailDrafts: {
@@ -5379,6 +5428,11 @@ export interface components {
        */
       cc: string;
       /**
+       * Forward
+       * @description Id of a mail to pass on: its subject, text and files are filled in, and the recipients are left to choose.
+       */
+      forward?: number | null;
+      /**
        * Html
        * @description The message with formatting (bold, italic, lists, links). Anything else is taken out. Given instead of `body`.
        * @default
@@ -5589,6 +5643,11 @@ export interface components {
       smtp_host?: string | null;
       /** Smtp Port */
       smtp_port?: number | null;
+      /**
+       * Vaults
+       * @description Keep the mailbox to these vault folders; an empty list shows it in every vault again.
+       */
+      vaults?: string[] | null;
     };
     /** PatchMailDraft */
     PatchMailDraft: {
@@ -10084,6 +10143,40 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["MailAccount"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  find_contacts_api_v1_mail_accounts__account_id__contacts_get: {
+    parameters: {
+      query?: {
+        q?: string;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MailContacts"];
         };
       };
       /** @description Validation Error */

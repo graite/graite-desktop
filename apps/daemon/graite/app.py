@@ -184,6 +184,7 @@ def create_app(settings: Settings) -> FastAPI:
             AccountStore(settings.app_dir / "mail.json"),
             settings.graite_dir / "mail",
             app.state.events,
+            vault=str(settings.vault.resolve()),
         )
 
         def signed_in(account: Account) -> None:

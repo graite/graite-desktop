@@ -58,6 +58,8 @@ class Account(BaseModel):
     smtp_port: int = Field(default=0, ge=0, le=65535)
     # How it signs in: a password kept in the keychain, or "Sign in with Microsoft"
     # (`mail/oauth.py`), where the keychain holds a token and `client_id` says for which app.
+    # The vault folders this mailbox is shown in. Empty: every vault on this computer.
+    vaults: list[str] = Field(default_factory=list, max_length=200)
     auth: Literal["password", "microsoft"] = "password"
     client_id: str = Field(default="", max_length=80)
 
@@ -65,6 +67,19 @@ class Account(BaseModel):
 class AccountsFile(BaseModel):
     version: int = FILE_VERSION
     accounts: list[Account] = Field(default_factory=list)
+
+
+def same_folder(path: str) -> str:
+    """A folder's path in one spelling, so two ways of writing it compare equal."""
+    return os.path.normcase(os.path.realpath(os.path.expanduser(path)))
+
+
+def shown_in(account: Account, vault: str) -> bool:
+    """Whether a mailbox belongs in a vault: in every vault unless it names its vaults."""
+    if not account.vaults:
+        return True
+    here = same_folder(vault)
+    return any(same_folder(path) == here for path in account.vaults)
 
 
 def domain_of(email: str) -> str:
@@ -193,6 +208,15 @@ class AccountStore:
             raise KeyError(account_id)
         if name.strip():
             account.name = name.strip()
+        self.save(data)
+        return account
+
+    def set_vaults(self, account_id: str, vaults: list[str]) -> Account:
+        data = self.load()
+        account = next((a for a in data.accounts if a.id == account_id), None)
+        if account is None:
+            raise KeyError(account_id)
+        account.vaults = list(dict.fromkeys(v.strip() for v in vaults if v.strip()))
         self.save(data)
         return account
 
