@@ -687,6 +687,9 @@ async def read_thread_mark(account_id: str, thread_id: str, request: Request) ->
         try:
             password = await asyncio.to_thread(oauth.secret, account)
             await asyncio.to_thread(imap.mark_seen, account, password, places, service.connect)
+            # A sync that ran meanwhile read the mailbox before it knew: say it again here.
+            await asyncio.to_thread(box.mark_seen, places)
+            service.events.publish("mail_changed", {"account_id": account_id, "state": "ok"})
         except Exception:  # the next sync shows what the mailbox says
             service.refresh(account_id)
 

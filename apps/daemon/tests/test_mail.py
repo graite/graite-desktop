@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import imaplib
+import threading
 import time
 from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
@@ -59,9 +60,19 @@ class FakeServer:
         self.flags: dict[str, str] = {"INBOX": "\\HasNoChildren"}
         self.validity = 7
         self.commands: list[str] = []
-        self.selected = ""
+        # Which folder is open belongs to a connection, and each connection lives in one
+        # thread here: a sync and a button press do not open each other's folders.
+        self._open = threading.local()
         self.moving = False
         self.capabilities: tuple[str, ...] = ("IMAP4REV1", "MOVE")
+
+    @property
+    def selected(self) -> str:
+        return getattr(self._open, "folder", "")
+
+    @selected.setter
+    def selected(self, folder: str) -> None:
+        self._open.folder = folder
 
     def add_folder(self, name: str, flags: str) -> None:
         self.folders[name] = {}
@@ -461,7 +472,9 @@ def test_api_adds_reads_and_removes_accounts(client: TestClient, settings: Any) 
     got = client.get(f"/api/v1/mail/accounts/{first}/messages/{with_file['id']}/attachments/0")
     assert got.status_code == 200 and got.content == b"%PDF-1.4 fake"
     assert "offer.pdf" in got.headers["content-disposition"]
-    assert all("PEEK" in c for c in servers["imap.gmail.com"].commands)
+    # (A sync may be listing the folder at the same moment; what matters is how mail is read.)
+    fetched = [c for c in servers["imap.gmail.com"].commands if "BODY" in c]
+    assert fetched and all("PEEK" in c for c in fetched)
     missing = f"/api/v1/mail/accounts/{first}/messages/{with_file['id']}/attachments/5"
     assert client.get(missing).status_code == 404
     assert (
@@ -727,8 +740,9 @@ def test_archive_and_delete_move_mail_in_the_mailbox(client: TestClient) -> None
     assert client.get("/api/v1/mail/accounts").json()["accounts"][1]["unread"] == 1
     marked = client.post(f"/api/v1/mail/accounts/{google}/threads/{unread}/read")
     assert marked.json() == {"ok": True, "moved": 1}
-    assert client.get("/api/v1/mail/accounts").json()["accounts"][1]["unread"] == 0
     wait_for(lambda: "\\Seen" in gmail.folders["INBOX"][30][1])
+    # Also when a sync was reading the mailbox at that moment, it ends up read here.
+    wait_for(lambda: client.get("/api/v1/mail/accounts").json()["accounts"][1]["unread"] == 0)
     again = client.post(f"/api/v1/mail/accounts/{google}/threads/{unread}/read")
     assert again.json()["moved"] == 0
     client.post(f"/api/v1/mail/accounts/{google}/threads/{unread}/trash")
