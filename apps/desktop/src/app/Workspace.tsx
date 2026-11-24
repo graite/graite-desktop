@@ -5,6 +5,10 @@ import { workspace } from "@/lib/workspace";
 import { PageEditor } from "@/editor/PageEditor";
 import { findNode, mapTree, parentPath } from "@/editor/tree-utils";
 import { TrashPage } from "./TrashPage";
+import { MailPage } from "@/mail/MailPage";
+import { MailRail } from "@/mail/MailRail";
+import { useMail } from "@/mail/useMail";
+import { AddAccountDialog } from "@/mail/AddAccountDialog";
 import { RowPage } from "./RowPage";
 import type { OpenRow } from "@/editor/tables/RowView";
 import { TemplatesPage } from "./TemplatesPage";
@@ -54,6 +58,13 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
     flushEditor.current = flush;
   }, []);
   const [trashOpen, setTrashOpen] = useState(false);
+  // Mail: `mailTab` is its tab in the tab bar, `mailOpen` whether that tab is the one shown,
+  // `sidebarMail` whether the sidebar lists mail accounts instead of pages. The sidebar only
+  // changes when the user picks Pages or Mail there, never by switching tabs.
+  const mailState = useMail();
+  const [mailTab, setMailTab] = useState(false);
+  const [mailOpen, setMailOpen] = useState(false);
+  const [sidebarMail, setSidebarMail] = useState(false);
   // A table row opened as a full page (D80), and the rows opened before it (for Back).
   const [rowPages, setRowPages] = useState<OpenRow[]>([]);
   const rowPage = rowPages[rowPages.length - 1] ?? null;
@@ -233,6 +244,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
           await flushEditor.current?.();
           setAssistantPage((old) => ({ path, n: (old?.n ?? 0) + 1 }));
           setTrashOpen(false);
+          setMailOpen(false);
           setRowPages([]);
           setTemplatesOpen(false);
           setWelcomeOpen(false);
@@ -243,12 +255,13 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
       })();
       return;
     }
-    if (trashOpen || templatesOpen || aiOpen || welcomeOpen) {
+    if (trashOpen || mailOpen || templatesOpen || aiOpen || welcomeOpen) {
       // The editor was unmounted; fetch the saved body even when the path is unchanged.
       void loadPage(path).then((page) => {
         if (page) {
           setSelectedPath(path);
           setTrashOpen(false);
+          setMailOpen(false);
           setRowPages([]);
           setTemplatesOpen(false);
           setAiOpen(false);
@@ -277,6 +290,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
     lastSavedHashRef.current = page.hash;
     setSelectedPath(path);
     setTrashOpen(false);
+    setMailOpen(false);
     setRowPages([]);
     setTemplatesOpen(false);
     setAiOpen(false);
@@ -313,6 +327,24 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
         toast.error((e as Error).message);
       }
     })();
+  };
+
+  const showMail = () =>
+    openFullScreen(() => {
+      setAiOpen(false);
+      setWelcomeOpen(false);
+      setTrashOpen(false);
+      setRowPages([]);
+      setTemplatesOpen(false);
+      setMailTab(true);
+      setMailOpen(true);
+    });
+
+  const closeMail = () => {
+    setMailTab(false);
+    if (!mailOpen) return;
+    if (selectedPath) navigatePage(selectedPath);
+    else setMailOpen(false);
   };
 
   useEffect(() => void loadTree(), [loadTree]);
@@ -469,7 +501,12 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
     [activePage?.id, handleSaved],
   );
 
-  const fullScreen = trashOpen || templatesOpen || aiOpen || welcomeOpen;
+  // "Work: Inbox", so the tab says which mailbox it shows.
+  const mailFolder = mailState.folders.find((f) => f.name === mailState.shownFolder);
+  const mailTitle = mailState.account
+    ? `${mailState.account.name}: ${mailState.search.trim() ? "Search" : mailState.showsDrafts ? "Drafts" : (mailFolder?.title ?? "Inbox")}`
+    : "Mail";
+  const fullScreen = trashOpen || mailOpen || templatesOpen || aiOpen || welcomeOpen;
   // A tab whose page is gone (deleted elsewhere) is not shown; the tree is the truth.
   const shownTabs = tabs.filter((path) => path === selectedPath || findNode(tree, path));
 
@@ -495,6 +532,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
             onAI={() =>
               openFullScreen(() => {
                 setTrashOpen(false);
+                setMailOpen(false);
                 setRowPages([]);
                 setTemplatesOpen(false);
                 setWelcomeOpen(false);
@@ -502,10 +540,14 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
               })
             }
             onPages={() => {
+              setSidebarMail(false);
+              // Reading mail: only the sidebar changes, to find a page to open next to it.
+              if (mailOpen && !aiOpen) return;
               if (selectedPath) navigatePage(selectedPath);
               else {
                 setAiOpen(false);
                 setTrashOpen(false);
+                setMailOpen(false);
                 setRowPages([]);
                 setTemplatesOpen(false);
               }
@@ -516,25 +558,38 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
               openFullScreen(() => {
                 setAiOpen(false);
                 setWelcomeOpen(false);
+                setMailOpen(false);
                 setTrashOpen(true);
               })
             }
             trashActive={trashOpen}
+            mailMenu={{
+              accounts: mailState.accounts?.length ?? 0,
+              unread: (mailState.accounts ?? []).reduce((sum, a) => sum + a.unread, 0),
+              onOpen: () => {
+                setSidebarMail(true);
+                showMail();
+              },
+            }}
+            mailActive={sidebarMail}
+            mailRail={<MailRail state={mailState} onOpen={showMail} />}
             onWelcome={() =>
               openFullScreen(() => {
                 setAiOpen(false);
                 setTrashOpen(false);
+                setMailOpen(false);
                 setRowPages([]);
                 setTemplatesOpen(false);
                 setWelcomeOpen(true);
               })
             }
-            welcomeActive={welcomeOpen && !aiOpen && !trashOpen && !templatesOpen}
+            welcomeActive={welcomeOpen && !aiOpen && !trashOpen && !mailOpen && !templatesOpen}
             onTemplates={() =>
               openFullScreen(() => {
                 setAiOpen(false);
                 setWelcomeOpen(false);
                 setTrashOpen(false);
+                setMailOpen(false);
                 setRowPages([]);
                 setTemplatesInstructions(false);
                 setTemplatesOpen(true);
@@ -559,7 +614,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
         </div>
       </div>
       <div className="relative flex min-w-0 flex-1 flex-col">
-        {!aiOpen && !showOnboarding && shownTabs.length > 0 && (
+        {!aiOpen && !showOnboarding && (shownTabs.length > 0 || mailTab) && (
           <TabBar
             tabs={shownTabs}
             active={fullScreen ? null : selectedPath}
@@ -568,6 +623,11 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
             onClose={closePageTab}
             onNew={() => void createPage()}
             onOpen={openInNewTab}
+            mail={
+              mailTab
+                ? { title: mailTitle, active: mailOpen, onSelect: showMail, onClose: closeMail }
+                : undefined
+            }
           />
         )}
         <div className="relative min-h-0 flex-1">
@@ -610,6 +670,14 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
                 navigatePage(path);
               }}
             />
+          ) : mailOpen ? (
+            <MailPage
+              state={mailState}
+              tree={tree}
+              onSettings={() => openSettings()}
+              onNavigate={openInNewTab}
+              settingsVersion={settingsVersion}
+            />
           ) : trashOpen ? (
             <TrashPage
               version={tree}
@@ -648,6 +716,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
               onStudio={(section) => {
                 setStudioSection((old) => ({ section, n: (old?.n ?? 0) + 1 }));
                 setTrashOpen(false);
+                setMailOpen(false);
                 setRowPages([]);
                 setTemplatesOpen(false);
                 setAiOpen(true);
@@ -657,6 +726,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
                   setAiOpen(false);
                   setWelcomeOpen(false);
                   setTrashOpen(false);
+                  setMailOpen(false);
                   setRowPages([]);
                   setTemplatesInstructions(true);
                   setTemplatesOpen(true);
@@ -672,6 +742,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
         activePage &&
         !rowPage &&
         !trashOpen &&
+        !mailOpen &&
         !templatesOpen &&
         !aiOpen &&
         !welcomeOpen && (
@@ -687,6 +758,17 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
             request={aiRequest}
           />
         )}
+      <AddAccountDialog
+        open={mailState.adding}
+        onClose={() => mailState.setAdding(false)}
+        onAdded={(added) => {
+          mailState.setAdding(false);
+          mailState.choose(added.id);
+          void mailState.loadAccounts();
+          setSidebarMail(true);
+          showMail();
+        }}
+      />
       <SearchPalette
         open={searchOpen}
         tree={tree}
