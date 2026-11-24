@@ -100,6 +100,7 @@ import {
   aiReadable,
   mailDate,
   mailDocument,
+  mailTone,
   markQuoted,
   ownWords,
   shortLink,
@@ -325,7 +326,7 @@ it("shows dates briefly and keeps mail HTML off the network", () => {
   expect(mailDate(new Date(2026, 10, 3).toISOString(), now)).toMatch(/3/);
   expect(mailDate(new Date(2025, 10, 3).toISOString(), now)).toContain("2025");
   expect(mailDate("nonsense", now)).toBe("");
-  const page = mailDocument('<img src="https://tracker.example/p.gif">', false);
+  const page = mailDocument('<img src="https://tracker.example/p.gif">');
   expect(page).toContain("default-src 'none'");
   expect(page).toContain("img-src data:");
 });
@@ -520,7 +521,7 @@ it("folds the quoted mail of a reply away and keeps linked pictures out", () => 
   expect(markQuoted(parse('<div class="gmail_quote">all there is</div>'))).toBe(false);
   expect(markQuoted(parse("<p>From: the start, a normal sentence.</p><p>More.</p>"))).toBe(false);
 
-  const page = mailDocument("<p>x</p>", false);
+  const page = mailDocument("<p>x</p>");
   expect(page).toContain("body[data-fold] [data-q]{display:none!important}");
   // A linked picture stays hidden until it is fetched and put in as a local one.
   expect(page).toContain('img[src^="http"]');
@@ -771,4 +772,22 @@ it("gives a draft the user's own sent mails as examples of their tone", () => {
   expect(part).toContain("## Example 2\nDag Robin");
   expect(part).toContain("Do not reuse what they say");
   expect(DRAFT_PROMPT).toContain("How I write");
+});
+
+it("puts every mail on the app's own background, light or dark", () => {
+  const parse = (html: string) => new DOMParser().parseFromString(mailDocument(html), "text/html");
+  // What the mail itself brings: nothing, a light page, or a dark one.
+  expect(mailTone(parse("<p>Plain words</p>"))).toBe("none");
+  expect(
+    mailTone(parse('<table style="background-color:#ffffff"><tr><td>x</td></tr></table>')),
+  ).toBe("light");
+  expect(mailTone(parse('<div style="background-color: rgb(18, 18, 18)">x</div>'))).toBe("dark");
+  expect(mailTone(parse('<div style="background-color: rgba(0,0,0,0)"><p>x</p></div>'))).toBe(
+    "none",
+  );
+  // The page can turn a mail's light and dark around, and turns pictures back.
+  const page = mailDocument("<p>x</p>");
+  expect(page).toContain("body[data-flip]{filter:invert(var(--flip, 1)) hue-rotate(180deg)}");
+  expect(page).toContain("body[data-flip] img");
+  expect(page).toContain("background:transparent");
 });

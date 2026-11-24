@@ -246,23 +246,57 @@ export function markQuoted(doc: Document): boolean {
  * The page a mail's HTML is shown in. The frame it goes into runs no scripts; this policy
  * also keeps it from loading anything from the network, so a tracking pixel never fires.
  * Pictures the mail links to stay hidden until they are put in by `MessageBody`.
+ *
+ * A mail is written for a light page unless it brings a dark one itself. `data-flip` on the
+ * body turns its light and dark around (pictures are turned back), so every mail sits on
+ * the app's own background: see `mailTone`.
  */
-export function mailDocument(html: string, dark: boolean): string {
+export function mailDocument(html: string): string {
   const policy = "default-src 'none'; style-src 'unsafe-inline'; img-src data: blob:";
-  const colors = dark
-    ? "color:#e5e5e5;background:transparent"
-    : "color:#171717;background:transparent";
+  const turn = "invert(var(--flip, 1)) hue-rotate(180deg)";
   return (
     `<!doctype html><html><head><meta charset="utf-8">` +
     `<meta http-equiv="Content-Security-Policy" content="${policy}">` +
     `<base target="_blank"><style>html,body{margin:0;padding:0}` +
-    `body{display:flow-root;zoom:.9;font:14px/1.5 system-ui,sans-serif;${colors};overflow-wrap:anywhere}` +
+    `body{display:flow-root;zoom:.9;font:14px/1.5 system-ui,sans-serif;color:#171717;` +
+    `background:transparent;overflow-wrap:anywhere}` +
     `img{max-width:100%;height:auto}table{max-width:100%}blockquote{margin:0 0 0 .8em;` +
     `padding-left:.8em;border-left:2px solid #8884}a{color:inherit}` +
     `img[src^="http"],img:not([src]){display:none}` +
     `body[data-fold] [data-q]{display:none!important}` +
+    `body[data-flip]{filter:${turn}}` +
+    `body[data-flip] img,body[data-flip] video,body[data-flip] [background],` +
+    `body[data-flip] [style*="background-image"]{filter:invert(1) hue-rotate(180deg)}` +
     `</style></head><body>${html}</body></html>`
   );
+}
+
+/** How bright a CSS colour is, 0 (black) to 1 (white); null when it lets the page through. */
+function brightness(color: string): number | null {
+  const parts = color.match(/[\d.]+/g)?.map(Number);
+  if (!parts || parts.length < 3) return null;
+  if (parts.length > 3 && parts[3]! < 0.5) return null;
+  return (0.2126 * parts[0]! + 0.7152 * parts[1]! + 0.0722 * parts[2]!) / 255;
+}
+
+/**
+ * Whether a mail brings its own page colour: "dark" or "light" when a background covers most
+ * of it, "none" when it leaves the page's colour alone.
+ */
+export function mailTone(doc: Document): "light" | "dark" | "none" {
+  const view = doc.defaultView ?? window;
+  const whole = doc.body.getBoundingClientRect();
+  const area = whole.width * whole.height;
+  const candidates = [doc.body, ...doc.body.querySelectorAll("table, td, div, center, section")];
+  for (const element of candidates.slice(0, 60)) {
+    const bright = brightness(view.getComputedStyle(element).backgroundColor);
+    if (bright === null) continue;
+    const box = element.getBoundingClientRect();
+    // Without layout (tests) the first coloured block counts; else one that covers the mail.
+    if (area > 0 && box.width * box.height < area * 0.5) continue;
+    return bright < 0.4 ? "dark" : "light";
+  }
+  return "none";
 }
 
 /** A plain-text mail split into what its writer wrote and the mail quoted under it. */
