@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DRAFTS, mail, type MailFolder } from "@/lib/mail";
 import { scopedKey } from "@/lib/storage";
+import { MENU } from "./menu";
 import type { MailState } from "./useMail";
 
 const FOLDED_KEY = "graite.mail.folded";
@@ -240,7 +241,10 @@ export function MailRail({ state, onOpen }: { state: MailState; onOpen: () => vo
                       {away.length > 0 ? `${away.length} hidden` : "Hide folders"}
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="max-h-80 w-60 overflow-y-auto">
+                  <DropdownMenuContent
+                    align="start"
+                    className={`max-h-80 w-56 overflow-y-auto ${MENU}`}
+                  >
                     {empty.length > 0 && (
                       <DropdownMenuItem
                         onSelect={() =>

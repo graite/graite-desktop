@@ -732,6 +732,10 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
                   setTemplatesOpen(true);
                 })
               }
+              onMail={() => {
+                setSidebarMail(true);
+                showMail();
+              }}
               onFeedback={feedbackEnabled ? () => setFeedbackOpen(true) : undefined}
               firstName={me?.first_name || undefined}
             />

@@ -407,11 +407,11 @@ def wait_for(check: Any, seconds: float = 5.0) -> None:
 def test_api_adds_reads_and_removes_accounts(client: TestClient, settings: Any) -> None:
     servers = {"imap.gmail.com": filled(), "mail.own.example": FakeServer()}
     client.app.state.mail.connect = lambda account: servers[account.host]  # type: ignore[attr-defined]
-    assert client.get("/api/v1/mail/accounts").json() == {"accounts": []}
+    assert client.get("/api/v1/mail/accounts").json()["accounts"] == []
 
     wrong = client.post("/api/v1/mail/accounts", json={"email": "sam@gmail.com", "password": "x"})
     assert wrong.status_code == 400 and "app password" in wrong.json()["detail"]
-    assert client.get("/api/v1/mail/accounts").json() == {"accounts": []}
+    assert client.get("/api/v1/mail/accounts").json()["accounts"] == []
     unknown = client.post("/api/v1/mail/accounts", json={"email": "a@own.example", "password": "x"})
     assert unknown.status_code == 400 and "IMAP" in unknown.json()["detail"]
 
@@ -589,7 +589,9 @@ def test_drafts_replies_and_sending(client: TestClient, settings: Any) -> None:
     message = smtp.sent[0]
     assert message["From"] == "Sam Example <sam@example.org>"
     assert message["To"] == "Kim Roofer <kim@roof.example>" and message["Subject"] == "Hello"
-    assert message.get_content() == "See you in May.\n" and message["Message-ID"]
+    assert message.get_body(("plain",)).get_content() == "See you in May.\n"
+    assert "<p>See you in May.</p>" in message.get_body(("html",)).get_content()
+    assert message["Message-ID"]
     assert client.get(f"{base}/drafts").json()["drafts"] == []
     # The copy went to the mailbox's Sent folder, and shows up after the next sync.
     assert any(
@@ -839,12 +841,14 @@ def test_attachments_can_be_looked_at_and_put_on_a_page(client: TestClient, sett
     assert len([c for c in server.commands if "BODY.PEEK[]" in c]) == 1
     assert client.get(f"{files}/1/info").json()["kind"] == "image"
     assert client.get(f"{files}/1/preview").content.startswith(b"\x89PNG")
+    # A text file is read as it is; a kind nothing here can show is offered as a download.
     assert client.get(f"{files}/2/info").json() == {
         "name": "rows.csv",
-        "kind": "other",
+        "kind": "text",
         "pages": 0,
         "size": 8,
     }
+    assert client.get(f"{files}/2").content == b"a,b\n1,2\n"
     assert client.get(f"{files}/2/preview").status_code == 400
 
     # Onto a page: the file becomes the page's own and shows at its end, once.
@@ -994,3 +998,226 @@ def test_microsoft_accounts_sign_in_at_microsoft(
     wait_for(lambda: client.get(f"/api/v1/mail/oauth/{third['id']}").json()["status"] == "error")
     assert "cancelled" in client.get(f"/api/v1/mail/oauth/{third['id']}").json()["error"]
     assert client.get("/api/v1/mail/oauth/nope").status_code == 404
+
+
+def test_formatting_is_rebuilt_from_an_allow_list() -> None:
+    from graite.mail import richtext
+
+    dirty = (
+        '<p onclick="x()">Hi <b>Kim</b>, <i>see</i> <span style="color:red">this</span>:</p>'
+        "<script>alert(1)</script><style>p{}</style>"
+        "<ul><li>One</li><li>Two "
+        '<a href="https://example.org/a?b=1&c=2" target="_blank">here</a></li></ul>'
+        '<ol><li>First</li></ol><img src="x" onerror="x()"><a href="javascript:x()">bad</a>'
+        "<blockquote>old <u>words"
+    )
+    clean = richtext.clean(dirty)
+    assert clean == (
+        "<p>Hi <b>Kim</b>, <i>see</i> this:</p>"
+        '<ul><li>One</li><li>Two <a href="https://example.org/a?b=1&amp;c=2">here</a></li></ul>'
+        "<ol><li>First</li></ol>bad<blockquote>old <u>words</u></blockquote>"
+    )
+    assert "<" not in richtext.clean("1 < 2 &amp; <b>3</b>").replace("<b>", "").replace("</b>", "")
+    # The same mail for a reader without formatting: lists keep their marks, a quote its ">".
+    assert richtext.to_text(clean) == (
+        "Hi Kim, see this:\n\n- One\n- Two here (https://example.org/a?b=1&c=2)\n\n"
+        "1. First\n\nbad\n\n> old words"
+    )
+    assert richtext.from_text("a < b\nc\n\nd") == "<p>a &lt; b<br>c</p><p>d</p>"
+    assert richtext.to_text(richtext.from_text("a < b\nc\n\nd")) == "a < b\nc\n\nd"
+
+
+def test_a_draft_carries_formatting_and_files(client: TestClient, settings: Any) -> None:
+    server, smtp = filled(), FakeSmtp()
+    service = client.app.state.mail  # type: ignore[attr-defined]
+    service.connect = lambda account: server
+    service.smtp = lambda account: smtp
+    account = client.post(
+        "/api/v1/mail/accounts",
+        json={"email": "sam@example.org", "password": "app-password", "host": "mail.own.example"},
+    ).json()["id"]
+    base = f"/api/v1/mail/accounts/{account}"
+    wait_for(lambda: client.get("/api/v1/mail/accounts").json()["accounts"][0]["state"] == "ok")
+
+    # Written with formatting: kept clean, with a plain reading of the same words.
+    draft = client.post(
+        f"{base}/drafts",
+        json={
+            "to": "kim@roof.example",
+            "subject": "Plan",
+            "html": "<p>Hi <b>Kim</b>,</p><ul><li>Roof</li><li>Gutter</li></ul><script>x</script>",
+        },
+    ).json()
+    assert draft["html"] == "<p>Hi <b>Kim</b>,</p><ul><li>Roof</li><li>Gutter</li></ul>"
+    assert draft["body"] == "Hi Kim,\n\n- Roof\n- Gutter"
+    saved = client.put(
+        f"{base}/drafts/{draft['id']}", json={"html": "<ol><li><i>One</i></li></ol>"}
+    ).json()
+    assert saved["body"] == "1. One" and saved["subject"] == "Plan"
+
+    # Files go along: kept with the draft, limited in size, removable.
+    files = f"{base}/drafts/{draft['id']}/attachments"
+    with_file = client.post(files, params={"name": "notes.txt"}, content=b"hello").json()
+    assert [(f["name"], f["type"], f["size"]) for f in with_file["attachments"]] == [
+        ("notes.txt", "text/plain", 5)
+    ]
+    two = client.post(files, params={"name": "../../plan.pdf"}, content=b"%PDF-1.4").json()
+    assert [f["name"] for f in two["attachments"]] == ["notes.txt", "plan.pdf"]
+    folder = settings.app_dir / "mail-drafts" / draft["id"]
+    assert sorted(p.name for p in folder.iterdir()) == sorted(f["id"] for f in two["attachments"])
+    assert client.post(files, params={"name": "empty.txt"}, content=b"").status_code == 400
+    removed = client.delete(f"{files}/{two['attachments'][0]['id']}").json()
+    assert [f["name"] for f in removed["attachments"]] == ["plan.pdf"]
+    assert client.delete(f"{files}/nope").status_code == 404
+
+    assert client.post(f"{base}/drafts/{draft['id']}/send").json()["ok"]
+    sent = smtp.sent[0]
+    assert sent.get_body(("plain",)).get_content().strip() == "1. One"
+    assert "<ol><li><i>One</i></li></ol>" in sent.get_body(("html",)).get_content()
+    attached = list(sent.iter_attachments())
+    assert [(a.get_filename(), a.get_content_type()) for a in attached] == [
+        ("plan.pdf", "application/pdf")
+    ]
+    assert attached[0].get_content() == b"%PDF-1.4"
+    assert not folder.exists()  # sent: the draft and its files are gone
+
+    # A formatted reply: the answer above, the mail it answers as a quote, in both forms.
+    inbox = client.get(f"{base}/threads", params={"folder": "INBOX"}).json()["threads"]
+    roof = next(t for t in inbox if "roof" in t["subject"])
+    last = client.get(f"{base}/threads/{roof['thread_id']}").json()["messages"][-1]
+    reply = client.post(
+        f"{base}/drafts", json={"reply_to": last["id"], "html": "<p>Goed, <b>dank</b>!</p>"}
+    ).json()
+    assert reply["html"].startswith("<p>Goed, <b>dank</b>!</p><p><br></p><p>On ")
+    assert "<blockquote><p>Updated price attached.</p></blockquote>" in reply["html"]
+    assert reply["body"].startswith("Goed, dank!\n\nOn ")
+    assert reply["body"].endswith("> Updated price attached.")
+    # Discarding takes the files along.
+    client.post(f"{base}/drafts/{reply['id']}/attachments", params={"name": "a.txt"}, content=b"a")
+    assert (settings.app_dir / "mail-drafts" / reply["id"]).is_dir()
+    client.delete(f"{base}/drafts/{reply['id']}")
+    assert not (settings.app_dir / "mail-drafts" / reply["id"]).exists()
+
+
+def test_the_chat_can_be_told_what_to_look_for() -> None:
+    from graite.api.ai import ChatRequest
+
+    asked = ChatRequest(message="Write a reply.", search_query="  roof repair quote May  ")
+    assert asked.search_query and "roof" in asked.search_query
+    with pytest.raises(ValueError):
+        ChatRequest(message="x", search_query="y" * 601)
+
+
+def test_a_mailbox_can_be_kept_to_some_vaults(client: TestClient, settings: Any) -> None:
+    from graite.mail.accounts import Account as MailAccount
+    from graite.mail.accounts import shown_in
+
+    def account(vaults: list[str]) -> MailAccount:
+        return ACCOUNT.model_copy(update={"vaults": vaults})
+
+    here = str(settings.vault)
+    assert shown_in(account([]), here)  # no choice made: every vault
+    assert shown_in(account([here + "/"]), here) and shown_in(account(["/x", here]), here)
+    assert not shown_in(account(["/somewhere/else"]), here)
+
+    servers = {"mail.own.example": filled(), "imap.gmail.com": filled()}
+    service = client.app.state.mail  # type: ignore[attr-defined]
+    service.connect = lambda a: servers[a.host]
+    work = client.post(
+        "/api/v1/mail/accounts",
+        json={"email": "sam@own.example", "password": "app-password", "host": "mail.own.example"},
+    ).json()
+    private = client.post(
+        "/api/v1/mail/accounts", json={"email": "sam@gmail.com", "password": "app-password"}
+    ).json()
+    listed = client.get("/api/v1/mail/accounts").json()
+    assert listed["vault"] == str(settings.vault.resolve()) and work["vaults"] == []
+    wait_for(
+        lambda: all(
+            a["state"] == "ok" for a in client.get("/api/v1/mail/accounts").json()["accounts"]
+        )
+    )
+    copy = settings.graite_dir / "mail" / private["id"]
+    assert copy.is_dir()
+    client.post(f"/api/v1/mail/accounts/{private['id']}/drafts", json={"subject": "Kept"})
+
+    # Kept to this vault (and another): still here.
+    both = client.patch(
+        f"/api/v1/mail/accounts/{private['id']}", json={"vaults": [here, "/another/vault"]}
+    ).json()
+    assert both["vaults"] == [here, "/another/vault"] and both["state"] == "ok"
+
+    # Kept to another vault only: gone from this one with its copy; the account, its
+    # sign-in and its drafts stay for the vault it belongs to.
+    moved = client.patch(
+        f"/api/v1/mail/accounts/{private['id']}", json={"vaults": ["/another/vault"]}
+    )
+    assert moved.status_code == 200 and moved.json()["vaults"] == ["/another/vault"]
+    shown = client.get("/api/v1/mail/accounts").json()["accounts"]
+    assert [a["id"] for a in shown] == [work["id"]]
+    assert not copy.exists()
+    assert client.get(f"/api/v1/mail/accounts/{private['id']}/threads").status_code == 404
+    assert service.accounts.account(private["id"]) is not None
+    assert get_password(private["id"]) == "app-password"
+    assert [d.subject for d in service.drafts.list(private["id"])] == ["Kept"]
+
+    # Given back to every vault (from that other vault's window): it shows up and syncs again.
+    service.accounts.set_vaults(private["id"], [])
+    wait_for(
+        lambda: (
+            len(client.get("/api/v1/mail/accounts").json()["accounts"]) == 2
+            and all(
+                a["state"] == "ok" for a in client.get("/api/v1/mail/accounts").json()["accounts"]
+            )
+        )
+    )
+    assert copy.is_dir()
+
+
+def test_addresses_are_suggested_and_a_mail_can_be_passed_on(
+    client: TestClient, settings: Any
+) -> None:
+    server, smtp = filled(), FakeSmtp()
+    service = client.app.state.mail  # type: ignore[attr-defined]
+    service.connect = lambda account: server
+    service.smtp = lambda account: smtp
+    account = client.post(
+        "/api/v1/mail/accounts",
+        json={"email": "sam@example.org", "password": "app-password", "host": "mail.own.example"},
+    ).json()["id"]
+    base = f"/api/v1/mail/accounts/{account}"
+    wait_for(lambda: client.get("/api/v1/mail/accounts").json()["accounts"][0]["state"] == "ok")
+
+    # People this mailbox wrote with, by the start of a name, of a word in it, or of the
+    # address. Your own address is never suggested.
+    def suggested(q: str) -> list[tuple[str, str]]:
+        found = client.get(f"{base}/contacts", params={"q": q}).json()["contacts"]
+        return [(c["name"], c["email"]) for c in found]
+
+    assert suggested("ki") == [("Kim Roofer", "kim@roof.example")]
+    assert suggested("roof") == [("Kim Roofer", "kim@roof.example")]
+    assert suggested("KIM@") == [("Kim Roofer", "kim@roof.example")]
+    assert suggested("new") == [("News", "news@letters.example")]
+    assert suggested("sam") == [] and suggested("") == [] and suggested("zzz") == []
+
+    # Forward: the mail's words under a line for your own, its files along, nobody
+    # addressed yet, and a conversation of its own.
+    inbox = client.get(f"{base}/threads", params={"folder": "INBOX"}).json()["threads"]
+    roof = next(t for t in inbox if "roof" in t["subject"])
+    last = client.get(f"{base}/threads/{roof['thread_id']}").json()["messages"][-1]
+    draft = client.post(f"{base}/drafts", json={"forward": last["id"]}).json()
+    assert draft["forwarded"] and draft["to"] == "" and draft["in_reply_to"] == ""
+    assert draft["subject"] == "Fwd: Re: Quote for the roof" and draft["thread_id"] == ""
+    assert "---------- Forwarded message ----------" in draft["body"]
+    assert "From: Kim Roofer <kim@roof.example>" in draft["body"]
+    assert draft["body"].endswith("Updated price attached.")
+    assert [(f["name"], f["type"]) for f in draft["attachments"]] == [
+        ("offer.pdf", "application/pdf")
+    ]
+    client.put(f"{base}/drafts/{draft['id']}", json={"to": "robin@client.example"})
+    assert client.post(f"{base}/drafts/{draft['id']}/send").json()["ok"]
+    sent = smtp.sent[0]
+    assert sent["To"] == "robin@client.example" and sent["In-Reply-To"] is None
+    assert [a.get_filename() for a in sent.iter_attachments()] == ["offer.pdf"]
+    assert list(sent.iter_attachments())[0].get_content() == b"%PDF-1.4 fake"
+    assert client.post(f"{base}/drafts", json={"forward": 9999}).status_code == 404

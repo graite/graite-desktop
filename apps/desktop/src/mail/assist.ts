@@ -1,25 +1,34 @@
 import { ai, sendMessage, type Source } from "@/lib/ai";
 import { splitThinking } from "@/chat/thinking";
-import { threadAsText, type MailThread } from "@/lib/mail";
+import { markdownToHtml, searchTerms, threadAsText, type MailThread } from "@/lib/mail";
+
+const LANGUAGE =
+  "Language: write in the language of the latest email in the conversation. A Dutch email " +
+  "gets a Dutch answer, a German one a German answer, whatever language these instructions " +
+  "or my example emails are in. ";
 
 /** Write a reply, using what the pages say about the matter. */
 export const DRAFT_PROMPT =
+  LANGUAGE +
   "Write a reply to the latest message of the attached email conversation, on my behalf. " +
-  "First look in my pages for what is relevant to what is asked: facts, earlier agreements, " +
+  "Use what my pages say that is relevant to what is asked: facts, earlier agreements, " +
   "prices, dates, open tasks. Pages include lists, boards and tables (databases): read their " +
-  "rows when the answer may be in one. Use what you find and never invent a fact: where " +
-  "something is missing, leave a clearly marked gap such as [fill in: delivery date]. Write " +
-  "in the language of the email, short and natural. Give only the text of the reply as " +
-  "plain text: no subject line, no explanation before or after, no Markdown, no source numbers. " +
+  "rows when the answer may be in one. Never invent a fact: where something is missing, " +
+  "leave a clearly marked gap such as [fill in: delivery date]. Keep it short and natural. " +
+  "You may use bold, italic and bullet or numbered lists where they make the reply easier to " +
+  "read, written as Markdown; no headings, tables, code or source numbers. Give only the " +
+  "text of the reply: no subject line and no explanation before or after. " +
   "If the file has a part called How I write, write the way those examples do.";
 
 /** Collect what the pages say that matters for this email. */
 export const INFO_PROMPT =
-  "Look in my pages for information that is relevant to the attached email conversation: " +
-  "who the sender is, earlier agreements, related projects and tasks, numbers and dates. " +
-  "Pages include lists, boards and tables (databases): read their rows when the answer may " +
-  "be in one. Give what you found as short bullet points, each with the page it comes from. " +
-  "If my pages hold nothing relevant, say so in one sentence. Do not summarise the email itself.";
+  LANGUAGE +
+  "From my pages, give what is relevant to the attached email conversation: who the sender " +
+  "is, earlier agreements, related projects and tasks, numbers and dates. Pages include " +
+  "lists, boards and tables (databases): read their rows when the answer may be in one. " +
+  "Use only pages that are about this matter and leave the rest out. Give what you found as " +
+  "short bullet points, each with the page it comes from. If my pages hold nothing relevant, " +
+  "say so in one sentence. Do not summarise the email itself.";
 
 /** The part of the file that shows how the user writes; empty without examples. */
 export function inMyVoice(examples: string[]): string {
@@ -61,7 +70,8 @@ export async function assist(
   await sendMessage(
     conversation.id,
     // No `depth`: the model uses its tools, which is what reaches lists and tables.
-    { message: prompt, mode: "ask", attachments: [file.id] },
+    // The pages are searched for what the mail is about, not for the words of the prompt.
+    { message: prompt, mode: "ask", attachments: [file.id], search_query: searchTerms(thread) },
     signal,
     (event) => {
       if (event.type === "status") onStatus(event.text);
@@ -84,11 +94,13 @@ export async function assist(
   };
 }
 
-/** A draft is plain text: source numbers and Markdown marks have no place in it. */
-export function asDraftText(answer: string): string {
-  return answer
-    .replace(/\s?\[\d+(?:,\s*\d+)*\]/g, "")
-    .replace(/^```[a-z]*\n?|```$/gm, "")
-    .replace(/\*\*(.+?)\*\*/g, "$1")
-    .trim();
+/** A model's answer as a draft: its Markdown becomes the mail's formatting; source numbers
+ * and code fences have no place in a mail. */
+export function asDraftHtml(answer: string): string {
+  return markdownToHtml(
+    answer
+      .replace(/\s?\[\d+(?:,\s*\d+)*\]/g, "")
+      .replace(/^```[a-z]*\n?|```$/gm, "")
+      .trim(),
+  );
 }

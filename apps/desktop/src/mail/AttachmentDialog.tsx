@@ -17,6 +17,8 @@ import { findNode } from "@/editor/tree-utils";
 
 /** Pages of a PDF drawn at first; the rest come with "Show more pages". */
 const PAGES_AT_ONCE = 5;
+/** How much of a text file is shown; the download has all of it. */
+const TEXT_BYTES = 400_000;
 
 export interface OpenFile {
   accountId: string;
@@ -47,6 +49,8 @@ export function AttachmentDialog({
   const [info, setInfo] = useState<MailFileInfo | null>(null);
   const [error, setError] = useState("");
   const [pages, setPages] = useState<string[]>([]);
+  // A text file's words (txt, md, csv and the like), read as they are.
+  const [words, setWords] = useState<string | null>(null);
   const [wanted, setWanted] = useState(PAGES_AT_ONCE);
   // Choosing a page for "Add to page": with or without reading the text.
   const [picking, setPicking] = useState<null | { extract: boolean }>(null);
@@ -56,6 +60,7 @@ export function AttachmentDialog({
     setInfo(null);
     setError("");
     setPages([]);
+    setWords(null);
     setWanted(PAGES_AT_ONCE);
     if (!file) return;
     let live = true;
@@ -72,6 +77,16 @@ export function AttachmentDialog({
   useEffect(() => {
     if (!file || !info || info.kind === "other") return;
     let live = true;
+    if (info.kind === "text") {
+      mail
+        .attachment(file.accountId, file.messageId, file.index)
+        .then((blob) => blob.slice(0, TEXT_BYTES).text())
+        .then((text) => live && setWords(text))
+        .catch((e: Error) => live && setError(e.message));
+      return () => {
+        live = false;
+      };
+    }
     const made: string[] = [];
     void (async () => {
       for (let page = pages.length; page < Math.min(info.pages, wanted); page++) {
@@ -146,6 +161,8 @@ export function AttachmentDialog({
   };
 
   const viewable = info !== null && info.kind !== "other";
+  // Pages hold PDFs and pictures; a text file is read here or handed to the AI.
+  const forPage = info !== null && (info.kind === "pdf" || info.kind === "image");
   return (
     <>
       <Dialog open={file !== null && picking === null} onOpenChange={(open) => !open && onClose()}>
@@ -161,7 +178,7 @@ export function AttachmentDialog({
               <Button variant="outline" size="sm" onClick={download}>
                 <Download /> Download
               </Button>
-              {viewable && (
+              {forPage && (
                 <>
                   <Button
                     variant="outline"
@@ -211,6 +228,11 @@ export function AttachmentDialog({
                 <FileSearch className="mx-auto mb-3 size-6" />
                 This kind of file cannot be shown here. Download it to open it.
               </div>
+            ) : info.kind === "text" ? (
+              <pre className="mx-auto max-w-3xl rounded-md border bg-background p-4 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">
+                {words ?? "Reading…"}
+                {words !== null && info.size > TEXT_BYTES && "\n\n… the rest is in the download."}
+              </pre>
             ) : (
               <div className="mx-auto grid max-w-3xl gap-4">
                 {pages.map((url, page) => (

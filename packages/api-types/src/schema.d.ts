@@ -1531,6 +1531,27 @@ export interface paths {
     patch: operations["patch_account_api_v1_mail_accounts__account_id__patch"];
     trace?: never;
   };
+  "/api/v1/mail/accounts/{account_id}/contacts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Find Contacts
+     * @description People this mailbox has written with, to fill in an address while typing. Read from
+     *     the local copy of the mail; nothing is looked up elsewhere.
+     */
+    get: operations["find_contacts_api_v1_mail_accounts__account_id__contacts_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/mail/accounts/{account_id}/drafts": {
     parameters: {
       query?: never;
@@ -1565,6 +1586,43 @@ export interface paths {
     post?: never;
     /** Delete Draft */
     delete: operations["delete_draft_api_v1_mail_accounts__account_id__drafts__draft_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}/drafts/{draft_id}/attachments": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Attach To Draft
+     * @description Add a file to a draft. It is kept with the draft until the mail is sent or discarded.
+     */
+    post: operations["attach_to_draft_api_v1_mail_accounts__account_id__drafts__draft_id__attachments_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}/drafts/{draft_id}/attachments/{file_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Detach From Draft */
+    delete: operations["detach_from_draft_api_v1_mail_accounts__account_id__drafts__draft_id__attachments__file_id__delete"];
     options?: never;
     head?: never;
     patch?: never;
@@ -3895,6 +3953,11 @@ export interface components {
       pinned_paths?: string[];
       /** Replace From */
       replace_from?: number | null;
+      /**
+       * Search Query
+       * @description What to look for in the pages, when that is not the message itself: an instruction such as 'draft a reply' says nothing about the subject, the mail it is about does.
+       */
+      search_query?: string | null;
       selection?: components["schemas"]["Selection"] | null;
     };
     /** CheckResult */
@@ -4301,6 +4364,8 @@ export interface components {
     Draft: {
       /** Account Id */
       account_id: string;
+      /** Attachments */
+      attachments?: components["schemas"]["DraftFile"][];
       /**
        * Bcc
        * @default
@@ -4318,6 +4383,16 @@ export interface components {
       cc: string;
       /** Created At */
       created_at: string;
+      /**
+       * Forwarded
+       * @default false
+       */
+      forwarded: boolean;
+      /**
+       * Html
+       * @default
+       */
+      html: string;
       /** Id */
       id: string;
       /**
@@ -4344,6 +4419,17 @@ export interface components {
       to: string;
       /** Updated At */
       updated_at: string;
+    };
+    /** DraftFile */
+    DraftFile: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Size */
+      size: number;
+      /** Type */
+      type: string;
     };
     /** EffectiveSettings */
     EffectiveSettings: {
@@ -4844,11 +4930,22 @@ export interface components {
       unread: number;
       /** Username */
       username: string;
+      /**
+       * Vaults
+       * @description The vault folders it is shown in; empty: every vault on this computer.
+       */
+      vaults: string[];
     };
     /** MailAccounts */
     MailAccounts: {
       /** Accounts */
       accounts: components["schemas"]["MailAccount"][];
+      /**
+       * Vault
+       * @description The folder of the vault this daemon serves.
+       * @default
+       */
+      vault: string;
     };
     /** MailAttachment */
     MailAttachment: {
@@ -4859,6 +4956,18 @@ export interface components {
       /** Type */
       type: string;
     };
+    /** MailContact */
+    MailContact: {
+      /** Email */
+      email: string;
+      /** Name */
+      name: string;
+    };
+    /** MailContacts */
+    MailContacts: {
+      /** Contacts */
+      contacts: components["schemas"]["MailContact"][];
+    };
     /** MailDrafts */
     MailDrafts: {
       /** Drafts */
@@ -4868,7 +4977,7 @@ export interface components {
     MailFileInfo: {
       /**
        * Kind
-       * @description pdf, image or other: whether it can be looked at here.
+       * @description pdf, image, text or other: whether it can be looked at here.
        */
       kind: string;
       /** Name */
@@ -5319,6 +5428,17 @@ export interface components {
        */
       cc: string;
       /**
+       * Forward
+       * @description Id of a mail to pass on: its subject, text and files are filled in, and the recipients are left to choose.
+       */
+      forward?: number | null;
+      /**
+       * Html
+       * @description The message with formatting (bold, italic, lists, links). Anything else is taken out. Given instead of `body`.
+       * @default
+       */
+      html: string;
+      /**
        * Reply All
        * @default false
        */
@@ -5523,6 +5643,11 @@ export interface components {
       smtp_host?: string | null;
       /** Smtp Port */
       smtp_port?: number | null;
+      /**
+       * Vaults
+       * @description Keep the mailbox to these vault folders; an empty list shows it in every vault again.
+       */
+      vaults?: string[] | null;
     };
     /** PatchMailDraft */
     PatchMailDraft: {
@@ -5532,6 +5657,8 @@ export interface components {
       body?: string | null;
       /** Cc */
       cc?: string | null;
+      /** Html */
+      html?: string | null;
       /** Subject */
       subject?: string | null;
       /** To */
@@ -10029,6 +10156,40 @@ export interface operations {
       };
     };
   };
+  find_contacts_api_v1_mail_accounts__account_id__contacts_get: {
+    parameters: {
+      query?: {
+        q?: string;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MailContacts"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   list_drafts_api_v1_mail_accounts__account_id__drafts_get: {
     parameters: {
       query?: never;
@@ -10152,6 +10313,73 @@ export interface operations {
           "application/json": {
             [key: string]: unknown;
           };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  attach_to_draft_api_v1_mail_accounts__account_id__drafts__draft_id__attachments_post: {
+    parameters: {
+      query: {
+        name: string;
+      };
+      header?: never;
+      path: {
+        account_id: string;
+        draft_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Draft"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  detach_from_draft_api_v1_mail_accounts__account_id__drafts__draft_id__attachments__file_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+        draft_id: string;
+        file_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Draft"];
         };
       };
       /** @description Validation Error */

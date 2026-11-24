@@ -16,6 +16,22 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+it("has a place for mail, with a way in, where mail is offered", () => {
+  const props = { onCreatePage: vi.fn(), onSettings: vi.fn(), onStudio: vi.fn() };
+  const onMail = vi.fn();
+  render(<WelcomePage {...props} onMail={onMail} />);
+  expect(
+    screen.getByRole("heading", { level: 2, name: "All your mail, next to your pages" }),
+  ).toBeTruthy();
+  expect(screen.getByText(/Add every mailbox you have/)).toBeTruthy();
+  fireEvent.click(screen.getByText("Open Mail →"));
+  expect(onMail).toHaveBeenCalledTimes(1);
+  cleanup();
+  // Without mail in this build, neither the chapter nor the step is shown.
+  render(<WelcomePage {...props} />);
+  expect(screen.queryByText("Bring your mail in")).toBeNull();
+});
+
 it("links each next step to its place in the app", () => {
   const props = { onCreatePage: vi.fn(), onSettings: vi.fn(), onStudio: vi.fn() };
   render(<WelcomePage {...props} />);

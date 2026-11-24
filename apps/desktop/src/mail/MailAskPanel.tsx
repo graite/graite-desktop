@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Orbit, Paperclip, PenLine, X } from "lucide-react";
 import { toast } from "sonner";
-import { ai, type Conversation } from "@/lib/ai";
-import { aiReadable, mail, threadAsText, type MailThread } from "@/lib/mail";
+import { ai, type ChatMode, type Conversation } from "@/lib/ai";
+import {
+  aiReadable,
+  aiUploadName,
+  mail,
+  searchTerms,
+  threadAsText,
+  type MailThread,
+} from "@/lib/mail";
 import { useErrorToast } from "@/lib/useErrorToast";
 import { Button } from "@/components/ui/button";
 import { Composer } from "@/ai/Composer";
@@ -24,7 +31,7 @@ const TRY = [
   "What is still open in this conversation?",
 ];
 const TRY_FILES = "Summarise the attachments";
-const TRY_REPLY = "Write a short reply to this email";
+const TRY_REPLY = "Write a short reply to this email, in the language of the email";
 
 /**
  * "Ask AI" beside an email. The conversation and the attachments the model can read (PDFs,
@@ -51,6 +58,8 @@ export function MailAskPanel({
 }) {
   const [selected, setSelected] = useState<Conversation | null>(null);
   const [draft, setDraft] = useState("");
+  // Ask answers; Act may also propose changes to pages, which wait for review as always.
+  const [mode, setMode] = useState<ChatMode>("ask");
   const [preparing, setPreparing] = useState(true);
   const [skipped, setSkipped] = useState<string[]>([]);
   const [configured, setConfigured] = useState(false);
@@ -100,7 +109,9 @@ export function MailAskPanel({
             }
             try {
               const blob = await mail.attachment(accountId, message.id, index);
-              uploaded.push(await ai.uploadAttachment(conversation.id, blob, file.name));
+              uploaded.push(
+                await ai.uploadAttachment(conversation.id, blob, aiUploadName(file.name)),
+              );
             } catch {
               left.push(file.name);
             }
@@ -146,7 +157,12 @@ export function MailAskPanel({
       return;
     }
     setDraft("");
-    await chat.send(text, { mode: "ask", attachments: files.take() });
+    // The pages are searched for the question and what the mail is about together.
+    await chat.send(text, {
+      mode,
+      attachments: files.take(),
+      searchQuery: `${text} ${searchTerms(thread)}`.slice(0, 590),
+    });
   };
 
   const lastMessage = chat.messages[chat.messages.length - 1];
@@ -179,6 +195,15 @@ export function MailAskPanel({
                 ? "Getting the email and its attachments ready…"
                 : "Ask about this email. The answer can also use your pages."}
             </p>
+            {!preparing && (
+              <p className="text-xs text-muted-foreground">
+                To have a page changed from this email (a task added, a note updated), choose{" "}
+                <button type="button" className="underline" onClick={() => setMode("act")}>
+                  Act
+                </button>{" "}
+                in the menu below. The change is proposed for you to review.
+              </p>
+            )}
             {!preparing &&
               [...TRY, ...(hasFiles ? [TRY_FILES] : []), ...(onUseAsDraft ? [TRY_REPLY] : [])].map(
                 (prompt) => (
@@ -195,7 +220,7 @@ export function MailAskPanel({
             {skipped.length > 0 && (
               <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
                 <Paperclip className="mt-0.5 size-3 shrink-0" />
-                Not readable by AI: {skipped.join(", ")}. It reads PDFs, images and text files.
+                Not readable by AI: {skipped.join(", ")}. It reads PDFs, pictures and text files.
               </p>
             )}
           </div>
@@ -230,7 +255,6 @@ export function MailAskPanel({
       <footer className="ai-chat-footer">
         <Composer
           compact
-          fixedMode
           contextId={selected?.id ?? "mail"}
           onSettings={onSettings}
           settingsVersion={settingsVersion}
@@ -241,8 +265,8 @@ export function MailAskPanel({
           onStop={() => void chat.stop()}
           busy={chat.busy}
           disabled={preparing}
-          mode="ask"
-          onModeChange={() => {}}
+          mode={mode}
+          onModeChange={setMode}
           attachments={files.attachments}
           onAttach={(list) => void files.attach(list)}
           onRemoveAttachment={(id) => void files.remove(id)}

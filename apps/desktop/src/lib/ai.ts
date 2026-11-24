@@ -119,6 +119,8 @@ export interface SendBody {
   depth?: "quick" | "deep";
   /** Pages the user pinned with @: given to the model first, whatever the search finds. */
   pinned_paths?: string[];
+  /** What to look for in the pages, when the message itself is an instruction. */
+  search_query?: string;
 }
 
 const enc = encodeURIComponent;

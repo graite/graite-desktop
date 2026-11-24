@@ -186,6 +186,16 @@ def attachment(raw: bytes, index: int) -> tuple[str, str, bytes] | None:
     return str(part.get_filename() or "attachment"), part.get_content_type(), _bytes(part)
 
 
+def files(raw: bytes) -> list[tuple[str, str, bytes]]:
+    """Every attachment `parse` lists, as `(name, type, content)`: to send them on."""
+    message = message_from_bytes(raw, policy=policy.default)
+    assert isinstance(message, EmailMessage)
+    return [
+        (str(part.get_filename() or "attachment"), part.get_content_type(), _bytes(part))
+        for part in _split(message)[2]
+    ]
+
+
 def thread_id(key: str) -> str:
     return hashlib.sha1(key.encode("utf-8", "replace"), usedforsecurity=False).hexdigest()[:16]
 

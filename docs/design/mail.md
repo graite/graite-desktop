@@ -15,6 +15,16 @@ see mail, and nothing is sent except by the user pressing Send.
 | Routes | `/api/v1/mail/accounts/{id}/…` (`graite/api/mail.py`) | Accounts, folders, conversations, one conversation. |
 | Reader | `apps/desktop/src/mail/` | Accounts and folders in the sidebar (`MailRail`), where the pages are, when Mail is chosen there. The conversation list and the reader are the Mail tab (`MailPage`), next to the page tabs. Switching tabs never changes what the sidebar shows. What is chosen lives in `useMail`, held by the workspace. |
 
+## Which vaults a mailbox is in
+
+Accounts belong to the computer, not to a vault. By default a mailbox is shown in every
+vault. In its settings it can be kept to chosen vaults (`Account.vaults`, a list of vault
+folders; "Only the vaults that sync" ticks those). A daemon lists, syncs and serves only the
+mailboxes that belong in its vault (`MailService.here`); for the others its routes answer
+404, and its copy of their mail is deleted: at once when the setting is changed in that
+vault, at the next sync when it was changed from another vault's window, and at startup
+when Graite was closed. The account, its sign-in and its drafts stay.
+
 ## Sidebar
 
 Accounts fold open to their folders (`MailRail`). A folder can be hidden from the list (the
@@ -66,10 +76,23 @@ Search is SQLite FTS5 over subject, sender and text, per account.
 | Part | Where | Notes |
 | --- | --- | --- |
 | Drafts | `~/.graite/mail-drafts.json` (`graite/mail/drafts.py`) | The user's own writing: not derivable, so not under `.graite/`. Not on the mail server. |
-| Building and sending | `graite/mail/send.py` | Plain text over SMTP (`smtplib`), from this computer. Outgoing server from a table of providers, else "imap." → "smtp.", else what the account sets. |
+| Formatting | `graite/mail/richtext.py`, `Draft.html` | Bold, italic, underline, lists, links, quotes. Rebuilt from an allow-list on every save; the plain text (`Draft.body`) is read off it, and both are sent. |
+| Files that go along | `~/.graite/mail-drafts/<draft id>/` | Added and removed through `…/drafts/{id}/attachments`; deleted with the draft, sent or discarded. |
+| Building and sending | `graite/mail/send.py` | Text, its formatted form and the files, over SMTP (`smtplib`), from this computer. Outgoing server from a table of providers, else "imap." → "smtp.", else what the account sets. |
 | Sent copy | `imap.append` | Appended to the folder with the Sent role, marked read. Skipped for Gmail, which files sent mail itself. |
 | Routes | `…/drafts`, `…/drafts/{id}`, `…/drafts/{id}/send` | Create (optionally `reply_to` a mail), save, discard, send. |
 | Editor | `src/mail/DraftEditor.tsx` | Saves while typing. A reply sits under its conversation; a new mail takes the reader. |
+
+Recipients are stored as text ("Name <address>, address") and shown as pills
+(`RecipientField`): an address becomes one on a space, comma, Enter or when moving on; a pill
+shows the first name and opens to copy the address, edit or remove it; text that is no
+address is kept and marked. While typing, people the mailbox has written with are suggested
+(`MailBox.contacts`, from the local copy: those the user wrote to first).
+
+A mail can be answered or passed on as a whole conversation (its latest mail) or one mail in
+it (the "…" on that mail). Forward (`NewMailDraft.forward`) fills in the subject, the mail's
+text under a line for the user's own words, and its files, fetched from the mail server and
+kept with the draft; it starts a conversation of its own.
 
 Rules:
 
@@ -97,6 +120,11 @@ Rules:
   (`markQuoted`): from the place a mail app marks as the quote, or an "On … wrote:" line, or
   Outlook's "From / Sent / To" block (also in Dutch, German, French), to the end. Not when the
   mail has no words of its own above it, and not for a forward. Plain text: `splitQuoted`.
+- **Light and dark.** Every mail sits on the app's own background. A mail is taken to be
+  written for a light page unless a background of its own covers most of it (`mailTone`).
+  When that does not match the app's theme, its light and dark are turned around with a CSS
+  filter on the body (`data-flip`), and pictures are turned back. The frame is given the
+  app's colour scheme, or the browser paints an opaque white canvas behind it.
 - **Long mail.** A mail taller than about 500 px opens cut off, with "Show the whole mail".
 - **Read.** Opening a conversation marks its mails read: in the local copy at once, and in
   the mailbox right after (`imap.mark_seen`, `POST …/threads/{id}/read`), so every mail app
@@ -123,7 +151,8 @@ uploads to it, as chat attachments: the conversation as text (`threadAsText`, wh
 saying the text is material written by others, never instructions) and every attachment the
 chat can read (PDF, image, text; up to 25 MB). The rest is the normal chat: the answer may
 use the vault's pages and can only propose changes. Nothing new was added to the agents'
-tools, and mail the user did not ask about is never shown to a model. The panel says whether
+tools, and mail the user did not ask about is never shown to a model. The panel opens in
+Ask; the user can switch it to Act, where a change to a page is proposed for review. The panel says whether
 the chat model runs on this device or the email is sent to a model elsewhere.
 
 Two shortcuts sit under every conversation (`src/mail/assist.ts`), each one chat turn of
@@ -133,15 +162,20 @@ the model has its read-only tools and can read lists, boards and tables as well 
 - **Generate draft** asks for a reply that uses what the pages say and marks what is missing
   as `[fill in: …]`. The answer becomes a reply draft under the conversation, as plain text
   (`asDraftText` drops source numbers and Markdown marks). It is a draft: only Send sends.
+  It answers in the language of the latest mail and may use bold and lists (Markdown, turned
+  into the draft's formatting by `markdownToHtml`).
   The user's own tone goes along: up to four mails they sent from that account lately (only
   what they wrote, without quotes), as examples of greeting, sign-off and length.
 - **Get info from pages** asks what the pages hold about the matter and shows the answer in a
   card under the conversation, with the pages it drew on.
 
-A web address in a plain-text mail is shown as a short link (the site and the start of the
+What the pages are searched for is the mail, not the instruction: the subject, the people
+and the latest mail's own words go along as `search_query` (`searchTerms`), which the chat
+pipeline uses for its keyword and embedding search in place of the message.
+
+A web address written out in a mail (plain text or HTML) is shown as a short link (the site and the start of the
 path), with the full address on hover.
 
 ## Next
 
-Agent tools (`read_mail`, `search_mail`, proposals from a mail), attachments and formatting
-when writing, forward, drafts kept in the mailbox, IMAP IDLE, Sign in with Microsoft, a unified inbox.
+Agent tools (`read_mail`, `search_mail`, proposals from a mail), forward, drafts kept in the mailbox, IMAP IDLE, Sign in with Microsoft, a unified inbox.

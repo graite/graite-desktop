@@ -274,6 +274,36 @@ class MailBox:
         found.sort(key=lambda f: (order.get(f["role"], 3), f["title"].lower()))
         return found
 
+    def contacts(self, query: str, own: str = "", limit: int = 8) -> list[dict[str, str]]:
+        """People this mailbox has written with, for filling in an address: those the user
+        wrote to count most, then by how often and how lately. `query` matches the start of
+        a name, of a word in it, or of the address."""
+        word = query.strip().lower()
+        if not word:
+            return []
+        with self._db() as conn:
+            rows = conn.execute(
+                "SELECT MAX(name) AS name, email, SUM(weight) AS weight, MAX(last) AS last FROM ("
+                "SELECT sender_name AS name, sender_email AS email, COUNT(*) AS weight, "
+                "MAX(date) AS last FROM messages GROUP BY sender_email "
+                "UNION ALL "
+                "SELECT json_extract(j.value, '$.name'), json_extract(j.value, '$.email'), "
+                "COUNT(*) * 5, MAX(m.date) FROM messages m JOIN folders f ON f.name = m.folder, "
+                "json_each(m.recipients) j WHERE f.role = 'sent' GROUP BY 2"
+                ") WHERE email != '' AND email != ? AND ("
+                "email LIKE ? OR lower(name) LIKE ? OR lower(name) LIKE ?) "
+                "GROUP BY email ORDER BY weight DESC, last DESC LIMIT ?",
+                (own.lower(), word + "%", word + "%", "% " + word + "%", limit * 3),
+            ).fetchall()
+        # Machines that send mail are not people to write to.
+        robots = ("noreply", "no-reply", "donotreply", "do-not-reply", "mailer-daemon")
+        found = [
+            {"name": str(r["name"] or ""), "email": str(r["email"])}
+            for r in rows
+            if not str(r["email"]).split("@")[0].lower().startswith(robots)
+        ]
+        return found[:limit]
+
     def unread(self) -> int:
         with self._db() as conn:
             row = conn.execute(

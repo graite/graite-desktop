@@ -14,6 +14,8 @@ const saveProfile = vi.hoisted(() => vi.fn());
 const listeners = vi.hoisted(() => new Set<(event: DaemonEvent) => void>());
 vi.mock("@/lib/cloud", () => ({ cloud: cloudMock }));
 vi.mock("@/lib/templates", () => ({ templates: templatesMock }));
+const mailMock = vi.hoisted(() => ({ accounts: vi.fn(), add: vi.fn() }));
+vi.mock("@/lib/mail", () => ({ mail: mailMock }));
 vi.mock("@/lib/profile", () => ({ saveProfile }));
 vi.mock("@/lib/api", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/api")>();
@@ -53,6 +55,7 @@ beforeEach(() => {
   cloudMock.status.mockResolvedValue(SIGNED_OUT);
   cloudMock.login.mockResolvedValue({ url: "https://api.getgraite.com/auth/x", opened: true });
   templatesMock.list.mockResolvedValue(TEMPLATES);
+  mailMock.accounts.mockResolvedValue({ accounts: [] });
   saveProfile.mockImplementation(async (p: { first_name: string }) => p);
 });
 afterEach(cleanup);
@@ -75,7 +78,7 @@ function toAccount() {
 
 it("walks through the steps in order, saving the name and greeting with it", async () => {
   setup();
-  expect(screen.getByRole("list", { name: "Step 1 of 8" })).toBeTruthy();
+  expect(screen.getByRole("list", { name: "Step 1 of 9" })).toBeTruthy();
   expect(title()).toBe("Nice to meet you! And you are...?");
   expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
   fireEvent.change(screen.getByLabelText("First name"), { target: { value: "  Sam " } });
@@ -99,11 +102,15 @@ it("walks through the steps in order, saving the name and greeting with it", asy
   expect(screen.getByText("Free, and it comes with:")).toBeTruthy();
   expect(screen.getByRole("img", { name: "Graite" })).toBeTruthy();
   fireEvent.click(await screen.findByRole("button", { name: "Skip" }));
+  // Mail is a step of its own: several mailboxes, or none for now.
+  expect(title()).toBe("Bring your mail in");
+  expect(screen.getByText(/as many mailboxes as you have/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Skip" }));
   expect(title()).toBe("Your first page");
-  expect(screen.getByRole("list", { name: "Step 8 of 8" })).toBeTruthy();
+  expect(screen.getByRole("list", { name: "Step 9 of 9" })).toBeTruthy();
   // Back returns to where you were.
   fireEvent.click(screen.getByRole("button", { name: "Back" }));
-  expect(title()).toBe("Your Graite account");
+  expect(title()).toBe("Bring your mail in");
 });
 
 it("welcomes without a name when the name is skipped", () => {
@@ -134,7 +141,7 @@ it("creates an account or signs in through the browser, then continues", async (
   expect(await screen.findByText(/Signed in as ada@example.com/)).toBeTruthy();
   expect(cont().disabled).toBe(false);
   next();
-  expect(title()).toBe("Your first page");
+  expect(title()).toBe("Bring your mail in");
 });
 
 it("shows the account as signed in when it already is", async () => {
@@ -153,6 +160,7 @@ it("makes the first page from a template and finishes with it", async () => {
   const props = setup();
   toAccount();
   fireEvent.click(await screen.findByRole("button", { name: "Skip" }));
+  fireEvent.click(screen.getByRole("button", { name: "Skip" })); // mail
   fireEvent.click(await screen.findByRole("button", { name: /CRM/ }));
   await waitFor(() => expect(props.onFinish).toHaveBeenCalledWith({ createdPath: "CRM" }));
   expect(templatesMock.use).toHaveBeenCalledWith("crm", {
@@ -167,6 +175,7 @@ it("makes a blank page, or finishes without one", async () => {
   props.onCreateBlankPage.mockResolvedValue("Untitled");
   toAccount();
   fireEvent.click(await screen.findByRole("button", { name: "Skip" }));
+  fireEvent.click(screen.getByRole("button", { name: "Skip" })); // mail
   await screen.findByRole("button", { name: /CRM/ });
   fireEvent.click(screen.getByRole("button", { name: "Skip" }));
   expect(props.onFinish).toHaveBeenCalledWith({});
@@ -174,6 +183,33 @@ it("makes a blank page, or finishes without one", async () => {
 
   fireEvent.click(screen.getByRole("button", { name: /Blank page/ }));
   await waitFor(() => expect(props.onFinish).toHaveBeenLastCalledWith({ createdPath: "Untitled" }));
+});
+
+it("adds one mailbox after another in the mail step", async () => {
+  setup();
+  toAccount();
+  fireEvent.click(await screen.findByRole("button", { name: "Skip" }));
+  expect(title()).toBe("Bring your mail in");
+  const cont = () => screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement;
+  expect(cont().disabled).toBe(true);
+  // The same dialog as in Mail: first which kind of mailbox it is.
+  fireEvent.click(screen.getByRole("button", { name: "Add a mailbox" }));
+  expect(await screen.findByText("Google Workspace")).toBeTruthy();
+  fireEvent.click(screen.getByText("Gmail"));
+  mailMock.add.mockResolvedValue({ id: "a1", email: "sam@example.org" });
+  mailMock.accounts.mockResolvedValue({
+    accounts: [{ id: "a1", email: "sam@example.org", name: "Work" }],
+  });
+  fireEvent.change(screen.getByLabelText("Email address"), {
+    target: { value: "sam@example.org" },
+  });
+  fireEvent.change(screen.getByLabelText(/^App password/), { target: { value: "abcd" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add account" }));
+  expect(await screen.findByText("sam@example.org")).toBeTruthy();
+  // One is in: another can follow, and the step can be left.
+  expect(screen.getByRole("button", { name: "Add another mailbox" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
+  expect(cont().disabled).toBe(false);
 });
 
 it("is only for new users", () => {

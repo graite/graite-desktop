@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, ImageIcon, Link2, MoreHorizontal } from "lucide-react";
-import { mail, mailDocument, markQuoted, shortLink, splitQuoted, textWithLinks } from "@/lib/mail";
+import {
+  mail,
+  mailDocument,
+  mailTone,
+  markQuoted,
+  shortenLinks,
+  shortLink,
+  splitQuoted,
+  textWithLinks,
+} from "@/lib/mail";
 
 const WEB_LINK = /^(https?:|mailto:)/i;
 const IMAGES_KEY = "graite.mail.images";
@@ -44,7 +53,14 @@ export function MessageBody({
   );
   const fetched = useRef(new Map<string, string>());
   const wired = useRef(new WeakSet<Document>());
-  const dark = document.documentElement.classList.contains("dark");
+  // The app's theme, also when it changes while a mail is open.
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
+  useEffect(() => {
+    const root = document.documentElement;
+    const watch = new MutationObserver(() => setDark(root.classList.contains("dark")));
+    watch.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => watch.disconnect();
+  }, []);
   const hide = fold && !showQuoted;
 
   useEffect(() => {
@@ -69,8 +85,19 @@ export function MessageBody({
       observer?.disconnect();
       observer = new ResizeObserver(measure);
       observer.observe(doc.body);
+      shortenLinks(doc);
       setHasQuoted(fold && markQuoted(doc));
       doc.body.toggleAttribute("data-fold", hide);
+      // The mail on the app's own background: a light mail is turned dark in the dark
+      // theme, and a mail that brings a dark page is turned light in the light theme.
+      if (!doc.body.dataset.tone) doc.body.dataset.tone = mailTone(doc);
+      const ownDark = doc.body.dataset.tone === "dark";
+      doc.body.toggleAttribute("data-flip", dark !== ownDark);
+      // In the dark theme white lands on the app's near-black, not on pure black.
+      doc.body.style.setProperty("--flip", dark ? "0.96" : "1");
+      // A frame whose colour scheme differs from the app's gets an opaque white canvas from
+      // the browser; with the same scheme it stays see-through, on the app's background.
+      doc.documentElement.style.colorScheme = dark ? "dark" : "light";
       const linked = [...doc.querySelectorAll<HTMLImageElement>('img[src^="http"]')];
       setRemote(linked.length);
       if (pictures === "shown")
@@ -109,7 +136,7 @@ export function MessageBody({
       element.removeEventListener("load", ready);
       observer?.disconnect();
     };
-  }, [html, hide, pictures, fold]);
+  }, [html, hide, pictures, fold, dark]);
 
   useEffect(() => {
     const element = plain.current;
@@ -214,7 +241,7 @@ export function MessageBody({
         title="Mail content"
         // Same origin so its height can be read; no "allow-scripts", so nothing in it runs.
         sandbox="allow-same-origin"
-        srcDoc={mailDocument(html, dark)}
+        srcDoc={mailDocument(html)}
         style={{ height, ...cut(height > CUT_PX + 80) }}
         className="block w-full border-0"
       />

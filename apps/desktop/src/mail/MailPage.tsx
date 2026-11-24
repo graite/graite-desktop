@@ -6,6 +6,9 @@ import {
   FilePenLine,
   FileSearch,
   FileText,
+  Forward,
+  KeyRound,
+  LogIn,
   Mail,
   MoreHorizontal,
   Orbit,
@@ -16,6 +19,7 @@ import {
   ReplyAll,
   RefreshCw,
   Search,
+  Settings2,
   Trash2,
   X,
 } from "lucide-react";
@@ -54,6 +58,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MarkdownAnswer } from "@/chat/MarkdownAnswer";
@@ -61,11 +66,13 @@ import "@/models/ai.css";
 import type { TreeNode } from "@/lib/api";
 import { STAYS_LOCAL } from "./AddAccountDialog";
 import { AttachmentDialog, type OpenFile } from "./AttachmentDialog";
-import { asDraftText, assist, DRAFT_PROMPT, INFO_PROMPT } from "./assist";
+import { asDraftHtml, assist, DRAFT_PROMPT, INFO_PROMPT } from "./assist";
 import { DraftEditor } from "./DraftEditor";
 import { MailAskPanel } from "./MailAskPanel";
 import { MessageBody } from "./MessageBody";
+import { MENU } from "./menu";
 import type { MailState } from "./useMail";
+import { VaultChoice } from "./VaultChoice";
 import { useMicrosoftSignIn } from "./useMicrosoftSignIn";
 
 const SEARCH_DELAY_MS = 250;
@@ -126,11 +133,14 @@ export function MailPage({
   useEffect(() => void loadDrafts(), [loadDrafts, version]);
 
   /** Start writing: a new mail, or a reply to a mail of the open conversation. */
-  const compose = async (reply?: { to: number; all?: boolean; body?: string }) => {
+  const compose = async (
+    reply?: { to: number; all?: boolean; html?: string },
+    forward?: number,
+  ) => {
     if (!current) return;
     // "New email" twice does not leave an empty draft behind: the empty one is used again.
     const blank = drafts.find((d) => !d.in_reply_to && !d.to && !d.subject && !d.body);
-    if (!reply && blank) {
+    if (!reply && forward === undefined && blank) {
       setOpenId(null);
       setDraftId(blank.id);
       return;
@@ -138,7 +148,11 @@ export function MailPage({
     try {
       const made = await mail.createDraft(
         current,
-        reply ? { reply_to: reply.to, reply_all: reply.all, body: reply.body } : {},
+        reply
+          ? { reply_to: reply.to, reply_all: reply.all, html: reply.html }
+          : forward !== undefined
+            ? { forward }
+            : {},
       );
       if (!reply) setOpenId(null);
       setDrafts((old) => [made, ...old]);
@@ -311,7 +325,7 @@ export function MailPage({
       setHelp(null);
       if (kind === "info") setFound(result);
       else {
-        if (last) await compose({ to: last.id, body: asDraftText(result.text) });
+        if (last) await compose({ to: last.id, html: asDraftHtml(result.text) });
       }
     } catch (e) {
       if (controller.signal.aborted) return;
@@ -500,21 +514,22 @@ export function MailPage({
                   <MoreHorizontal className="size-3.5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className={MENU}>
                 <DropdownMenuItem onSelect={() => setSendingSettings(account)}>
-                  Rename and sending settings…
+                  <Settings2 /> Account settings…
                 </DropdownMenuItem>
                 {account.auth === "microsoft" ? (
                   <DropdownMenuItem onSelect={() => void microsoft.start(account.id)}>
-                    Sign in with Microsoft again…
+                    <LogIn /> Sign in with Microsoft again…
                   </DropdownMenuItem>
                 ) : (
                   <DropdownMenuItem onSelect={() => setRepairing(account)}>
-                    Change password…
+                    <KeyRound /> Change password…
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => setRemoving(account)}>
-                  Remove account…
+                  <Trash2 /> Remove account…
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -790,6 +805,14 @@ export function MailPage({
                         <ReplyAll /> Reply all
                       </Button>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={QUIET}
+                      onClick={() => void compose(undefined, last.id)}
+                    >
+                      <Forward /> Forward
+                    </Button>
                   </>
                 );
               })()}
@@ -847,6 +870,40 @@ export function MailPage({
                       >
                         {mailDate(message.date)}
                       </time>
+                      {/* Reply to, or pass on, this mail in particular. */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Actions for the mail from ${message.sender_name || message.sender_email}`}
+                            className="grid size-6 shrink-0 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+                            onClick={(event) => event.stopPropagation()}
+                            onKeyDown={(event) => event.stopPropagation()}
+                          >
+                            <MoreHorizontal className="size-3.5" />
+                          </span>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className={MENU}
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <DropdownMenuItem onSelect={() => void compose({ to: message.id })}>
+                            <Reply /> Reply
+                          </DropdownMenuItem>
+                          {message.recipients.length + message.cc.length > 1 && (
+                            <DropdownMenuItem
+                              onSelect={() => void compose({ to: message.id, all: true })}
+                            >
+                              <ReplyAll /> Reply all
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onSelect={() => void compose(undefined, message.id)}>
+                            <Forward /> Forward
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </button>
                     {open && (
                       <>
@@ -995,7 +1052,7 @@ export function MailPage({
           onClose={() => setAsking(false)}
           onUseAsDraft={(text) => {
             const last = thread.messages[thread.messages.length - 1];
-            if (last) void compose({ to: last.id, body: text });
+            if (last) void compose({ to: last.id, html: asDraftHtml(text) });
           }}
           onSettings={onSettings}
           onNavigate={onNavigate ?? (() => {})}
@@ -1122,12 +1179,14 @@ function SendingDialog({
   onSaved: () => void;
 }) {
   const [label, setLabel] = useState("");
+  const [vaults, setVaults] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [host, setHost] = useState("");
   const [port, setPort] = useState("");
   const [error, setError] = useState("");
   useEffect(() => {
     setLabel(account?.name ?? "");
+    setVaults(account?.vaults ?? []);
     setName(account?.sender_name ?? "");
     setHost(account?.smtp_host ?? "");
     setPort(account ? String(account.smtp_port) : "");
@@ -1140,6 +1199,7 @@ function SendingDialog({
     try {
       await mail.update(account.id, {
         ...(label.trim() && label.trim() !== account.name ? { name: label.trim() } : {}),
+        ...(vaults.join("\n") !== (account.vaults ?? []).join("\n") ? { vaults } : {}),
         sender_name: name,
         // Unchanged: leave the server to be worked out from the incoming one.
         ...(host.trim() !== account.smtp_host || Number(port) !== account.smtp_port
@@ -1174,6 +1234,7 @@ function SendingDialog({
               onChange={(e) => setLabel(e.target.value)}
             />
           </label>
+          {account && <VaultChoice key={account.id} value={vaults} onChange={setVaults} />}
           <label className="grid gap-1.5 text-sm">
             Your name, as recipients see it
             <input

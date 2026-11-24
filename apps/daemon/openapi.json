@@ -1883,6 +1883,19 @@
             ],
             "title": "Replace From"
           },
+          "search_query": {
+            "anyOf": [
+              {
+                "maxLength": 600,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What to look for in the pages, when that is not the message itself: an instruction such as 'draft a reply' says nothing about the subject, the mail it is about does.",
+            "title": "Search Query"
+          },
           "selection": {
             "anyOf": [
               {
@@ -3000,6 +3013,13 @@
             "title": "Account Id",
             "type": "string"
           },
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/DraftFile"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
           "bcc": {
             "default": "",
             "maxLength": 4000,
@@ -3020,6 +3040,17 @@
           },
           "created_at": {
             "title": "Created At",
+            "type": "string"
+          },
+          "forwarded": {
+            "default": false,
+            "title": "Forwarded",
+            "type": "boolean"
+          },
+          "html": {
+            "default": "",
+            "maxLength": 800000,
+            "title": "Html",
             "type": "string"
           },
           "id": {
@@ -3067,6 +3098,34 @@
           "updated_at"
         ],
         "title": "Draft",
+        "type": "object"
+      },
+      "DraftFile": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "size"
+        ],
+        "title": "DraftFile",
         "type": "object"
       },
       "EffectiveSettings": {
@@ -4245,6 +4304,14 @@
           "username": {
             "title": "Username",
             "type": "string"
+          },
+          "vaults": {
+            "description": "The vault folders it is shown in; empty: every vault on this computer.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Vaults",
+            "type": "array"
           }
         },
         "required": [
@@ -4261,6 +4328,7 @@
           "synced_at",
           "unread",
           "drafts",
+          "vaults",
           "auth",
           "sender_name",
           "smtp_host",
@@ -4277,6 +4345,12 @@
             },
             "title": "Accounts",
             "type": "array"
+          },
+          "vault": {
+            "default": "",
+            "description": "The folder of the vault this daemon serves.",
+            "title": "Vault",
+            "type": "string"
           }
         },
         "required": [
@@ -4308,6 +4382,40 @@
         "title": "MailAttachment",
         "type": "object"
       },
+      "MailContact": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "email"
+        ],
+        "title": "MailContact",
+        "type": "object"
+      },
+      "MailContacts": {
+        "properties": {
+          "contacts": {
+            "items": {
+              "$ref": "#/components/schemas/MailContact"
+            },
+            "title": "Contacts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "contacts"
+        ],
+        "title": "MailContacts",
+        "type": "object"
+      },
       "MailDrafts": {
         "properties": {
           "drafts": {
@@ -4327,7 +4435,7 @@
       "MailFileInfo": {
         "properties": {
           "kind": {
-            "description": "pdf, image or other: whether it can be looked at here.",
+            "description": "pdf, image, text or other: whether it can be looked at here.",
             "title": "Kind",
             "type": "string"
           },
@@ -5503,6 +5611,25 @@
             "title": "Cc",
             "type": "string"
           },
+          "forward": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Id of a mail to pass on: its subject, text and files are filled in, and the recipients are left to choose.",
+            "title": "Forward"
+          },
+          "html": {
+            "default": "",
+            "description": "The message with formatting (bold, italic, lists, links). Anything else is taken out. Given instead of `body`.",
+            "maxLength": 800000,
+            "title": "Html",
+            "type": "string"
+          },
           "reply_all": {
             "default": false,
             "title": "Reply All",
@@ -6027,6 +6154,22 @@
               }
             ],
             "title": "Smtp Port"
+          },
+          "vaults": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 200,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Keep the mailbox to these vault folders; an empty list shows it in every vault again.",
+            "title": "Vaults"
           }
         },
         "title": "PatchMailAccount",
@@ -6069,6 +6212,18 @@
               }
             ],
             "title": "Cc"
+          },
+          "html": {
+            "anyOf": [
+              {
+                "maxLength": 800000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Html"
           },
           "subject": {
             "anyOf": [
@@ -14103,6 +14258,72 @@
         ]
       }
     },
+    "/api/v1/mail/accounts/{account_id}/contacts": {
+      "get": {
+        "description": "People this mailbox has written with, to fill in an address while typing. Read from\nthe local copy of the mail; nothing is looked up elsewhere.",
+        "operationId": "find_contacts_api_v1_mail_accounts__account_id__contacts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 100,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 8,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailContacts"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Find Contacts",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
     "/api/v1/mail/accounts/{account_id}/drafts": {
       "get": {
         "operationId": "list_drafts_api_v1_mail_accounts__account_id__drafts_get",
@@ -14303,6 +14524,128 @@
           }
         },
         "summary": "Update Draft",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/drafts/{draft_id}/attachments": {
+      "post": {
+        "description": "Add a file to a draft. It is kept with the draft until the mail is sent or discarded.",
+        "operationId": "attach_to_draft_api_v1_mail_accounts__account_id__drafts__draft_id__attachments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Draft"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attach To Draft",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/drafts/{draft_id}/attachments/{file_id}": {
+      "delete": {
+        "operationId": "detach_from_draft_api_v1_mail_accounts__account_id__drafts__draft_id__attachments__file_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "title": "File Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Draft"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Detach From Draft",
         "tags": [
           "Mail"
         ]
