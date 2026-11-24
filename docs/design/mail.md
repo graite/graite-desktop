@@ -15,6 +15,16 @@ see mail, and nothing is sent except by the user pressing Send.
 | Routes | `/api/v1/mail/accounts/{id}/…` (`graite/api/mail.py`) | Accounts, folders, conversations, one conversation. |
 | Reader | `apps/desktop/src/mail/` | Accounts and folders in the sidebar (`MailRail`), where the pages are, when Mail is chosen there. The conversation list and the reader are the Mail tab (`MailPage`), next to the page tabs. Switching tabs never changes what the sidebar shows. What is chosen lives in `useMail`, held by the workspace. |
 
+## Which vaults a mailbox is in
+
+Accounts belong to the computer, not to a vault. By default a mailbox is shown in every
+vault. In its settings it can be kept to chosen vaults (`Account.vaults`, a list of vault
+folders; "Only the vaults that sync" ticks those). A daemon lists, syncs and serves only the
+mailboxes that belong in its vault (`MailService.here`); for the others its routes answer
+404, and its copy of their mail is deleted: at once when the setting is changed in that
+vault, at the next sync when it was changed from another vault's window, and at startup
+when Graite was closed. The account, its sign-in and its drafts stay.
+
 ## Sidebar
 
 Accounts fold open to their folders (`MailRail`). A folder can be hidden from the list (the
@@ -72,6 +82,17 @@ Search is SQLite FTS5 over subject, sender and text, per account.
 | Sent copy | `imap.append` | Appended to the folder with the Sent role, marked read. Skipped for Gmail, which files sent mail itself. |
 | Routes | `…/drafts`, `…/drafts/{id}`, `…/drafts/{id}/send` | Create (optionally `reply_to` a mail), save, discard, send. |
 | Editor | `src/mail/DraftEditor.tsx` | Saves while typing. A reply sits under its conversation; a new mail takes the reader. |
+
+Recipients are stored as text ("Name <address>, address") and shown as pills
+(`RecipientField`): an address becomes one on a space, comma, Enter or when moving on; a pill
+shows the first name and opens to copy the address, edit or remove it; text that is no
+address is kept and marked. While typing, people the mailbox has written with are suggested
+(`MailBox.contacts`, from the local copy: those the user wrote to first).
+
+A mail can be answered or passed on as a whole conversation (its latest mail) or one mail in
+it (the "…" on that mail). Forward (`NewMailDraft.forward`) fills in the subject, the mail's
+text under a line for the user's own words, and its files, fetched from the mail server and
+kept with the draft; it starts a conversation of its own.
 
 Rules:
 
