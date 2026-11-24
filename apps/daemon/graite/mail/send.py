@@ -14,6 +14,7 @@ from email.message import EmailMessage
 from email.utils import format_datetime, formataddr, getaddresses, make_msgid
 from typing import Any
 
+from graite.mail import richtext
 from graite.mail.accounts import Account, domain_of
 from graite.mail.drafts import Draft
 from graite.mail.imap import LOCAL_HOSTS, TIMEOUT_SECONDS, MailError, xoauth2
@@ -58,8 +59,11 @@ def recipients(*fields: str) -> list[tuple[str, str]]:
     return found
 
 
-def build(account: Account, draft: Draft) -> EmailMessage:
-    """The mail as it will be sent. Plain text: what you typed is what arrives."""
+def build(
+    account: Account, draft: Draft, files: list[tuple[str, str, bytes]] | None = None
+) -> EmailMessage:
+    """The mail as it will be sent: the text, the same text with its formatting when the
+    draft has any, and the files that go along as `(name, type, content)`."""
     if not recipients(draft.to, draft.cc, draft.bcc):
         raise MailError("Add at least one recipient.")
     message = EmailMessage()
@@ -75,6 +79,13 @@ def build(account: Account, draft: Draft) -> EmailMessage:
         message["In-Reply-To"] = draft.in_reply_to
         message["References"] = " ".join([*draft.references, draft.in_reply_to][-20:])
     message.set_content(draft.body.replace("\r\n", "\n"))
+    if draft.html:
+        message.add_alternative(richtext.page(draft.html), subtype="html")
+    for name, kind, content in files or []:
+        main, _, sub = kind.partition("/")
+        message.add_attachment(
+            content, maintype=main or "application", subtype=sub or "octet-stream", filename=name
+        )
     return message
 
 

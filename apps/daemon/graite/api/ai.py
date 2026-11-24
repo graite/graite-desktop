@@ -746,6 +746,13 @@ class ChatRequest(BaseModel):
         description="Pages the user pinned with @ in the message: their text is given to the "
         "model first, within the context budget, whatever the search finds.",
     )
+    search_query: str | None = Field(
+        default=None,
+        max_length=600,
+        description="What to look for in the pages, when that is not the message itself: an "
+        "instruction such as 'draft a reply' says nothing about the subject, the mail it is "
+        "about does.",
+    )
     depth: Literal["quick", "deep"] | None = Field(
         default=None,
         description="How a question in Ask mode is answered: 'quick' is one search and one "
@@ -948,6 +955,7 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
         context=context,
         feedback=state.proposals.undelivered_rejections(conversation_id),
         depth=body.depth,
+        search_query=(body.search_query or "").strip() or None,
     )
     pinned = _pinned_sources(state, resolved, body.pinned_paths, config.context_budget_tokens)
     if pinned:

@@ -13,7 +13,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
-from graite.mail import imap, oauth, parse, send
+from graite.mail import imap, oauth, parse, richtext, send
 from graite.mail.accounts import (
     IMAPS_PORT,
     Account,
@@ -307,6 +307,19 @@ async def read_thread(account_id: str, thread_id: str, request: Request) -> Mail
 
 FILE_KEEP_SECONDS = 3600
 PREVIEW_SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".tif", ".tiff"}
+TEXT_SUFFIXES = {
+    ".txt",
+    ".md",
+    ".markdown",
+    ".csv",
+    ".tsv",
+    ".json",
+    ".log",
+    ".yml",
+    ".yaml",
+    ".xml",
+    ".ics",
+}
 
 
 async def _file(request: Request, account_id: str, message_id: int, index: int) -> Path:
@@ -361,7 +374,7 @@ def _shown_name(path: Path) -> str:
 
 class MailFileInfo(BaseModel):
     name: str
-    kind: str = Field(description="pdf, image or other: whether it can be looked at here.")
+    kind: str = Field(description="pdf, image, text or other: whether it can be looked at here.")
     pages: int
     size: int
 
@@ -413,7 +426,9 @@ async def attachment_info(
     path = await _file(request, account_id, message_id, index)
     suffix = path.suffix.lower()
     kind, pages = "other", 0
-    if suffix in PREVIEW_SUFFIXES:
+    if suffix in TEXT_SUFFIXES:
+        kind = "text"  # read as it is: the app shows the words, nothing is run
+    elif suffix in PREVIEW_SUFFIXES:
         try:
             pages = await asyncio.to_thread(page_count, path)
             kind = "pdf" if suffix == ".pdf" else "image"
@@ -494,6 +509,12 @@ class NewMailDraft(BaseModel):
     bcc: str = Field(default="", max_length=4000)
     subject: str = Field(default="", max_length=998)
     body: str = Field(default="", max_length=400_000)
+    html: str = Field(
+        default="",
+        max_length=800_000,
+        description="The message with formatting (bold, italic, lists, links). Anything "
+        "else is taken out. Given instead of `body`.",
+    )
 
 
 class PatchMailDraft(BaseModel):
@@ -502,6 +523,17 @@ class PatchMailDraft(BaseModel):
     bcc: str | None = Field(default=None, max_length=4000)
     subject: str | None = Field(default=None, max_length=998)
     body: str | None = Field(default=None, max_length=400_000)
+    html: str | None = Field(default=None, max_length=800_000)
+
+
+def _written(body: str | None, html: str | None) -> dict[str, str]:
+    """A message as both its formatted and its plain form, from whichever was given."""
+    if html is not None and html.strip():
+        clean = richtext.clean(html)
+        return {"html": clean, "body": richtext.to_text(clean)}
+    if body is not None:
+        return {"html": richtext.from_text(body), "body": body}
+    return {}
 
 
 class MailDrafts(BaseModel):
@@ -529,7 +561,9 @@ def _reply(account: Account, mail: dict[str, Any], reply_all: bool) -> dict[str,
         "to": sender,
         "cc": ", ".join(_person(p["name"], p["email"]) for p in others) if reply_all else "",
         "subject": subject,
-        "body": send.quoted(sender, str(mail["date"])[:16].replace("T", " "), mail["body_text"]),
+        "quote": richtext.quoted(
+            sender, str(mail["date"])[:16].replace("T", " "), mail["body_text"]
+        ),
         "in_reply_to": mail["message_id"],
         "references": mail["references"],
         "thread_id": mail["thread_id"],
@@ -548,16 +582,20 @@ async def create_draft(account_id: str, body: NewMailDraft, request: Request) ->
     """A new mail, or with `reply_to` a reply. Writing a draft never sends anything."""
     service = _service(request)
     account = _account(service, account_id)
-    fields: dict[str, Any] = body.model_dump(exclude={"reply_to", "reply_all"})
+    fields: dict[str, Any] = body.model_dump(exclude={"reply_to", "reply_all", "body", "html"})
+    written = _written(body.body or None, body.html or None)
     if body.reply_to is not None:
         mail = await asyncio.to_thread(service.box(account_id).message, body.reply_to)
         if mail is None:
             raise HTTPException(404, "Mail not found.")
         filled = _reply(account, mail, body.reply_all)
+        quote = filled.pop("quote")
         # What the caller gave wins over what the reply fills in (a text written by AI).
         fields = {**filled, **{k: v for k, v in fields.items() if v}}
-        if body.body:
-            fields["body"] = body.body.rstrip() + filled["body"]
+        # The reply above, the mail it answers quoted under it.
+        html = written.get("html", "") + quote
+        written = {"html": html, "body": richtext.to_text(html)}
+    fields.update(written)
     return await asyncio.to_thread(lambda: service.drafts.create(account_id, **fields))
 
 
@@ -567,11 +605,60 @@ async def update_draft(
 ) -> Draft:
     service = _service(request)
     _account(service, account_id)
-    changes = body.model_dump(exclude_none=True)
+    changes = body.model_dump(exclude_none=True, exclude={"body", "html"})
+    changes.update(_written(body.body, body.html))
     draft = await asyncio.to_thread(lambda: service.drafts.update(account_id, draft_id, **changes))
     if draft is None:
         raise HTTPException(404, "Draft not found.")
     return draft
+
+
+DRAFT_FILE_BYTES = 20 * 1024 * 1024
+DRAFT_FILES_BYTES = 25 * 1024 * 1024  # what most mail providers accept for one mail
+
+
+@router.post("/accounts/{account_id}/drafts/{draft_id}/attachments", response_model=Draft)
+async def attach_to_draft(
+    account_id: str, draft_id: str, request: Request, name: str = Query(max_length=200)
+) -> Draft:
+    """Add a file to a draft. It is kept with the draft until the mail is sent or discarded."""
+    import mimetypes
+
+    service = _service(request)
+    _account(service, account_id)
+    draft = await asyncio.to_thread(service.drafts.get, account_id, draft_id)
+    if draft is None:
+        raise HTTPException(404, "Draft not found.")
+    data = bytearray()
+    async for chunk in request.stream():
+        data.extend(chunk)
+        if len(data) > DRAFT_FILE_BYTES:
+            raise HTTPException(413, "A file can be up to 20 MB.")
+    if not data:
+        raise HTTPException(400, "This file is empty.")
+    if sum(f.size for f in draft.attachments) + len(data) > DRAFT_FILES_BYTES:
+        raise HTTPException(413, "The files of one mail can be 25 MB together.")
+    kind = mimetypes.guess_type(name)[0] or "application/octet-stream"
+    changed = await asyncio.to_thread(
+        service.drafts.add_file, account_id, draft_id, name, kind, bytes(data)
+    )
+    if changed is None:
+        raise HTTPException(404, "Draft not found.")
+    return changed
+
+
+@router.delete(
+    "/accounts/{account_id}/drafts/{draft_id}/attachments/{file_id}", response_model=Draft
+)
+async def detach_from_draft(
+    account_id: str, draft_id: str, file_id: str, request: Request
+) -> Draft:
+    service = _service(request)
+    _account(service, account_id)
+    changed = await asyncio.to_thread(service.drafts.remove_file, account_id, draft_id, file_id)
+    if changed is None:
+        raise HTTPException(404, "Attachment not found.")
+    return changed
 
 
 @router.delete("/accounts/{account_id}/drafts/{draft_id}")
@@ -593,9 +680,17 @@ async def send_draft(account_id: str, draft_id: str, request: Request) -> MailSe
     if draft is None:
         raise HTTPException(404, "Draft not found.")
     try:
-        message = send.build(account, draft)
+        files = await asyncio.to_thread(
+            lambda: [
+                (f.name, f.type, service.drafts.file_path(draft_id, f).read_bytes())
+                for f in draft.attachments
+            ]
+        )
+        message = send.build(account, draft, files)
         password = await asyncio.to_thread(oauth.secret, account)
         await asyncio.to_thread(send.deliver, account, password, message, service.smtp)
+    except OSError as exc:
+        raise HTTPException(400, "A file of this draft is missing. Add it again.") from exc
     except imap.MailError as exc:
         raise HTTPException(400 if not exc.auth else 401, _refusal(account, exc)) from exc
     await asyncio.to_thread(service.drafts.remove, account_id, draft_id)

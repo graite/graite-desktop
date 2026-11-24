@@ -1883,6 +1883,19 @@
             ],
             "title": "Replace From"
           },
+          "search_query": {
+            "anyOf": [
+              {
+                "maxLength": 600,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What to look for in the pages, when that is not the message itself: an instruction such as 'draft a reply' says nothing about the subject, the mail it is about does.",
+            "title": "Search Query"
+          },
           "selection": {
             "anyOf": [
               {
@@ -3000,6 +3013,13 @@
             "title": "Account Id",
             "type": "string"
           },
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/DraftFile"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
           "bcc": {
             "default": "",
             "maxLength": 4000,
@@ -3020,6 +3040,12 @@
           },
           "created_at": {
             "title": "Created At",
+            "type": "string"
+          },
+          "html": {
+            "default": "",
+            "maxLength": 800000,
+            "title": "Html",
             "type": "string"
           },
           "id": {
@@ -3067,6 +3093,34 @@
           "updated_at"
         ],
         "title": "Draft",
+        "type": "object"
+      },
+      "DraftFile": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "size"
+        ],
+        "title": "DraftFile",
         "type": "object"
       },
       "EffectiveSettings": {
@@ -4327,7 +4381,7 @@
       "MailFileInfo": {
         "properties": {
           "kind": {
-            "description": "pdf, image or other: whether it can be looked at here.",
+            "description": "pdf, image, text or other: whether it can be looked at here.",
             "title": "Kind",
             "type": "string"
           },
@@ -5503,6 +5557,13 @@
             "title": "Cc",
             "type": "string"
           },
+          "html": {
+            "default": "",
+            "description": "The message with formatting (bold, italic, lists, links). Anything else is taken out. Given instead of `body`.",
+            "maxLength": 800000,
+            "title": "Html",
+            "type": "string"
+          },
           "reply_all": {
             "default": false,
             "title": "Reply All",
@@ -6069,6 +6130,18 @@
               }
             ],
             "title": "Cc"
+          },
+          "html": {
+            "anyOf": [
+              {
+                "maxLength": 800000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Html"
           },
           "subject": {
             "anyOf": [
@@ -14303,6 +14376,128 @@
           }
         },
         "summary": "Update Draft",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/drafts/{draft_id}/attachments": {
+      "post": {
+        "description": "Add a file to a draft. It is kept with the draft until the mail is sent or discarded.",
+        "operationId": "attach_to_draft_api_v1_mail_accounts__account_id__drafts__draft_id__attachments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Draft"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attach To Draft",
+        "tags": [
+          "Mail"
+        ]
+      }
+    },
+    "/api/v1/mail/accounts/{account_id}/drafts/{draft_id}/attachments/{file_id}": {
+      "delete": {
+        "operationId": "detach_from_draft_api_v1_mail_accounts__account_id__drafts__draft_id__attachments__file_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "title": "File Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Draft"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Detach From Draft",
         "tags": [
           "Mail"
         ]

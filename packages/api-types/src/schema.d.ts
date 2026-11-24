@@ -1570,6 +1570,43 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/mail/accounts/{account_id}/drafts/{draft_id}/attachments": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Attach To Draft
+     * @description Add a file to a draft. It is kept with the draft until the mail is sent or discarded.
+     */
+    post: operations["attach_to_draft_api_v1_mail_accounts__account_id__drafts__draft_id__attachments_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}/drafts/{draft_id}/attachments/{file_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Detach From Draft */
+    delete: operations["detach_from_draft_api_v1_mail_accounts__account_id__drafts__draft_id__attachments__file_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/mail/accounts/{account_id}/drafts/{draft_id}/send": {
     parameters: {
       query?: never;
@@ -3895,6 +3932,11 @@ export interface components {
       pinned_paths?: string[];
       /** Replace From */
       replace_from?: number | null;
+      /**
+       * Search Query
+       * @description What to look for in the pages, when that is not the message itself: an instruction such as 'draft a reply' says nothing about the subject, the mail it is about does.
+       */
+      search_query?: string | null;
       selection?: components["schemas"]["Selection"] | null;
     };
     /** CheckResult */
@@ -4301,6 +4343,8 @@ export interface components {
     Draft: {
       /** Account Id */
       account_id: string;
+      /** Attachments */
+      attachments?: components["schemas"]["DraftFile"][];
       /**
        * Bcc
        * @default
@@ -4318,6 +4362,11 @@ export interface components {
       cc: string;
       /** Created At */
       created_at: string;
+      /**
+       * Html
+       * @default
+       */
+      html: string;
       /** Id */
       id: string;
       /**
@@ -4344,6 +4393,17 @@ export interface components {
       to: string;
       /** Updated At */
       updated_at: string;
+    };
+    /** DraftFile */
+    DraftFile: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Size */
+      size: number;
+      /** Type */
+      type: string;
     };
     /** EffectiveSettings */
     EffectiveSettings: {
@@ -4868,7 +4928,7 @@ export interface components {
     MailFileInfo: {
       /**
        * Kind
-       * @description pdf, image or other: whether it can be looked at here.
+       * @description pdf, image, text or other: whether it can be looked at here.
        */
       kind: string;
       /** Name */
@@ -5319,6 +5379,12 @@ export interface components {
        */
       cc: string;
       /**
+       * Html
+       * @description The message with formatting (bold, italic, lists, links). Anything else is taken out. Given instead of `body`.
+       * @default
+       */
+      html: string;
+      /**
        * Reply All
        * @default false
        */
@@ -5532,6 +5598,8 @@ export interface components {
       body?: string | null;
       /** Cc */
       cc?: string | null;
+      /** Html */
+      html?: string | null;
       /** Subject */
       subject?: string | null;
       /** To */
@@ -10152,6 +10220,73 @@ export interface operations {
           "application/json": {
             [key: string]: unknown;
           };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  attach_to_draft_api_v1_mail_accounts__account_id__drafts__draft_id__attachments_post: {
+    parameters: {
+      query: {
+        name: string;
+      };
+      header?: never;
+      path: {
+        account_id: string;
+        draft_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Draft"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  detach_from_draft_api_v1_mail_accounts__account_id__drafts__draft_id__attachments__file_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+        draft_id: string;
+        file_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Draft"];
         };
       };
       /** @description Validation Error */
