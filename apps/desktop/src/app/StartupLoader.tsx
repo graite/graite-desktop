@@ -1,3 +1,14 @@
+/** How the caption "A place where …" ends, one after another. The same list is written out in
+ * index.html (the pre-JavaScript shell) and timed in public/startup.css: change all three. */
+export const STARTUP_WORDS = [
+  "ideas grow",
+  "notes connect",
+  "mail gets answered",
+  "clients stay close",
+  "projects move",
+  "your AI stays yours",
+];
+
 /** Matches the pre-JavaScript shell in index.html so startup has no blank flash. */
 export function StartupLoader({
   error,
@@ -22,7 +33,16 @@ export function StartupLoader({
           {onChooseVault && <button onClick={onChooseVault}>Choose another vault</button>}
         </div>
       ) : (
-        <span className="startup-caption">A little space for your ideas</span>
+        <span className="startup-caption">
+          <span>A place where</span>
+          <span className="startup-words" aria-hidden="true">
+            <span className="startup-roll">
+              {[...STARTUP_WORDS, STARTUP_WORDS[0]].map((words, index) => (
+                <span key={index}>{words}</span>
+              ))}
+            </span>
+          </span>
+        </span>
       )}
     </div>
   );

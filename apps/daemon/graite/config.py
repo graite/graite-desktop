@@ -31,6 +31,11 @@ class Settings(BaseSettings):
         default="https://api.getgraite.com",
         description="Graite Cloud, the optional hosted account and models (GRAITE_CLOUD_URL).",
     )
+    microsoft_client_id: str = Field(
+        default="11e74e8c-13ce-48c1-95b4-4bef6fcc3499",
+        description="Graite's app registration at Microsoft, for signing in to Outlook and "
+        "Microsoft 365 mail (GRAITE_MICROSOFT_CLIENT_ID). An app id, not a secret.",
+    )
     dev: bool = False
     serve: bool = Field(default=False, description="Headless: do not exit when stdin closes.")
     no_watch: bool = Field(default=False, description="Do not watch the vault for external edits.")

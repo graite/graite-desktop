@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   ChevronDown,
   FolderOpen,
@@ -6,6 +6,8 @@ import {
   Plus,
   Settings2,
   LayoutTemplate,
+  LayoutGrid,
+  Mail,
   Trash2,
   Orbit,
   Files,
@@ -69,6 +71,11 @@ interface SidebarProps {
   aiActive: boolean;
   onTrash: () => void;
   trashActive: boolean;
+  /** The menu right of Pages and Studio: more sections, for now Mail. `mailActive`: the
+   * sidebar lists the mail accounts (`mailRail`) instead of the pages. */
+  mailMenu?: { accounts: number; unread: number; onOpen: () => void };
+  mailActive?: boolean;
+  mailRail?: ReactNode;
   /** The built-in template gallery (D77). */
   onTemplates: () => void;
   templatesActive: boolean;
@@ -97,6 +104,9 @@ export function Sidebar({
   aiActive,
   onTrash,
   trashActive,
+  mailMenu,
+  mailActive = false,
+  mailRail,
   onTemplates,
   templatesActive,
   onWelcome,
@@ -244,11 +254,11 @@ export function Sidebar({
         <VaultMenu />
         <ThemeToggle />
       </div>
-      <nav className="flex gap-1 px-3 py-3" aria-label="Workspace sections">
+      <nav className="flex gap-1 px-2 py-3" aria-label="Workspace sections">
         <button
           onClick={onPages}
-          aria-current={!aiActive && !trashActive ? "page" : undefined}
-          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-accent ${!aiActive && !trashActive ? "bg-accent" : ""}`}
+          aria-current={!aiActive && !trashActive && !mailActive ? "page" : undefined}
+          className={`flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm hover:bg-accent ${!aiActive && !trashActive && !mailActive ? "bg-accent" : ""}`}
         >
           <Files size={16} />
           Pages
@@ -256,18 +266,59 @@ export function Sidebar({
         <button
           onClick={onAI}
           aria-current={aiActive ? "page" : undefined}
-          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-accent ${aiActive ? "bg-accent" : ""}`}
+          className={`flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm hover:bg-accent ${aiActive ? "bg-accent" : ""}`}
         >
           <Orbit size={16} />
           Studio
         </button>
+        {mailMenu && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                aria-label="More sections"
+                title="More"
+                aria-current={mailActive && !aiActive ? "page" : undefined}
+                className={`relative ml-auto grid size-9 place-items-center rounded-lg hover:bg-accent data-[state=open]:bg-accent ${mailActive && !aiActive ? "bg-accent" : ""}`}
+              >
+                <LayoutGrid size={16} />
+                {mailMenu.unread > 0 && (
+                  <span
+                    className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-muted-foreground"
+                    aria-label="Unread mail"
+                  />
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64">
+              <DropdownMenuItem className="items-start py-2" onSelect={mailMenu.onOpen}>
+                <Mail className="mt-0.5" />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">Mail</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {mailMenu.accounts === 0
+                      ? "Read your mail next to your notes"
+                      : mailMenu.accounts === 1
+                        ? "1 account"
+                        : `${mailMenu.accounts} accounts`}
+                  </span>
+                </span>
+                {mailMenu.unread > 0 && (
+                  <span className="self-center text-xs text-muted-foreground">
+                    {mailMenu.unread} unread
+                  </span>
+                )}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </nav>
       {/* Studio's rail scrolls as a whole, from just below the Pages / Studio switch. */}
       <div
         ref={askHost}
         className={aiActive ? "sidebar-studio-scroll min-h-0 flex-1 flex flex-col" : "hidden"}
       />
-      <div className={aiActive ? "hidden" : "min-h-0 flex-1 flex flex-col"}>
+      {mailActive && !aiActive && mailRail}
+      <div className={aiActive || mailActive ? "hidden" : "min-h-0 flex-1 flex flex-col"}>
         <div className="flex items-center justify-between px-3 py-2">
           <span className="text-xs font-medium text-muted-foreground">Pages</span>
           <div className="flex items-center gap-2">

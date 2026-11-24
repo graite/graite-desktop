@@ -1489,6 +1489,395 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/mail/accounts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Accounts */
+    get: operations["list_accounts_api_v1_mail_accounts_get"];
+    put?: never;
+    /**
+     * Add Account
+     * @description Signs in once before anything is saved, so a wrong password never leaves an account.
+     */
+    post: operations["add_account_api_v1_mail_accounts_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete Account
+     * @description Removes the account, its password and its local copy. The mailbox itself is untouched.
+     */
+    delete: operations["delete_account_api_v1_mail_accounts__account_id__delete"];
+    options?: never;
+    head?: never;
+    /** Patch Account */
+    patch: operations["patch_account_api_v1_mail_accounts__account_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}/drafts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Drafts */
+    get: operations["list_drafts_api_v1_mail_accounts__account_id__drafts_get"];
+    put?: never;
+    /**
+     * Create Draft
+     * @description A new mail, or with `reply_to` a reply. Writing a draft never sends anything.
+     */
+    post: operations["create_draft_api_v1_mail_accounts__account_id__drafts_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}/drafts/{draft_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Update Draft */
+    put: operations["update_draft_api_v1_mail_accounts__account_id__drafts__draft_id__put"];
+    post?: never;
+    /** Delete Draft */
+    delete: operations["delete_draft_api_v1_mail_accounts__account_id__drafts__draft_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}/drafts/{draft_id}/send": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Send Draft
+     * @description Send a draft. The only way mail leaves Graite: the user pressing Send on a draft
+     *     they can read in full. If sending fails, the draft is kept.
+     */
+    post: operations["send_draft_api_v1_mail_accounts__account_id__drafts__draft_id__send_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}/folders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Folders */
+    get: operations["list_folders_api_v1_mail_accounts__account_id__folders_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}/messages/{message_id}/attachments/{index}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read Attachment
+     * @description An attachment's content, to save or to hand to the chat.
+     */
+    get: operations["read_attachment_api_v1_mail_accounts__account_id__messages__message_id__attachments__index__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}/messages/{message_id}/attachments/{index}/info": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Attachment Info */
+    get: operations["attachment_info_api_v1_mail_accounts__account_id__messages__message_id__attachments__index__info_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}/messages/{message_id}/attachments/{index}/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Attachment Preview
+     * @description One page of a PDF, or a picture, drawn by the daemon as a PNG: the app shows a plain
+     *     image and never opens the file itself.
+     */
+    get: operations["attachment_preview_api_v1_mail_accounts__account_id__messages__message_id__attachments__index__preview_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}/messages/{message_id}/attachments/{index}/save": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Save Attachment
+     * @description Put an attachment on a page: the file becomes the page's own and shows at its end.
+     *     With `extract`, its text is read into the page as well (a PDF's text, or OCR).
+     */
+    post: operations["save_attachment_api_v1_mail_accounts__account_id__messages__message_id__attachments__index__save_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}/move": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Move Threads
+     * @description Archive or delete several conversations at once, over one connection.
+     */
+    post: operations["move_threads_api_v1_mail_accounts__account_id__move_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}/sync": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Sync Account */
+    post: operations["sync_account_api_v1_mail_accounts__account_id__sync_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}/threads": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Threads */
+    get: operations["list_threads_api_v1_mail_accounts__account_id__threads_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}/threads/{thread_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Thread */
+    get: operations["read_thread_api_v1_mail_accounts__account_id__threads__thread_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}/threads/{thread_id}/archive": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Archive Thread
+     * @description Take a conversation out of the inbox, into the mailbox's Archive (Gmail: All Mail).
+     */
+    post: operations["archive_thread_api_v1_mail_accounts__account_id__threads__thread_id__archive_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}/threads/{thread_id}/read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Read Thread Mark
+     * @description Mark a conversation as read, here at once and in the mailbox in the background, so
+     *     opening a mail never waits for the mail server.
+     */
+    post: operations["read_thread_mark_api_v1_mail_accounts__account_id__threads__thread_id__read_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/accounts/{account_id}/threads/{thread_id}/trash": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Trash Thread
+     * @description Move a conversation to the mailbox's Trash. The provider erases it later, not Graite.
+     */
+    post: operations["trash_thread_api_v1_mail_accounts__account_id__threads__thread_id__trash_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/image": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Remote Image
+     * @description Fetch a picture a mail links to, when the user asked to see a mail's pictures.
+     *     Fetching tells the sender's server that the mail was opened, as in any mail app.
+     */
+    get: operations["remote_image_api_v1_mail_image_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/oauth/microsoft": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Start Microsoft
+     * @description Open Microsoft's sign-in page in the browser. The password is typed there, never in
+     *     Graite; what comes back is a token for that mailbox, kept in the OS keychain.
+     */
+    post: operations["start_microsoft_api_v1_mail_oauth_microsoft_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/mail/oauth/{sign_in_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Sign In State */
+    get: operations["sign_in_state_api_v1_mail_oauth__sign_in_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/mcp/clients/{client}": {
     parameters: {
       query?: never;
@@ -3908,6 +4297,54 @@ export interface components {
       /** Models */
       models: components["schemas"]["DiscoveredModel"][];
     };
+    /** Draft */
+    Draft: {
+      /** Account Id */
+      account_id: string;
+      /**
+       * Bcc
+       * @default
+       */
+      bcc: string;
+      /**
+       * Body
+       * @default
+       */
+      body: string;
+      /**
+       * Cc
+       * @default
+       */
+      cc: string;
+      /** Created At */
+      created_at: string;
+      /** Id */
+      id: string;
+      /**
+       * In Reply To
+       * @default
+       */
+      in_reply_to: string;
+      /** References */
+      references?: string[];
+      /**
+       * Subject
+       * @default
+       */
+      subject: string;
+      /**
+       * Thread Id
+       * @default
+       */
+      thread_id: string;
+      /**
+       * To
+       * @default
+       */
+      to: string;
+      /** Updated At */
+      updated_at: string;
+    };
     /** EffectiveSettings */
     EffectiveSettings: {
       /** Instructions */
@@ -4359,6 +4796,211 @@ export interface components {
       /** Schedule Id */
       schedule_id: string;
     };
+    /** MailAccount */
+    MailAccount: {
+      /**
+       * Auth
+       * @description password, or microsoft: signed in at Microsoft.
+       */
+      auth: string;
+      /** Created At */
+      created_at: string;
+      /** Drafts */
+      drafts: number;
+      /** Email */
+      email: string;
+      /** Error */
+      error: string;
+      /** Host */
+      host: string;
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Needs Password */
+      needs_password: boolean;
+      /** Port */
+      port: number;
+      /**
+       * Sender Name
+       * @description Your name on sent mail; empty: only the address.
+       */
+      sender_name: string;
+      /**
+       * Smtp Host
+       * @description The outgoing server in use, set or worked out.
+       */
+      smtp_host: string;
+      /** Smtp Port */
+      smtp_port: number;
+      /**
+       * State
+       * @description waiting, syncing, ok or error
+       */
+      state: string;
+      /** Synced At */
+      synced_at: string;
+      /** Unread */
+      unread: number;
+      /** Username */
+      username: string;
+    };
+    /** MailAccounts */
+    MailAccounts: {
+      /** Accounts */
+      accounts: components["schemas"]["MailAccount"][];
+    };
+    /** MailAttachment */
+    MailAttachment: {
+      /** Name */
+      name: string;
+      /** Size */
+      size: number;
+      /** Type */
+      type: string;
+    };
+    /** MailDrafts */
+    MailDrafts: {
+      /** Drafts */
+      drafts: components["schemas"]["Draft"][];
+    };
+    /** MailFileInfo */
+    MailFileInfo: {
+      /**
+       * Kind
+       * @description pdf, image or other: whether it can be looked at here.
+       */
+      kind: string;
+      /** Name */
+      name: string;
+      /** Pages */
+      pages: number;
+      /** Size */
+      size: number;
+    };
+    /** MailFolder */
+    MailFolder: {
+      /** Name */
+      name: string;
+      /** Role */
+      role: string;
+      /** Synced At */
+      synced_at: string;
+      /** Title */
+      title: string;
+      /** Total */
+      total: number;
+      /** Unread */
+      unread: number;
+    };
+    /** MailFolders */
+    MailFolders: {
+      /** Folders */
+      folders: components["schemas"]["MailFolder"][];
+    };
+    /** MailMessage */
+    MailMessage: {
+      /** Attachments */
+      attachments: components["schemas"]["MailAttachment"][];
+      /** Body Html */
+      body_html: string;
+      /** Body Text */
+      body_text: string;
+      /** Cc */
+      cc: components["schemas"]["MailPerson"][];
+      /** Date */
+      date: string;
+      /** Flagged */
+      flagged: boolean;
+      /** Folders */
+      folders: string[];
+      /** Id */
+      id: number;
+      /** Message Id */
+      message_id: string;
+      /**
+       * Partial
+       * @description Too large to keep whole: only its headers are here.
+       */
+      partial: boolean;
+      /** Recipients */
+      recipients: components["schemas"]["MailPerson"][];
+      /** Seen */
+      seen: boolean;
+      /** Sender Email */
+      sender_email: string;
+      /** Sender Name */
+      sender_name: string;
+      /** Size */
+      size: number;
+      /** Subject */
+      subject: string;
+    };
+    /** MailMoved */
+    MailMoved: {
+      /** Moved */
+      moved: number;
+      /** Ok */
+      ok: boolean;
+    };
+    /** MailPerson */
+    MailPerson: {
+      /** Email */
+      email: string;
+      /** Name */
+      name: string;
+    };
+    /** MailSent */
+    MailSent: {
+      /** Ok */
+      ok: boolean;
+      /**
+       * Saved Copy
+       * @description A copy is in the mailbox's Sent folder.
+       */
+      saved_copy: boolean;
+    };
+    /** MailThread */
+    MailThread: {
+      /** Messages */
+      messages: components["schemas"]["MailMessage"][];
+      /** Subject */
+      subject: string;
+      /** Thread Id */
+      thread_id: string;
+    };
+    /** MailThreadSummary */
+    MailThreadSummary: {
+      /** Count */
+      count: number;
+      /** Date */
+      date: string;
+      /** Flagged */
+      flagged: boolean;
+      /** Has Attachments */
+      has_attachments: boolean;
+      /** Participants */
+      participants: string[];
+      /** Sender Email */
+      sender_email: string;
+      /** Sender Name */
+      sender_name: string;
+      /** Snippet */
+      snippet: string;
+      /** Subject */
+      subject: string;
+      /** Thread Id */
+      thread_id: string;
+      /** Unread */
+      unread: number;
+    };
+    /** MailThreads */
+    MailThreads: {
+      /** More */
+      more: boolean;
+      /** Threads */
+      threads: components["schemas"]["MailThreadSummary"][];
+    };
     /** McpInfo */
     McpInfo: {
       /** Clients */
@@ -4541,6 +5183,19 @@ export interface components {
       /** Models */
       models: string[];
     };
+    /** MoveMail */
+    MoveMail: {
+      /**
+       * Threads
+       * @description Conversation ids.
+       */
+      threads: string[];
+      /**
+       * To
+       * @enum {string}
+       */
+      to: "archive" | "trash";
+    };
     /** MoveMediaRequest */
     MoveMediaRequest: {
       /** Base Hash */
@@ -4618,6 +5273,71 @@ export interface components {
       /** Page Path */
       page_path?: string | null;
       scope?: components["schemas"]["ScopeModel"] | null;
+    };
+    /** NewMailAccount */
+    NewMailAccount: {
+      /** Email */
+      email: string;
+      /**
+       * Host
+       * @default
+       */
+      host: string;
+      /**
+       * Name
+       * @default
+       */
+      name: string;
+      /** Password */
+      password: string;
+      /**
+       * Port
+       * @default 993
+       */
+      port: number;
+      /**
+       * Username
+       * @default
+       */
+      username: string;
+    };
+    /** NewMailDraft */
+    NewMailDraft: {
+      /**
+       * Bcc
+       * @default
+       */
+      bcc: string;
+      /**
+       * Body
+       * @default
+       */
+      body: string;
+      /**
+       * Cc
+       * @default
+       */
+      cc: string;
+      /**
+       * Reply All
+       * @default false
+       */
+      reply_all: boolean;
+      /**
+       * Reply To
+       * @description Id of the mail this answers: recipients, subject and the quoted text are filled in.
+       */
+      reply_to?: number | null;
+      /**
+       * Subject
+       * @default
+       */
+      subject: string;
+      /**
+       * To
+       * @default
+       */
+      to: string;
     };
     /** NewSavedModel */
     NewSavedModel: {
@@ -4790,6 +5510,32 @@ export interface components {
       scope?: components["schemas"]["ScopeModel"] | null;
       /** Title */
       title?: string | null;
+    };
+    /** PatchMailAccount */
+    PatchMailAccount: {
+      /** Name */
+      name?: string | null;
+      /** Password */
+      password?: string | null;
+      /** Sender Name */
+      sender_name?: string | null;
+      /** Smtp Host */
+      smtp_host?: string | null;
+      /** Smtp Port */
+      smtp_port?: number | null;
+    };
+    /** PatchMailDraft */
+    PatchMailDraft: {
+      /** Bcc */
+      bcc?: string | null;
+      /** Body */
+      body?: string | null;
+      /** Cc */
+      cc?: string | null;
+      /** Subject */
+      subject?: string | null;
+      /** To */
+      to?: string | null;
     };
     /** PatchPage */
     PatchPage: {
@@ -5460,6 +6206,31 @@ export interface components {
        */
       whisper_binary_path: string;
     };
+    /** SaveMailFile */
+    SaveMailFile: {
+      /**
+       * Extract
+       * @description Also read its text (OCR) into the page, next to the file.
+       * @default false
+       */
+      extract: boolean;
+      /** Page Id */
+      page_id: string;
+    };
+    /** SavedMailFile */
+    SavedMailFile: {
+      /** File */
+      file: string;
+      /**
+       * Job Id
+       * @description The text extraction that was started, if asked.
+       */
+      job_id: string | null;
+      /** Name */
+      name: string;
+      /** Page Path */
+      page_path: string;
+    };
     /** SavedModel */
     SavedModel: {
       /** Added At */
@@ -5643,12 +6414,44 @@ export interface components {
       /** On */
       on: boolean;
     };
+    /** SignInStarted */
+    SignInStarted: {
+      /** Id */
+      id: string;
+      /** Opened */
+      opened: boolean;
+      /**
+       * Url
+       * @description Microsoft's sign-in page; also shown, in case no browser opened.
+       */
+      url: string;
+    };
+    /** SignInState */
+    SignInState: {
+      /** Account Id */
+      account_id: string | null;
+      /** Error */
+      error: string;
+      /**
+       * Status
+       * @description waiting, done or error
+       */
+      status: string;
+    };
     /** SpeechResult */
     SpeechResult: {
       /** Seconds */
       seconds: number;
       /** Text */
       text: string;
+    };
+    /** StartSignIn */
+    StartSignIn: {
+      /**
+       * Account Id
+       * @description An account whose sign-in ran out, to sign in again.
+       */
+      account_id?: string | null;
     };
     /** StepBody */
     StepBody: {
@@ -9101,6 +9904,795 @@ export interface operations {
           "application/json": {
             [key: string]: unknown;
           };
+        };
+      };
+    };
+  };
+  list_accounts_api_v1_mail_accounts_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MailAccounts"];
+        };
+      };
+    };
+  };
+  add_account_api_v1_mail_accounts_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NewMailAccount"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MailAccount"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_account_api_v1_mail_accounts__account_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  patch_account_api_v1_mail_accounts__account_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PatchMailAccount"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MailAccount"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_drafts_api_v1_mail_accounts__account_id__drafts_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MailDrafts"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_draft_api_v1_mail_accounts__account_id__drafts_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NewMailDraft"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Draft"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_draft_api_v1_mail_accounts__account_id__drafts__draft_id__put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+        draft_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PatchMailDraft"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Draft"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_draft_api_v1_mail_accounts__account_id__drafts__draft_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+        draft_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  send_draft_api_v1_mail_accounts__account_id__drafts__draft_id__send_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+        draft_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MailSent"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_folders_api_v1_mail_accounts__account_id__folders_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MailFolders"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_attachment_api_v1_mail_accounts__account_id__messages__message_id__attachments__index__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+        message_id: number;
+        index: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/octet-stream": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  attachment_info_api_v1_mail_accounts__account_id__messages__message_id__attachments__index__info_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+        message_id: number;
+        index: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MailFileInfo"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  attachment_preview_api_v1_mail_accounts__account_id__messages__message_id__attachments__index__preview_get: {
+    parameters: {
+      query?: {
+        page?: number;
+      };
+      header?: never;
+      path: {
+        account_id: string;
+        message_id: number;
+        index: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/png": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  save_attachment_api_v1_mail_accounts__account_id__messages__message_id__attachments__index__save_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+        message_id: number;
+        index: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SaveMailFile"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SavedMailFile"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  move_threads_api_v1_mail_accounts__account_id__move_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MoveMail"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MailMoved"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  sync_account_api_v1_mail_accounts__account_id__sync_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_threads_api_v1_mail_accounts__account_id__threads_get: {
+    parameters: {
+      query?: {
+        /** @description Folder name; empty means every folder. */
+        folder?: string;
+        /** @description Search the whole account. */
+        q?: string;
+        /** @description Only conversations older than this date. */
+        before?: string;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MailThreads"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_thread_api_v1_mail_accounts__account_id__threads__thread_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+        thread_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MailThread"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  archive_thread_api_v1_mail_accounts__account_id__threads__thread_id__archive_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+        thread_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MailMoved"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_thread_mark_api_v1_mail_accounts__account_id__threads__thread_id__read_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+        thread_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MailMoved"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  trash_thread_api_v1_mail_accounts__account_id__threads__thread_id__trash_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+        thread_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MailMoved"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  remote_image_api_v1_mail_image_get: {
+    parameters: {
+      query: {
+        /** @description The picture a mail links to. */
+        url: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/*": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  start_microsoft_api_v1_mail_oauth_microsoft_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StartSignIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SignInStarted"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  sign_in_state_api_v1_mail_oauth__sign_in_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        sign_in_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SignInState"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

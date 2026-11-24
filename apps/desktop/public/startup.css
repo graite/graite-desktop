@@ -2,14 +2,29 @@
 .startup-mark { width: 56px; height: 56px; position: relative; overflow: hidden; background: #434c35; animation: graite-spin 1.8s infinite; mask: url('/logo-graite.svg') center / contain no-repeat; -webkit-mask: url('/logo-graite.svg') center / contain no-repeat; }
 .startup-sweep { display: none; }
 .startup-name { margin-top: 18px; font-size: 19px; font-weight: 600; letter-spacing: -.7px; line-height: 1.3; }
-.startup-caption { margin-top: 9px; font-size: 12px; letter-spacing: .1px; color: #858a7b; }
+.startup-caption { margin-top: 9px; font-size: 13px; letter-spacing: .1px; color: #858a7b; display: grid; grid-template-columns: 1fr 1fr; column-gap: .3em; width: 340px; line-height: 1.5; }
+.startup-caption > span:first-child { text-align: right; }
+/* The end of the sentence changes: each one rises into place from below, the last leaves upward.
+   The first is repeated at the end so the loop has no jump. Six endings, 2.4 s each. */
+.startup-words { height: 1.5em; overflow: hidden; text-align: left; color: #434c35; }
+.startup-roll { display: flex; flex-direction: column; animation: graite-words 14.4s cubic-bezier(.3, .7, .2, 1) infinite; }
+.startup-roll > span { height: 1.5em; white-space: nowrap; }
+@keyframes graite-words {
+  0.00%, 13.33% { transform: translateY(-0em); }
+  16.67%, 30.00% { transform: translateY(-1.5em); }
+  33.33%, 46.67% { transform: translateY(-3em); }
+  50.00%, 63.33% { transform: translateY(-4.5em); }
+  66.67%, 80.00% { transform: translateY(-6em); }
+  83.33%, 96.67% { transform: translateY(-7.5em); }
+  100% { transform: translateY(-9em); }
+}
 /* A hard push, then a softer drift, one full turn per cycle. */
 @keyframes graite-spin {
   0% { transform: rotate(0deg); animation-timing-function: cubic-bezier(.6, 0, .2, 1); }
   45% { transform: rotate(250deg); animation-timing-function: cubic-bezier(.4, 0, .6, 1); }
   100% { transform: rotate(360deg); }
 }
-@media (prefers-reduced-motion: reduce) { .startup-mark { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .startup-mark, .startup-roll { animation: none; } }
 
 .startup-error { margin-top: 20px; max-width: 420px; padding: 0 24px; text-align: center; font-size: 14px; }
 .startup-error small { display: block; color: #858a7b; margin: 8px 0 18px; overflow-wrap: anywhere; }
@@ -19,4 +34,5 @@
 /* Dark mode (the app sets `dark` on the document as soon as it starts). */
 .dark .startup-loader { background: #0a0a0a; color: #f5f5f5; }
 .dark .startup-mark { background: #c9cfbc; }
+.dark .startup-words { color: #c9cfbc; }
 .dark .startup-error button { border-color: #3a3a3a; background: #1a1a1a; color: #e5e5e5; }

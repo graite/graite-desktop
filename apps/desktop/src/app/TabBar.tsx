@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FilePlus, Plus, Search, X } from "lucide-react";
+import { FilePlus, Mail, Plus, Search, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +21,7 @@ export function TabBar({
   onClose,
   onNew,
   onOpen,
+  mail,
 }: {
   tabs: string[];
   active: string | null;
@@ -30,10 +31,41 @@ export function TabBar({
   onNew: () => void;
   /** Open an existing page in a new tab. */
   onOpen: (path: string) => void;
+  /** The Mail tab, while it is open: it sits before the pages and switches like one. */
+  mail?: { title: string; active: boolean; onSelect: () => void; onClose: () => void };
 }) {
   const [picking, setPicking] = useState(false);
   return (
     <div className="page-tabs" role="tablist" aria-label="Open pages">
+      {mail && (
+        <div className="page-tab" data-active={mail.active || undefined}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mail.active}
+            title={mail.title}
+            className="page-tab-open"
+            onClick={mail.onSelect}
+            onAuxClick={(e) => {
+              if (e.button !== 1) return;
+              e.preventDefault();
+              mail.onClose();
+            }}
+          >
+            <Mail className="size-3.5 shrink-0" />
+            <span>{mail.title}</span>
+          </button>
+          <button
+            type="button"
+            className="page-tab-close"
+            aria-label={`Close ${mail.title}`}
+            title="Close tab"
+            onClick={mail.onClose}
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
       {tabs.map((path) => {
         const node = findNode(tree, path);
         const title = node?.title ?? lastSegment(path);

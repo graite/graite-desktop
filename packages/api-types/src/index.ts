@@ -15,6 +15,12 @@ export type PingEvent = DaemonEvent<"ping", Record<string, never>>;
 /** The Graite Cloud sign-in changed (browser sign-in finished, or signed out). */
 export type CloudStatusEvent = DaemonEvent<"cloud_status", { signed_in: boolean }>;
 
+/** A mail account's local copy or its sync state changed (`/api/v1/mail`). */
+export type MailChangedEvent = DaemonEvent<
+  "mail_changed",
+  { account_id: string; state: "syncing" | "ok" | "error"; new?: number }
+>;
+
 /** A run row or one of its steps changed (agent runs, chat turns, live notes). */
 export type RunUpdateEvent = DaemonEvent<
   "run_update",
