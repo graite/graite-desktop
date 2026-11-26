@@ -5,9 +5,6 @@ import {
   Cloud,
   Cpu,
   MonitorCog,
-  MessageCircle,
-  MousePointer2,
-  PenLine,
   Settings2,
   SlidersHorizontal,
   Telescope,
@@ -23,8 +20,6 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -41,15 +36,10 @@ import { offersReasoning, ReasoningControl, ReasoningItems } from "./ReasoningCo
 /** The composer's own choices, folded into one settings menu when there is no room for a
  * button each (the chat beside a page). */
 export interface CompactControls {
-  modes?: { id: ChatMode; label: string; hint: string }[];
   mode: ChatMode;
-  onModeChange: (mode: ChatMode) => void;
-  actEnabled: boolean;
   depth?: "quick" | "deep";
   onDepthChange?: (depth: "quick" | "deep") => void;
 }
-
-const MODE_ICONS = { ask: MessageCircle, draft: PenLine, act: MousePointer2 } as const;
 
 export function ComposerModel({
   busy,
@@ -307,10 +297,7 @@ export function ComposerModel({
     />
   );
   if (compact) {
-    const current = compact.modes?.find((m) => m.id === compact.mode);
-    const summary = [current?.label, compact.depth === "deep" ? "Deep" : null, label]
-      .filter(Boolean)
-      .join(" · ");
+    const summary = [compact.depth === "deep" ? "Deep" : null, label].filter(Boolean).join(" · ");
     return (
       <>
         <DropdownMenu onOpenChange={openModels}>
@@ -326,34 +313,7 @@ export function ComposerModel({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" side="top" className="min-w-64 max-w-80">
-            {compact.modes && (
-              <>
-                <DropdownMenuLabel className="ai-model-group">Mode</DropdownMenuLabel>
-                <DropdownMenuRadioGroup
-                  value={compact.mode}
-                  onValueChange={(value) => compact.onModeChange(value as ChatMode)}
-                >
-                  {compact.modes.map((m) => {
-                    const Icon = MODE_ICONS[m.id];
-                    return (
-                      <DropdownMenuRadioItem
-                        key={m.id}
-                        value={m.id}
-                        disabled={m.id === "act" && !compact.actEnabled}
-                        title={m.hint}
-                      >
-                        <Icon size={15} />
-                        <span className="flex-1">
-                          <span className="block">{m.label}</span>
-                          <span className="text-xs text-muted-foreground">{m.hint}</span>
-                        </span>
-                      </DropdownMenuRadioItem>
-                    );
-                  })}
-                </DropdownMenuRadioGroup>
-              </>
-            )}
-            {compact.onDepthChange && compact.mode === "ask" && (
+            {compact.onDepthChange && compact.mode !== "act" && (
               <DropdownMenuCheckboxItem
                 checked={compact.depth === "deep"}
                 onCheckedChange={(on) => compact.onDepthChange?.(on ? "deep" : "quick")}
@@ -368,7 +328,7 @@ export function ComposerModel({
                 </span>
               </DropdownMenuCheckboxItem>
             )}
-            {compact.modes && <DropdownMenuSeparator />}
+            {compact.onDepthChange && compact.mode !== "act" && <DropdownMenuSeparator />}
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <Cpu size={15} />

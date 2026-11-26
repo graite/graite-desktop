@@ -270,6 +270,7 @@ export function ProposalCard({
                 {proposal.kind !== "delete" &&
                   proposal.kind !== "move" &&
                   proposal.kind !== "properties" &&
+                  proposal.kind !== "table" &&
                   proposal.kind !== "rows" && (
                     <Button
                       size="sm"

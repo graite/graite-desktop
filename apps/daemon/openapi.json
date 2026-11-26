@@ -1839,6 +1839,7 @@
             "anyOf": [
               {
                 "enum": [
+                  "auto",
                   "ask",
                   "draft",
                   "act"
@@ -5061,6 +5062,17 @@
             ],
             "title": "Attachments"
           },
+          "awaiting": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Awaiting"
+          },
           "cited": {
             "anyOf": [
               {
@@ -5074,6 +5086,17 @@
               }
             ],
             "title": "Cited"
+          },
+          "clarify": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clarify"
           },
           "content": {
             "title": "Content",
@@ -5510,8 +5533,9 @@
       "NewConversation": {
         "properties": {
           "mode": {
-            "default": "ask",
+            "default": "auto",
             "enum": [
+              "auto",
               "ask",
               "draft",
               "act"
@@ -6053,6 +6077,7 @@
             "anyOf": [
               {
                 "enum": [
+                  "auto",
                   "ask",
                   "draft",
                   "act"
@@ -6695,6 +6720,18 @@
               }
             ],
             "title": "Summary"
+          },
+          "table": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table"
           },
           "trash_id": {
             "anyOf": [

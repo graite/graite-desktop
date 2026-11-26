@@ -165,7 +165,6 @@ export function AssistantConversation({
             busy={chat.busy}
             disabled={voice.active}
             mode={(info.mode as "ask" | "act") ?? "act"}
-            onModeChange={() => undefined}
             fixedMode
             attachments={files.attachments}
             onAttach={(list) => void files.attach(list)}

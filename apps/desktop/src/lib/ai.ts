@@ -39,7 +39,9 @@ export function toScope(raw: components["schemas"]["ScopeModel"] | undefined | n
 }
 export type IndexStatus = components["schemas"]["IndexStatus"];
 export type JobInfo = components["schemas"]["JobInfo"];
-export type ChatMode = "ask" | "draft" | "act";
+/** How a turn may act. Chat is always "auto": the model tells a question from a request to
+ * change something. "ask" (read and add only) and "act" remain for mail helpers and agents. */
+export type ChatMode = "auto" | "ask" | "act";
 
 /** One numbered, citable source shown next to an answer. */
 export interface Source {
@@ -91,7 +93,8 @@ export type AIEvent =
   | { type: "sources"; sources: Source[]; new?: number[] }
   | { type: "limits"; items: string[]; excluded_local_only: string[]; pending_chunks: number }
   | { type: "metrics"; metrics: Record<string, unknown> }
-  | { type: "clarify"; question: string }
+  | { type: "clarify"; question: string; options?: string[] }
+  | { type: "await_review"; next_steps: string; proposals: string[] }
   | { type: "proposal"; proposal: import("./review").Proposal }
   | {
       type: "answer";

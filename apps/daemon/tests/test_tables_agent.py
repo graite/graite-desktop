@@ -311,3 +311,207 @@ async def test_row_changes_name_their_rows_and_carry_column_types(tmp_path: Path
         ops=[{"op": "delete", "id": "2"}],
     )
     assert queue.get(result["proposal_id"])["rows"]["ops"][0]["label"] == "2026-01-04"  # type: ignore[index]
+
+
+# ------------------------------------------------------------------ databases and fields
+
+
+async def test_a_database_is_proposed_created_shown_and_undone(tmp_path: Path) -> None:
+    ops, queue = await make(tmp_path)
+    reg = registry(ops, queue)
+    arguments = {
+        "page_path": PAGE,
+        "name": "Backlog",
+        "summary": "A backlog",
+        "fields": [
+            {"name": "Name"},
+            {"name": "Status", "type": "status", "options": ["Todo", "Done"]},
+            {"name": "Points", "type": "number"},
+        ],
+        "rows": [{"Name": "Fix login", "Status": "Todo", "Points": 3}, {"Name": "Ship"}],
+    }
+    result = json.loads(await reg.invoke("propose_table", json.dumps(arguments)))
+    assert result["status"] == "pending", result
+    csv_file = ops.vault / PAGE / "_data" / "Backlog.csv"
+    assert not csv_file.exists()  # nothing written before the decision
+    proposal = queue.get(result["proposal_id"])
+    assert proposal is not None and proposal["table"]["row_count"] == 2
+    assert "Status (status: Todo, Done)" in proposal["new_text"]
+
+    applied = await queue.accept(result["proposal_id"])
+    assert applied["table"]["table"] == f"{PAGE}/_data/Backlog.csv"
+    lines = csv_file.read_text().splitlines()
+    assert lines[0] == "id;Name;Status;Points"
+    assert lines[1].endswith(";Fix login;Todo;3") and len(lines) == 3
+    schema = json.loads(csv_file.with_name("Backlog.schema.json").read_text())
+    assert schema["columns"]["Status"] == {"type": "status", "options": ["Todo", "Done"]}
+    assert "source: _data/Backlog.csv" in (await ops.read_page(PAGE)).body
+    listed = await call(reg, "read_tables", page_path=PAGE)
+    assert any(t["path"].endswith("Backlog.csv") for t in listed["tables"])
+
+    await queue.revert(result["proposal_id"])
+    assert not csv_file.exists()
+    assert "Backlog.csv" not in (await ops.read_page(PAGE)).body
+
+
+async def test_fields_are_added_renamed_retyped_and_removed_and_undone(tmp_path: Path) -> None:
+    ops, queue = await make(tmp_path)
+    reg = registry(ops, queue)
+    result = await call(
+        reg,
+        "propose_columns",
+        table_path=TABLE,
+        summary="Tidy the fields",
+        ops=[
+            {"op": "add", "name": "Paid", "type": "checkbox"},
+            {"op": "rename", "name": "description", "to": "What"},
+            {"op": "set", "name": "category", "type": "single_select", "options": ["Travel"]},
+            {"op": "delete", "name": "amount"},
+        ],
+    )
+    assert result["status"] == "pending", result
+    csv_file = ops.vault / TABLE
+    assert csv_file.read_text() == CSV
+    await queue.accept(result["proposal_id"])
+    assert csv_file.read_text().splitlines()[0] == "id,date,What,category,Paid"
+    schema = json.loads(csv_file.with_name("expenses.schema.json").read_text())
+    assert schema["columns"]["Paid"]["type"] == "checkbox"
+    assert schema["columns"]["category"]["options"] == ["Travel"]
+
+    await queue.revert(result["proposal_id"])
+    assert csv_file.read_text() == CSV  # the removed values are back where they were
+    schema_file = csv_file.with_name("expenses.schema.json")
+    assert not json.loads(schema_file.read_text()).get("columns")
+
+
+async def test_field_changes_are_refused_while_still_words(tmp_path: Path) -> None:
+    ops, queue = await make(tmp_path)
+    reg = registry(ops, queue)
+    missing = await call(
+        reg, "propose_columns", table_path=TABLE, summary="x", ops=[{"op": "delete", "name": "x"}]
+    )
+    assert "no field 'x'" in missing["error"] and "amount" in missing["error"]
+    taken = await call(
+        reg, "propose_columns", table_path=TABLE, summary="x", ops=[{"op": "add", "name": "Date"}]
+    )
+    assert "already has a field" in taken["error"]
+    ident = await call(
+        reg, "propose_columns", table_path=TABLE, summary="x", ops=[{"op": "delete", "name": "id"}]
+    )
+    assert "id" in ident["error"]
+
+
+async def test_a_row_for_a_missing_field_points_at_propose_columns(tmp_path: Path) -> None:
+    ops, queue = await make(tmp_path)
+    reg = registry(ops, queue)
+    result = await call(
+        reg,
+        "propose_rows",
+        table_path=TABLE,
+        summary="x",
+        ops=[{"op": "insert", "values": {"priority": "High"}}],
+    )
+    assert "propose_columns" in result["error"]
+
+
+async def test_tool_arguments_sent_as_text_are_read(tmp_path: Path) -> None:
+    ops, queue = await make(tmp_path)
+    reg = registry(ops, queue)
+    result = await call(
+        reg,
+        "propose_rows",
+        table_path=TABLE,
+        summary="x",
+        ops=json.dumps([{"op": "update", "id": "2", "values": {"amount": 14}}]),
+    )
+    assert result.get("status") == "pending", result
+    unknown = await call(reg, "read_rows", table="expenses", nonsense=1)
+    assert "nonsense" in unknown["error"] and "table" in unknown["error"]
+    paged = await call(reg, "read_rows", table="expenses", offset="1")
+    assert "error" not in paged, paged
+
+
+async def test_rows_can_follow_fields_that_still_wait_for_review(tmp_path: Path) -> None:
+    ops, queue = await make(tmp_path)
+    reg = registry(ops, queue)
+    fields = await call(
+        reg,
+        "propose_columns",
+        table_path=TABLE,
+        summary="Who paid",
+        ops=[{"op": "add", "name": "Owner"}],
+    )
+    assert fields["status"] == "pending"
+    rows = await call(
+        reg,
+        "propose_rows",
+        table_path=TABLE,
+        summary="Add the taxi",
+        ops=[{"op": "insert", "values": {"description": "Taxi", "Owner": "Rik"}}],
+    )
+    assert rows["status"] == "pending", rows
+    assert fields["proposal_id"] in rows["message"]
+    # A field nobody proposed is still refused.
+    other = await call(
+        reg,
+        "propose_rows",
+        table_path=TABLE,
+        summary="x",
+        ops=[{"op": "insert", "values": {"Priority": "High"}}],
+    )
+    assert "propose_columns" in other["error"]
+    csv_file = ops.vault / TABLE
+    assert csv_file.read_text() == CSV
+    # Accepting the rows accepts the fields they need first; one review covers both.
+    await queue.accept(rows["proposal_id"])
+    assert queue.get(fields["proposal_id"])["status"] == "accepted"  # type: ignore[index]
+    lines = csv_file.read_text().splitlines()
+    assert lines[0].endswith(",Owner") and lines[-1].endswith(",Taxi,,,Rik")
+    await queue.revert(rows["proposal_id"])
+    assert len(csv_file.read_text().splitlines()) == 3
+
+
+async def test_a_field_can_link_to_rows_of_another_database(tmp_path: Path) -> None:
+    ops, queue = await make(tmp_path)
+    data = ops.vault / PAGE / "_data"
+    (data / "people.csv").write_text("id,name\np1,Ines\np2,Sam\n", encoding="utf-8")
+    ops.sync_tables()
+    reg = registry(ops, queue)
+    people = f"{PAGE}/_data/people.csv"
+    result = await call(
+        reg,
+        "propose_columns",
+        table_path=TABLE,
+        summary="Who paid",
+        ops=[
+            {
+                "op": "add",
+                "name": "Paid by",
+                "type": "relation",
+                "table": people,
+                "reverse": "Expenses",
+            }
+        ],
+    )
+    assert result["status"] == "pending", result
+    assert "link to one row of people" in queue.get(result["proposal_id"])["new_text"]  # type: ignore[index]
+    rows = await call(
+        reg,
+        "propose_rows",
+        table_path=TABLE,
+        summary="Ines paid the train",
+        ops=[{"op": "update", "id": "1", "values": {"Paid by": ["p1"]}}],
+    )
+    assert rows["status"] == "pending", rows
+    await queue.accept(rows["proposal_id"])
+    schema = json.loads((data / "expenses.schema.json").read_text())
+    assert schema["columns"]["Paid by"]["type"] == "relation"
+    assert "[[p1|Ines]]" in (ops.vault / TABLE).read_text()
+    missing = await call(
+        reg,
+        "propose_columns",
+        table_path=TABLE,
+        summary="x",
+        ops=[{"op": "add", "name": "X", "type": "relation", "table": f"{PAGE}/_data/no.csv"}],
+    )
+    assert "error" in missing

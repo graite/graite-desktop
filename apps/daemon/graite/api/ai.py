@@ -381,6 +381,11 @@ class Message(BaseModel):
     # the sources new in that turn are listed); False for messages from before that existed.
     context: bool = False
     proposals: list[str] | None = None
+    # True when this answer is a question the turn paused on; the reply continues that work.
+    clarify: bool | None = None
+    # What the assistant will do once this turn's proposals are decided; the client sends
+    # the outcome then and the work continues without the user asking.
+    awaiting: str | None = None
     # Voice conversation: the turn was spoken; `cut_short` when the user interrupted and
     # only the part they heard was kept.
     spoken: bool = False
@@ -410,13 +415,13 @@ class Conversation(BaseModel):
 class NewConversation(BaseModel):
     page_path: str | None = None
     scope: ScopeModel | None = None
-    mode: Literal["ask", "draft", "act"] = "ask"
+    mode: Literal["auto", "ask", "draft", "act"] = "auto"
 
 
 class PatchConversation(BaseModel):
     title: str | None = Field(default=None, max_length=200)
     scope: ScopeModel | None = None
-    mode: Literal["ask", "draft", "act"] | None = None
+    mode: Literal["auto", "ask", "draft", "act"] | None = None
 
 
 def _load_scope(request: Request, row: Any) -> Scope:
@@ -736,7 +741,7 @@ async def delete_attachment(
 class ChatRequest(BaseModel):
     page_path: str | None = None
     message: str = Field(min_length=1, max_length=16000)
-    mode: Literal["ask", "draft", "act"] | None = None
+    mode: Literal["auto", "ask", "draft", "act"] | None = None
     attachments: list[str] = Field(default_factory=list)
     selection: Selection | None = None
     replace_from: int | None = Field(default=None, ge=0)
@@ -872,7 +877,9 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
         page = await _page_for(request, body.page_path)
         if row["page_id"] and page.id != row["page_id"]:
             raise HTTPException(404, "Conversation not found for this page.")
-    mode = body.mode or row["mode"] or "ask"
+    mode = body.mode or row["mode"] or "auto"
+    if mode == "draft":
+        mode = "auto"  # Draft was folded into Auto (D135); older clients may still send it.
     active = state.active_chats
     base_config = load_config(db)
     if base_config.provider == "local" and state.models.lock.locked():
@@ -1046,6 +1053,8 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
         run_id: str | None = None
         activity: dict[str, dict[str, Any]] = {}
         proposal_ids: list[str] = []
+        asked = False
+        awaiting = ""
 
         def event(data: dict[str, Any]) -> str:
             return "data: " + json.dumps(data, ensure_ascii=False) + "\n\n"
@@ -1067,6 +1076,10 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
                     activity[item["step"]["id"]] = dict(item["step"])
                 elif item["type"] == "proposal":
                     proposal_ids.append(item["proposal"]["id"])
+                elif item["type"] == "clarify":
+                    asked = True
+                elif item["type"] == "await_review":
+                    awaiting = str(item.get("next_steps") or "")
                 elif item["type"] == "cancelled":
                     yield event(item)  # the client needs to know the stream ended on purpose
                     break
@@ -1097,6 +1110,10 @@ async def chat(conversation_id: str, body: ChatRequest, request: Request) -> Str
                             step["status"] = "cancelled"
                     message["activity"] = list(activity.values())
                     message["proposals"] = proposal_ids
+                if asked:
+                    message["clarify"] = True
+                if awaiting and final is not None:
+                    message["awaiting"] = awaiting
                 if final is not None:
                     message["sources"] = final.get("new_sources")
                     message["cited"] = final.get("cited")

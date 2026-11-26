@@ -9,7 +9,7 @@ from graite.models.config import AIConfig
 from graite.models.manager import Manager
 
 TITLE_TASK = (
-    "Write a short chat title (3 to 7 words) for the user's message. "
+    "Write a very short chat title (2 to 4 words) for the user's message. "
     "Use the same language as the message. Return only the title, "
     "without quotes, explanation or thinking. "
     "Do not answer the message."

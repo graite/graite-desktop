@@ -58,8 +58,9 @@ The button next to the mode says **Quick** or **Deep**. Click it to switch; Grai
   steps as they happen. It takes several times as long; use it for questions that span
   pages ("Compare what Fernhill and Marlow & Finch need").
 
-Requests that change your pages ("add a task…", "create a page…") and the Draft and Act modes
-always let the AI use its tools, whichever is selected.
+Requests that change your pages ("add a task…", "create a page…") always let the AI use its
+tools, whichever is selected. There is no mode to pick: the AI tells a question from a request,
+and asks when it cannot tell.
 
 ### What an answer shows
 

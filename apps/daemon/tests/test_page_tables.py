@@ -38,6 +38,9 @@ def test_a_table_named_like_its_page_follows_a_rename(
     r = client.patch("/api/v1/pages/Untitled", json={"title": "Books"})
     assert r.status_code == 200, r.text
     assert r.json()["path"] == "Books"
+    # The answer is the page after its table block was pointed at the renamed table.
+    assert "source: _data/Books.csv" in r.json()["body"], r.json()["body"]
+    assert r.json()["hash"] == client.get("/api/v1/pages/Books").json()["hash"]
     data = settings.vault / "Books" / "_data"
     assert (data / "Books.csv").is_file() and not (data / "Untitled.csv").exists()
     assert (data / "extra.csv").is_file(), other

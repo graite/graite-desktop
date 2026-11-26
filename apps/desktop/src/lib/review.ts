@@ -65,6 +65,7 @@ export const KIND_LABELS: Record<string, string> = {
   move: "Move",
   properties: "Properties",
   rows: "Table rows",
+  table: "Database",
   dashboard: "Dashboard",
 };
 

@@ -7,7 +7,6 @@ import { onDaemonEvent, pages, type TreeNode } from "@/lib/api";
 import {
   ai,
   type ChatMessage,
-  type ChatMode,
   type Conversation,
   type IndexStatus,
   type Scope,
@@ -25,6 +24,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useContinueAfterReview } from "@/ai/useContinueAfterReview";
+import { ClarifyNotice } from "@/ai/ClarifyNotice";
 import { Composer } from "./Composer";
 import { ContextBlock } from "./ContextBlock";
 import { ConversationList } from "./ConversationList";
@@ -60,12 +61,21 @@ export function AIPage({
   settingsVersion,
   sidebarHost,
   active = true,
+  openChat,
+  onChatShown,
+  onChatRemoved,
 }: {
   assistantPage?: { path: string; n: number } | null;
   /** Open a section from elsewhere in the app; `n` changes on every request. */
   openSection?: { section: Section; n: number } | null;
   assistantState: ReturnType<typeof useAssistant>;
   active?: boolean;
+  /** Open a conversation from its tab; `n` changes on every request. */
+  openChat?: { id: string; n: number } | null;
+  /** The conversation on screen changed (null: none, or another section is shown). */
+  onChatShown?: (chat: { id: string; title: string } | null) => void;
+  /** A conversation was deleted. */
+  onChatRemoved?: (id: string) => void;
   sidebarHost?: HTMLElement | null;
   tree: TreeNode[];
   onNavigate: (path: string) => void;
@@ -91,7 +101,6 @@ export function AIPage({
   const [pendingDelete, setPendingDelete] = useState<Conversation | null>(null);
   const [scope, setScope] = useState<Scope>(ALL_PAGES);
   const [scopeOpen, setScopeOpen] = useState(false);
-  const [mode, setMode] = useState<ChatMode>("ask");
   const [draft, setDraft] = useState("");
   const [index, setIndex] = useState<IndexStatus | null>(null);
   const [configured, setConfigured] = useState(true);
@@ -100,11 +109,11 @@ export function AIPage({
   const changedPages = useChangedPages();
 
   const ensureConversation = useCallback(async () => {
-    const created = await ai.createConversation({ scope, mode });
+    const created = await ai.createConversation({ scope });
     setSelected(created);
     setConversations((old) => [created, ...old]);
     return created;
-  }, [scope, mode]);
+  }, [scope]);
 
   const chat = useChatStream({
     conversation: selected,
@@ -178,7 +187,7 @@ export function AIPage({
       return;
     }
     setDraft("");
-    await chat.send(text, { mode, attachments: files.take(), pinned: mentionedPaths(text) });
+    await chat.send(text, { attachments: files.take(), pinned: mentionedPaths(text) });
   };
 
   const turnIntoPage = async (message: ChatMessage) => {
@@ -200,6 +209,48 @@ export function AIPage({
 
   const pending = index?.pending_chunks ?? 0;
 
+  const showConversation = (c: Conversation) => {
+    setSection("chat");
+    setDraft("");
+    setSelected(c);
+    setScope(toScope(c.scope));
+    setAttachments([]);
+  };
+  // A chat tab was clicked: show that conversation (unless an answer is still being written
+  // in another one, which the list refuses too).
+  const openedChat = useRef(0);
+  useEffect(() => {
+    if (!openChat || openedChat.current === openChat.n) return;
+    openedChat.current = openChat.n;
+    if (selected?.id === openChat.id) {
+      setSection("chat");
+      return;
+    }
+    if (chat.busy) {
+      toast("Wait for the answer to finish, or stop it, before switching chats.");
+      return;
+    }
+    const known = conversations.find((c) => c.id === openChat.id);
+    if (known) {
+      showConversation(known);
+      return;
+    }
+    void ai
+      .conversation(openChat.id)
+      .then(showConversation)
+      .catch(() => {
+        toast.error("That chat no longer exists.");
+        onChatRemoved?.(openChat.id);
+      });
+    // Only a new request opens a chat; the rest is read as it is at that moment.
+  }, [openChat]);
+  const shownId = section === "chat" ? (selected?.id ?? null) : null;
+  const shownTitle = selected?.title ?? "";
+  useEffect(() => {
+    onChatShown?.(shownId ? { id: shownId, title: shownTitle } : null);
+    // `onChatShown` is a new function on every render of the parent.
+  }, [shownId, shownTitle]);
+
   const rail = (
     <ConversationList
       section={section}
@@ -209,14 +260,7 @@ export function AIPage({
       busy={chat.busy}
       pendingReviews={pendingReviews.proposals.length}
       assistantName={assistantState.info?.configured ? assistantState.info.name : undefined}
-      onSelect={(c) => {
-        setSection("chat");
-        setDraft("");
-        setSelected(c);
-        setScope(toScope(c.scope));
-        setMode((c.mode as ChatMode) ?? "ask");
-        setAttachments([]);
-      }}
+      onSelect={showConversation}
       onNew={() => {
         setSection("chat");
         setDraft("");
@@ -232,6 +276,7 @@ export function AIPage({
     setPendingDelete(null);
     try {
       await ai.deleteConversation(c.id);
+      onChatRemoved?.(c.id);
       setConversations((old) => old.filter((x) => x.id !== c.id));
       if (selected?.id === c.id) {
         setSelected(null);
@@ -241,6 +286,12 @@ export function AIPage({
       toast.error((e as Error).message);
     }
   };
+  useContinueAfterReview({
+    messages: chat.messages,
+    byId: reviews.byId,
+    busy: chat.busy,
+    send: (text) => void send(text),
+  });
   const empty = !chat.messages.length && !chat.busy;
   return (
     <main className="ai-page" aria-label="Studio">
@@ -360,7 +411,14 @@ export function AIPage({
                 actions={reviews.actions}
               />
             )}
-            {chat.clarify && <div className="ai-notice">{chat.clarify}</div>}
+            {chat.clarify && (
+              <ClarifyNotice
+                question={chat.clarify}
+                options={chat.clarifyOptions}
+                disabled={chat.busy}
+                onPick={(answer) => void send(answer)}
+              />
+            )}
             {!chat.busy && chat.limits && (
               <LimitsCallout items={chat.limits.items} excluded={chat.limits.excluded_local_only} />
             )}
@@ -387,8 +445,6 @@ export function AIPage({
               onStop={() => void chat.stop()}
               busy={chat.busy}
               disabled={loading}
-              mode={mode}
-              onModeChange={setMode}
               attachments={files.attachments}
               onAttach={(list) => void files.attach(list)}
               onRemoveAttachment={(id) => void files.remove(id)}

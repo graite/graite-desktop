@@ -1,5 +1,6 @@
 import type { BlockNoteEditorOptions } from "@blocknote/core";
 import { toBlocksSafe } from "@graite/md-convert";
+import { bareUrl, linkLabel } from "./linkChips";
 import type { GraiteBlock, GraitePartialBlock, schema } from "./schema";
 
 type S = typeof schema;
@@ -99,6 +100,20 @@ export function markdownPasteHandler(
   return ({ event, editor, defaultPasteHandler }) => {
     const data = event.clipboardData;
     if (!data || NATIVE_TYPES.some((t) => data.types.includes(t))) return defaultPasteHandler();
+    const url = bareUrl(data.getData("text/plain"));
+    if (url && editor.getTextCursorPosition().block.type !== "codeBlock") {
+      // A web address on its own becomes a short link ("github.com › graite") to the full
+      // address. With text selected, BlockNote makes that text the link instead.
+      const collapsed = editor.transact((tr) => tr.selection.empty);
+      if (collapsed) {
+        try {
+          editor.insertInlineContent([{ type: "link", href: url, content: linkLabel(url) }]);
+          return true;
+        } catch {
+          return defaultPasteHandler(); // the cursor is not in text
+        }
+      }
+    }
     const text = dedent(data.getData("text/plain"));
     const blockLevel = looksLikeMarkdownBlocks(text);
     if (!text.trim() || (!blockLevel && !looksLikeInlineMarkdown(text)))

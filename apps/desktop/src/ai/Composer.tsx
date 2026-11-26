@@ -1,17 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type RefObject } from "react";
-import {
-  ArrowUp,
-  Plus,
-  Square,
-  ChevronDown,
-  FileUp,
-  MessageCircle,
-  PenLine,
-  MousePointer2,
-  Check,
-  Telescope,
-  AtSign,
-} from "lucide-react";
+import { ArrowUp, Plus, Square, FileUp, Telescope, AtSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAutoGrow } from "@/chat/useAutoGrow";
 import type { Attachment, ChatMode } from "@/lib/ai";
@@ -27,13 +15,7 @@ import { SearchHelp } from "./SearchHelp";
 import { knownMentionPages, loadMentionPages, mentionAt, mentionMatches } from "./mentions";
 import { AttachmentChips } from "./AttachmentChips";
 
-export const MODES: { id: ChatMode; label: string; hint: string }[] = [
-  { id: "ask", label: "Ask", hint: "Answer from your pages; add pages or cards when asked" },
-  { id: "draft", label: "Draft", hint: "Write something grounded in your pages" },
-  { id: "act", label: "Act", hint: "Propose changes to your pages for review" },
-];
-
-/** Below this width the mode, depth, model and thinking buttons fold into one settings menu. */
+/** Below this width the depth, model and thinking buttons fold into one settings menu. */
 export const COMPACT_WIDTH = 460;
 
 /** Whether the element is narrower than `width` (false where it cannot be measured). */
@@ -54,7 +36,7 @@ function useNarrow(ref: RefObject<HTMLElement | null>, width: number): boolean {
 
 export const ACCEPT = ".pdf,.md,.txt,image/png,image/jpeg,image/webp,image/tiff";
 
-/** The message box: grows to 8 lines then scrolls, takes attachments, picks a mode. */
+/** The message box: grows to 8 lines then scrolls and takes attachments. */
 export function Composer({
   value,
   onChange,
@@ -62,15 +44,13 @@ export function Composer({
   onStop,
   busy,
   disabled,
-  mode,
-  onModeChange,
+  mode = "auto",
   attachments,
   onAttach,
   onRemoveAttachment,
   placeholder = "Ask about your pages…",
   left,
   footnote,
-  actEnabled = true,
   fixedMode = false,
   contextId,
   pages,
@@ -85,15 +65,14 @@ export function Composer({
   onStop: () => void;
   busy: boolean;
   disabled?: boolean;
-  mode: ChatMode;
-  onModeChange: (mode: ChatMode) => void;
+  /** Chat leaves this out ("auto"); the assistant and mail pin theirs. */
+  mode?: ChatMode;
   attachments: Attachment[];
   onAttach: (files: FileList | File[]) => void;
   onRemoveAttachment: (id: string) => void;
   placeholder?: string;
   left?: React.ReactNode;
   footnote?: React.ReactNode;
-  actEnabled?: boolean;
   /** The mode is decided elsewhere (the assistant's settings): hide the picker. */
   fixedMode?: boolean;
   contextId?: string;
@@ -245,45 +224,7 @@ export function Composer({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          {!fixedMode && !compact && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="ai-composer-mode"
-                  aria-label="Answer mode"
-                  disabled={busy || disabled || working}
-                >
-                  <ChevronDown size={13} />
-                  {MODES.find((m) => m.id === mode)?.label}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="top" align="start" className="min-w-64">
-                {MODES.map((m) => (
-                  <DropdownMenuItem
-                    key={m.id}
-                    disabled={m.id === "act" && !actEnabled}
-                    onSelect={() => onModeChange(m.id)}
-                    title={m.hint}
-                  >
-                    {m.id === "ask" ? (
-                      <MessageCircle size={16} />
-                    ) : m.id === "draft" ? (
-                      <PenLine size={16} />
-                    ) : (
-                      <MousePointer2 size={16} />
-                    )}
-                    <span className="flex-1">
-                      <span className="block">{m.label}</span>
-                      <span className="text-xs text-muted-foreground">{m.hint}</span>
-                    </span>
-                    {mode === m.id && <Check size={14} />}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          {!fixedMode && !compact && mode === "ask" && (
+          {!fixedMode && !compact && mode !== "act" && (
             <button
               type="button"
               className="ai-composer-mode ai-composer-depth"
@@ -319,10 +260,7 @@ export function Composer({
             compact={
               compact
                 ? {
-                    modes: fixedMode ? undefined : MODES,
                     mode,
-                    onModeChange,
-                    actEnabled,
                     depth: fixedMode ? undefined : depth,
                     onDepthChange: fixedMode ? undefined : setDepth,
                   }

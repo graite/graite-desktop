@@ -1213,10 +1213,18 @@ class FileOps:
         return await asyncio.to_thread(read)
 
     async def create_table(
-        self, page_rel: str, name: str, columns: list[str], actor: str, *, data: bytes | None = None
+        self,
+        page_rel: str,
+        name: str,
+        columns: list[str],
+        actor: str,
+        *,
+        data: bytes | None = None,
+        rows: list[list[str]] | None = None,
     ) -> str:
         """Create `<page>/_data/<name>.csv` (from `columns`, or an imported file) with an id
-        column; a taken name gets a number. Returns the table path."""
+        column; a taken name gets a number. `rows` are the first rows' cells, one per column;
+        without them the table starts with one empty row. Returns the table path."""
         page_rel = validate_rel(page_rel)
         base = table_paths.check_name(name)
         async with self._locks[page_rel]:
@@ -1233,7 +1241,10 @@ class FileOps:
                     # One empty row, so the new table can be typed into straight away.
                     parsed = csvio.Table(
                         header=["id", *names],
-                        records=[csvio.Record(values=[fm.uuid7(), *[""] * len(names)])],
+                        records=[
+                            csvio.Record(values=[fm.uuid7(), *cells])
+                            for cells in (rows or [[""] * len(names)])
+                        ],
                     )
                     if len({c.lower() for c in parsed.header}) != len(parsed.header):
                         raise ValueError("Column names must be unique.")
@@ -1250,6 +1261,68 @@ class FileOps:
                 return table.rel
 
             return await asyncio.to_thread(write)
+
+    async def table_state(self, rel: str, columns: list[str]) -> dict[str, Any]:
+        """What a column change needs to be undone later: the header, the file hash, and for
+        each of `columns` its place, its entry in the schema file and its value per row id."""
+        table = self._table(rel)
+
+        def read() -> dict[str, Any]:
+            parsed, current, _ = self._read_table_sync(table)
+            schema, _ = self._schema_sync(table)
+            names = tbl_schema.column_names(parsed.header)
+            specs = self._raw_schema_sync(table).get("columns")
+            specs = specs if isinstance(specs, dict) else {}
+            pk = pk_index(parsed.header, schema.primary_key)
+            kinds = self._kinds_sync(table, parsed)
+            out: dict[str, Any] = {"header": names, "hash": current, "kinds": kinds, "columns": {}}
+            for name in columns:
+                entry: dict[str, Any] = {"spec": specs.get(name)}
+                if name in names:
+                    i = names.index(name)
+                    entry["index"] = i
+                    entry["values"] = (
+                        {
+                            r.values[pk]: r.values[i]
+                            for r in parsed.rows
+                            if pk < len(r.values) and i < len(r.values) and r.values[i]
+                        }
+                        if pk is not None
+                        else {}
+                    )
+                out["columns"][name] = entry
+            return out
+
+        return await asyncio.to_thread(read)
+
+    async def remove_table(self, rel: str, actor: str) -> None:
+        """Take a table out of its page's `_data/` (undoing its creation). The file and its
+        schema go to the trash folder, where they can be put back by hand."""
+        table = self._table(rel)
+        async with self._locks[table.rel]:
+
+            def write() -> None:
+                source = table.file(self.vault)
+                if not source.is_file():
+                    raise FileNotFoundError(table.rel)
+                target = (
+                    self.vault
+                    / GRAITE_DIR
+                    / "trash"
+                    / "tables"
+                    / table.page
+                    / f"{int(time.time() * 1000)}-{table.name}"
+                )
+                target.mkdir(parents=True, exist_ok=True)
+                os.replace(source, target / source.name)
+                schema = table.schema_file(self.vault)
+                if schema.is_file():
+                    os.replace(schema, target / schema.name)
+                self._activity(actor, "table.remove", table.rel, {})
+                self._table_changed(table.rel, actor)
+                self._publish("tables_changed", {"page_path": table.page, "path": table.rel})
+
+            await asyncio.to_thread(write)
 
     async def ensure_table_ids(self, rel: str, actor: str) -> str:
         """Give every row a real id, adding the id column if the file has none."""
@@ -2217,7 +2290,9 @@ class FileOps:
             await self.retarget_page_links(rel, doc.path, actor, doc.title)
         if doc.title != old_title:
             await self._rename_page_tables(doc.path, old_title, doc.title, actor)
-        return doc
+        # Both steps above may have rewritten the page (its own links, its table blocks):
+        # the caller gets the page as it is now, so its next save starts from the right hash.
+        return await self.read_page(doc.path)
 
     async def _rename_page_tables(self, page: str, old: str, new: str, actor: str) -> None:
         """A table named like its page follows the page's new title (D83), e.g. the

@@ -315,7 +315,7 @@ def test_act_mode_files_proposals_and_review_api_applies_them(
     assert "Reviewer notes on your earlier proposals" in prompts[-2][0]["content"]
     assert "Too short, write a paragraph" in prompts[-2][0]["content"]
     # Ask mode may only add (create, append, set properties) and only when asked.
-    ask = client.post("/api/v1/ai/conversations", json={}).json()
+    ask = client.post("/api/v1/ai/conversations", json={"mode": "ask"}).json()
     monkeypatch.setattr(Provider, "chat", fake_ask)
     events = events_of(
         client.post(f"/api/v1/ai/conversations/{ask['id']}/messages", json={"message": "Hi"}).text
@@ -343,6 +343,17 @@ async def fake_ask(self: Provider, messages: Any, tools: Any):  # type: ignore[n
     assert "Ask mode: you may not edit, delete or move" in messages[0]["content"]
     assert "Otherwise just answer" in messages[0]["content"]
     yield {"content": "Hello."}
+
+
+def test_chat_is_auto_by_default_and_gets_every_propose_tool() -> None:
+    from graite.retrieval import answer
+    from graite.skills.registry import chat_tools
+
+    tools = chat_tools("auto")
+    assert {"propose_edit", "propose_rows", "propose_columns", "propose_table"} <= tools
+    assert "propose_view" in tools  # boards can be made in chat (the page-views skill)
+    assert "request_clarification" in tools
+    assert "propose_columns" in answer.AUTO_CORE and "request_clarification" in answer.AUTO_CORE
 
 
 def test_ask_mode_tools_add_but_never_rewrite() -> None:

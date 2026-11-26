@@ -58,3 +58,43 @@ export function parseTabs(raw: string | null): string[] {
     return [];
   }
 }
+
+/** A conversation open in a tab next to the pages: its id, and its title as last seen. */
+export interface ChatTab {
+  id: string;
+  title: string;
+}
+
+/** Give a conversation a tab, or bring its tab's title up to date. */
+export function showChatTab(tabs: ChatTab[], chat: ChatTab): ChatTab[] {
+  const at = tabs.findIndex((t) => t.id === chat.id);
+  if (at < 0) return [...tabs, chat];
+  if (tabs[at]!.title === chat.title) return tabs;
+  const next = [...tabs];
+  next[at] = chat;
+  return next;
+}
+
+/** Close a conversation's tab; `next` is the one to show when it was the open one. */
+export function closeChatTab(
+  tabs: ChatTab[],
+  id: string,
+): { tabs: ChatTab[]; next: ChatTab | null } {
+  const at = tabs.findIndex((t) => t.id === id);
+  if (at < 0) return { tabs, next: null };
+  const left = tabs.filter((t) => t.id !== id);
+  return { tabs: left, next: left[at] ?? left[at - 1] ?? null };
+}
+
+export function parseChatTabs(raw: string | null): ChatTab[] {
+  try {
+    const value: unknown = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(value)) return [];
+    return value.filter(
+      (t): t is ChatTab =>
+        !!t && typeof (t as ChatTab).id === "string" && typeof (t as ChatTab).title === "string",
+    );
+  } catch {
+    return [];
+  }
+}

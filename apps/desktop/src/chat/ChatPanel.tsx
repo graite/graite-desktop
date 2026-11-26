@@ -16,6 +16,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { relative } from "@/lib/automation";
+import { useContinueAfterReview } from "@/ai/useContinueAfterReview";
+import { ClarifyNotice } from "@/ai/ClarifyNotice";
 import { Composer } from "@/ai/Composer";
 import { ScopeDialog } from "@/ai/ScopeDialog";
 import { ScopeMenu } from "@/ai/ScopeMenu";
@@ -70,7 +72,6 @@ export function ChatPanel({
   // A page's chat starts with that page and the pages nested under it.
   const [scope, setScope] = useState<Scope>(() => pageScope(path));
   const [scopeOpen, setScopeOpen] = useState(false);
-  const [mode, setMode] = useState<ChatMode>("ask");
   const [draft, setDraft] = useState("");
   const [useSelection, setUseSelection] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -80,11 +81,11 @@ export function ChatPanel({
   const changedPages = useChangedPages();
 
   const ensureConversation = useCallback(async () => {
-    const created = await ai.createConversation({ page_path: path, scope, mode });
+    const created = await ai.createConversation({ page_path: path, scope });
     setSelected(created);
     setConversations((old) => [created, ...old]);
     return created;
-  }, [scope, path, mode]);
+  }, [scope, path]);
 
   const chat = useChatStream({
     conversation: selected,
@@ -182,7 +183,6 @@ export function ChatPanel({
       useSelection && selection.trim() ? { page_path: path, text: selection } : undefined;
     setUseSelection(false);
     await chat.send(text, {
-      mode,
       attachments: files.take(),
       selection: attached,
       pagePath: path,
@@ -195,15 +195,18 @@ export function ChatPanel({
   const handled = useRef<number | null>(null);
   useEffect(() => {
     if (!request || loading || handled.current === request.id) return;
-    if (request.mode && request.mode !== mode) {
-      setMode(request.mode);
-      return;
-    }
     handled.current = request.id;
     if (request.send === false || !configured) setDraft(request.prompt);
     else void send(request.prompt);
     // `send` reads the latest state; it only has to run when a new request arrives.
-  }, [request, loading, configured, mode]);
+  }, [request, loading, configured]);
+
+  useContinueAfterReview({
+    messages: chat.messages,
+    byId: reviews.byId,
+    busy: chat.busy,
+    send: (text) => void send(text),
+  });
 
   return (
     <aside className="ai-chat" aria-label="Ask AI">
@@ -324,7 +327,14 @@ export function ChatPanel({
             ))}
           </details>
         )}
-        {chat.clarify && <div className="ai-notice">{chat.clarify}</div>}
+        {chat.clarify && (
+          <ClarifyNotice
+            question={chat.clarify}
+            options={chat.clarifyOptions}
+            disabled={chat.busy}
+            onPick={(answer) => void send(answer)}
+          />
+        )}
         {!chat.busy && chat.limits && (
           <LimitsCallout items={chat.limits.items} excluded={chat.limits.excluded_local_only} />
         )}
@@ -354,8 +364,6 @@ export function ChatPanel({
           onStop={() => void chat.stop()}
           busy={chat.busy}
           disabled={loading}
-          mode={mode}
-          onModeChange={setMode}
           attachments={files.attachments}
           onAttach={(list) => void files.attach(list)}
           onRemoveAttachment={(id) => void files.remove(id)}

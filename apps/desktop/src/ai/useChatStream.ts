@@ -24,6 +24,9 @@ export const TOOL_LABELS: Record<string, string> = {
   propose_append: "Adding content",
   propose_properties: "Setting card properties",
   propose_rows: "Proposing table changes",
+  propose_table: "Creating a database",
+  propose_columns: "Changing fields",
+  propose_view: "Creating a view",
   read_tables: "Reading tables",
   read_rows: "Reading rows",
   run_query_ro: "Querying tables",
@@ -33,6 +36,7 @@ export const TOOL_LABELS: Record<string, string> = {
   propose_delete: "Removing a page",
   list_proposals: "Checking changes",
   request_clarification: "Asking for clarification",
+  continue_after_review: "Waiting for your review",
   schedule: "Scheduling work",
 };
 
@@ -47,6 +51,9 @@ export const TOOL_DONE_LABELS: Record<string, string> = {
   propose_append: "Proposed an addition",
   propose_properties: "Proposed card properties",
   propose_rows: "Proposed table changes",
+  propose_table: "Proposed a database",
+  propose_columns: "Proposed field changes",
+  propose_view: "Proposed a view",
   read_tables: "Read tables",
   read_rows: "Read rows",
   run_query_ro: "Queried tables",
@@ -55,6 +62,7 @@ export const TOOL_DONE_LABELS: Record<string, string> = {
   propose_move: "Proposed a move",
   propose_delete: "Proposed a removal",
   list_proposals: "Checked changes",
+  continue_after_review: "Waits for your review",
   request_clarification: "Asked for clarification",
   schedule: "Scheduled work",
 };
@@ -99,6 +107,7 @@ export function useChatStream(options: {
   /** Proposals filed during the running turn, in order. */
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [clarify, setClarify] = useState<string | null>(null);
+  const [clarifyOptions, setClarifyOptions] = useState<string[]>([]);
   const [instructions, setInstructions] = useState<string[]>([]);
   const [meta, setMeta] = useState<{ pages?: number; excluded_local_only?: string[] } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -129,6 +138,7 @@ export function useChatStream(options: {
     setLimits(null);
     setProposals([]);
     setClarify(null);
+    setClarifyOptions([]);
     setError("");
     setTools([]);
     setThinking("");
@@ -149,6 +159,7 @@ export function useChatStream(options: {
     setLimits(null);
     setProposals([]);
     setClarify(null);
+    setClarifyOptions([]);
     setStatus("Preparing…");
   };
 
@@ -197,6 +208,7 @@ export function useChatStream(options: {
         break;
       case "clarify":
         setClarify(event.question);
+        setClarifyOptions(event.options ?? []);
         break;
       case "proposal":
         setProposals((old) => [...old.filter((p) => p.id !== event.proposal.id), event.proposal]);
@@ -236,12 +248,13 @@ export function useChatStream(options: {
           id,
           {
             message: text,
-            mode: opts.mode,
+            // Always said out loud: a conversation from before Auto still stores "ask".
+            mode: opts.mode ?? "auto",
             attachments: opts.attachments,
             selection: opts.selection,
             page_path: opts.pagePath,
-            // Draft and Act always work with tools; a question is quick unless Deep is on.
-            depth: (opts.mode ?? "ask") === "ask" ? chatDepth() : undefined,
+            // Act always works with tools; a question is quick unless Deep is on.
+            depth: (opts.mode ?? "auto") !== "act" ? chatDepth() : undefined,
             pinned_paths: opts.pinned?.length ? opts.pinned : undefined,
             search_query: opts.searchQuery || undefined,
           },
@@ -302,6 +315,7 @@ export function useChatStream(options: {
     limits,
     proposals,
     clarify,
+    clarifyOptions,
     instructions,
     meta,
     busy,

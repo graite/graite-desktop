@@ -3943,7 +3943,7 @@ export interface components {
       /** Message */
       message: string;
       /** Mode */
-      mode?: ("ask" | "draft" | "act") | null;
+      mode?: ("auto" | "ask" | "draft" | "act") | null;
       /** Page Path */
       page_path?: string | null;
       /**
@@ -5210,8 +5210,12 @@ export interface components {
       activity?: components["schemas"]["ActivityStep"][] | null;
       /** Attachments */
       attachments?: components["schemas"]["MessageAttachment"][] | null;
+      /** Awaiting */
+      awaiting?: string | null;
       /** Cited */
       cited?: number[] | null;
+      /** Clarify */
+      clarify?: boolean | null;
       /** Content */
       content: string;
       /**
@@ -5375,10 +5379,10 @@ export interface components {
     NewConversation: {
       /**
        * Mode
-       * @default ask
+       * @default auto
        * @enum {string}
        */
-      mode: "ask" | "draft" | "act";
+      mode: "auto" | "ask" | "draft" | "act";
       /** Page Path */
       page_path?: string | null;
       scope?: components["schemas"]["ScopeModel"] | null;
@@ -5626,7 +5630,7 @@ export interface components {
     /** PatchConversation */
     PatchConversation: {
       /** Mode */
-      mode?: ("ask" | "draft" | "act") | null;
+      mode?: ("auto" | "ask" | "draft" | "act") | null;
       scope?: components["schemas"]["ScopeModel"] | null;
       /** Title */
       title?: string | null;
@@ -5777,6 +5781,10 @@ export interface components {
       status: string;
       /** Summary */
       summary?: string | null;
+      /** Table */
+      table?: {
+        [key: string]: unknown;
+      } | null;
       /** Trash Id */
       trash_id?: string | null;
     };

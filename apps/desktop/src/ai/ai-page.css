@@ -1286,3 +1286,32 @@
   color: var(--muted-foreground);
   opacity: 0.6;
 }
+
+/* A clarification with known answers: one button each, under the question. */
+.ai-clarify {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ai-clarify-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ai-clarify-option {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--background);
+  color: var(--foreground);
+  padding: 3px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.ai-clarify-option:hover:not(:disabled) {
+  background: var(--accent);
+}
+.ai-clarify-option:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

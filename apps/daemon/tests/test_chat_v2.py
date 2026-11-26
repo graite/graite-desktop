@@ -96,7 +96,7 @@ def test_vault_conversation_cites_sources_and_records_a_run(
     assert last["cited"] == [1] and last["sources"][0]["page_path"] == pricing["path"]
     assert last["run_id"] and last["limits"]
     run = client.app.state.db.execute("SELECT * FROM runs WHERE id=?", (last["run_id"],)).fetchone()
-    assert run["kind"] == "chat_turn" and run["status"] == "succeeded" and run["mode"] == "ask"
+    assert run["kind"] == "chat_turn" and run["status"] == "succeeded" and run["mode"] == "auto"
     steps = client.app.state.db.execute(
         "SELECT kind, status FROM run_steps WHERE run_id=? ORDER BY ord", (run["id"],)
     ).fetchall()

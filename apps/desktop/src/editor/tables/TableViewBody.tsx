@@ -66,7 +66,13 @@ import { BoardView } from "../views/BoardView";
 import { ListView } from "../views/ListView";
 import { orderedNames } from "../views/settings";
 import { BOARD_ROWS, defaultShown, groupColumns, useTableBoard } from "./tableBoard";
-import { cleanView, parseViews, type TableLayout, type TableViewDef } from "./views";
+import {
+  cleanView,
+  parseViews,
+  viewsAfterField,
+  type TableLayout,
+  type TableViewDef,
+} from "./views";
 import { useTableRows } from "./useTableRows";
 import { useProposals } from "@/review/useProposals";
 import "../views/views.css";
@@ -496,18 +502,43 @@ export function TableViewBody({
     [path, patch, reload, failed, expectOwn],
   );
 
+  // `work` may change the view (its field list, sort) once the daemon has made the change;
+  // the rows are then read again with the view as it is after that, never the one this
+  // callback was created with: an older query names fields that no longer exist.
+  const reloadLatest = useRef(reload);
+  useEffect(() => {
+    reloadLatest.current = reload;
+  }, [reload]);
   const run = useCallback(
-    async (work: () => Promise<unknown>) => {
+    async (work: () => Promise<unknown>): Promise<boolean> => {
       expectOwn();
       try {
         await work();
-        reload();
+        setTimeout(() => reloadLatest.current(), 0);
+        return true;
       } catch (e) {
         failed(e);
+        return false;
       }
     },
-    [reload, failed, expectOwn],
+    [failed, expectOwn],
   );
+
+  /** The views of this block follow a renamed (`to`) or deleted (`to` null) field. */
+  const followField = (from: string, to: string | null) => {
+    if (named) {
+      writeViews(viewsAfterField(defs, props.source, from, to));
+      return;
+    }
+    const next: Partial<TableViewProps> = {};
+    if (shown) {
+      const names = shown.map((n) => (n === from ? to : n)).filter((n): n is string => !!n);
+      next.columns = JSON.stringify(names);
+    }
+    if (props.sort.includes(from)) next.sort = "";
+    if (props.filter.includes(from)) next.filter = "";
+    if (Object.keys(next).length) update(next);
+  };
 
   const group = current?.group;
   const cardFields = current?.show ?? (meta ? defaultShown(meta, group) : []);
@@ -586,8 +617,14 @@ export function TableViewBody({
       // No base hash: adding a column never overwrites an edit made meanwhile.
       await tables.columns(path, [{ op: "add", name }]);
       if (type !== "text") await tables.schema(path, { columns: { [name]: { type } } });
+    }).then((done) => {
+      // Only once the field exists: a view that lists it earlier fails to load.
+      if (done)
+        reveal(
+          path,
+          relation?.reverse && relation.target === path ? [name, relation.reverse] : [name],
+        );
     });
-    reveal(path, relation?.reverse && relation.target === path ? [name, relation.reverse] : [name]);
   };
 
   const openLink = useCallback((column: TableColumn, link: RelationLink) => {
@@ -677,9 +714,10 @@ export function TableViewBody({
     const to = rename.trim();
     if (!menu || !path || !to || to === menu.column.name) return;
     const from = menu.column.name;
-    void run(() => tables.columns(path, [{ op: "rename", name: from, to }]));
-    if (shown) setShown(shown.map((n) => (n === from ? to : n)));
-    if (props.sort.includes(from)) update({ sort: "" });
+    void run(async () => {
+      await tables.columns(path, [{ op: "rename", name: from, to }]);
+      followField(from, to);
+    });
     setWidths(({ [from]: width, ...rest }) => (width ? { ...rest, [to]: width } : rest));
   };
 
@@ -1058,7 +1096,12 @@ export function TableViewBody({
           </button>
         </div>
       ) : error ? (
-        <div className="table-empty error">{error}</div>
+        <div className="table-empty error">
+          {error}{" "}
+          <button type="button" className="view-button" onClick={reload}>
+            Try again
+          </button>
+        </div>
       ) : meta && layout !== "table" ? (
         <div className={`table-board ${switching ? "switching" : ""}`}>
           {board.more > 0 && (
@@ -1378,11 +1421,12 @@ export function TableViewBody({
                 <button
                   className="view-menu-item danger"
                   onClick={() => {
+                    const name = menu.column.name;
                     if (path)
-                      void run(() =>
-                        tables.columns(path, [{ op: "delete", name: menu.column.name }]),
-                      );
-                    if (shown) setShown(shown.filter((n) => n !== menu.column.name));
+                      void run(async () => {
+                        await tables.columns(path, [{ op: "delete", name }]);
+                        followField(name, null);
+                      });
                     setMenu(null);
                   }}
                 >

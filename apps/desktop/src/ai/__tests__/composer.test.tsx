@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { Composer } from "../Composer";
 import { growTo } from "@/chat/useAutoGrow";
 
@@ -11,8 +11,6 @@ const base = {
   onSend: vi.fn(),
   onStop: vi.fn(),
   busy: false,
-  mode: "ask" as const,
-  onModeChange: vi.fn(),
   attachments: [],
   onAttach: vi.fn(),
   onRemoveAttachment: vi.fn(),
@@ -36,15 +34,10 @@ it("sends on Enter and keeps Shift+Enter for a new line", () => {
   expect(onSend).toHaveBeenCalledTimes(1);
 });
 
-it("offers a mode dropdown with Ask, Draft and Act", async () => {
-  const onModeChange = vi.fn();
-  render(<Composer {...base} onModeChange={onModeChange} />);
-  fireEvent.keyDown(screen.getByRole("button", { name: "Answer mode" }), { key: "ArrowDown" });
-  const act = await screen.findByRole("menuitem", { name: /Act/ });
-  expect(act.getAttribute("data-disabled")).toBeNull();
-  expect(act.textContent).toContain("Propose changes");
-  fireEvent.click(act);
-  await waitFor(() => expect(onModeChange).toHaveBeenCalledWith("act"));
+it("has no mode picker: the assistant tells a question from a request itself", () => {
+  render(<Composer {...base} />);
+  expect(screen.queryByRole("button", { name: "Answer mode" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Deep research" })).toBeTruthy();
 });
 
 it("adds files from the plus menu and shows the page selection beside the mode", async () => {

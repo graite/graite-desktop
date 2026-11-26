@@ -76,6 +76,9 @@ def test_wants_change_tells_requests_from_questions() -> None:
         "please add a task to call Ines",
         "Maak een pagina voor het overleg",
         "Schedule the weekly summary for Monday",
+        "I want you to add these three items to the backlog",
+        "These are my todos, can you put them in the Backlog database?",
+        "Kun je dit aan de backlog toevoegen",
     ):
         assert lean.wants_change(request), request
     for question in (
@@ -85,6 +88,13 @@ def test_wants_change_tells_requests_from_questions() -> None:
         "Who has to update the estimate?",
     ):
         assert not lean.wants_change(question), question
+
+
+def test_a_reply_to_a_clarification_continues_with_tools() -> None:
+    asked = [{"role": "user", "content": "Tidy up"}, {"role": "assistant", "clarify": True}]
+    assert lean.answers_clarification(asked)
+    assert not lean.answers_clarification([{"role": "assistant", "content": "Done."}])
+    assert not lean.answers_clarification([])
 
 
 def test_passages_keeps_the_best_within_the_budget() -> None:
@@ -265,3 +275,22 @@ def test_the_context_budget_limits_what_a_tool_turn_is_given(
         notes.put("/api/v1/ai/config", json={**config, "context_budget_tokens": 100}).status_code
         == 422
     )
+
+
+def test_only_what_reads_as_a_question_goes_without_tools() -> None:
+    for request in (
+        "link the contacts to their companies",
+        "can you hook the contacts up to their companies?",
+        "Koppel de contacten aan de bedrijven",
+        "the CRM needs a contacts table",
+        "continue",
+    ):
+        assert lean.wants_change(request), request
+    for question in (
+        "Can you tell me what we decided?",
+        "Show me the open invoices",
+        "Is the roof quote in yet?",
+        "Which contacts work at Fernhill?",
+        "anything about pricing?",
+    ):
+        assert not lean.wants_change(question), question

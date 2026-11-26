@@ -157,7 +157,7 @@ def prompt_of(messages: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]
     current message as text. Tool calls from earlier turns are not replayed: their results
     are already reflected in the answers that followed.
     """
-    body = Provider(KIND, "", "", "").anthropic_body(messages, [])
+    body = Provider(KIND, "", "", "").anthropic_body(messages, [], cache=False)
     turns = [
         {
             "role": m["role"],

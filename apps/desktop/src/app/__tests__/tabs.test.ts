@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { closeTab, cycleTab, dropTabs, parseTabs, renameTabs, showInTab } from "../tabs";
+import {
+  closeChatTab,
+  closeTab,
+  cycleTab,
+  dropTabs,
+  parseChatTabs,
+  parseTabs,
+  renameTabs,
+  showChatTab,
+  showInTab,
+} from "../tabs";
 
 describe("page tabs", () => {
   it("plain navigation reuses the tab of the page it came from", () => {
@@ -50,4 +60,22 @@ describe("page tabs", () => {
     expect(parseTabs("not json")).toEqual([]);
     expect(parseTabs(null)).toEqual([]);
   });
+});
+
+it("keeps one tab per chat, follows its title and moves to the neighbour on close", () => {
+  let chats = showChatTab([], { id: "a", title: "Roof quote" });
+  chats = showChatTab(chats, { id: "b", title: "" });
+  chats = showChatTab(chats, { id: "b", title: "Backlog items" });
+  expect(chats).toEqual([
+    { id: "a", title: "Roof quote" },
+    { id: "b", title: "Backlog items" },
+  ]);
+  expect(showChatTab(chats, { id: "a", title: "Roof quote" })).toBe(chats);
+  expect(closeChatTab(chats, "a")).toEqual({
+    tabs: [{ id: "b", title: "Backlog items" }],
+    next: { id: "b", title: "Backlog items" },
+  });
+  expect(closeChatTab(chats, "x").tabs).toBe(chats);
+  expect(parseChatTabs('[{"id":"a","title":"t"},{"id":1},"x"]')).toEqual([{ id: "a", title: "t" }]);
+  expect(parseChatTabs("not json")).toEqual([]);
 });
