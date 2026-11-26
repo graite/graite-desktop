@@ -6,7 +6,7 @@ list below is the status.
 
 ## Where we are
 
-The current release is **v0.6.1**.
+The current release is **v0.6.2**.
 
 **Shipped**
 
@@ -44,6 +44,11 @@ The current release is **v0.6.1**.
 - Mail, writing (D133, D134): formatted mail with attachments, recipient suggestions and
   forwarding, a vault per mailbox, mail in the onboarding, and Ask AI beside a mail that can
   propose page changes.
+- One chat mode (D135): no Ask/Draft/Act picker; the assistant tells a question from a
+  request, asks with answer buttons when unsure, and continues by itself after a review. It
+  can make databases, change their fields and link them; new pages get a link on their
+  parent. Fixes for renaming database pages, changing fields and board options; link chips,
+  chat tabs in Studio, wider pages, and mail that leaves the list at once.
 
 **In progress / remaining in the milestones above**
 
