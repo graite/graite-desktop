@@ -73,3 +73,73 @@ export function moveView(views: TableViewDef[], from: number, to: number): Table
   if (moved) next.splice(to, 0, moved);
   return next;
 }
+
+/** Whether a filter or sort text names this field (as a whole word, or quoted). */
+function mentions(text: string, field: string): boolean {
+  const escaped = field.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^\\p{L}\\p{N}_])${escaped}($|[^\\p{L}\\p{N}_])`, "u").test(text);
+}
+
+function sortField(entry: string): string {
+  return entry
+    .trim()
+    .replace(/^-/, "")
+    .replace(/\s+(asc|desc)$/i, "");
+}
+
+/** A view's sort after a field was renamed (`to`) or deleted (`to` null). */
+export function sortAfter(
+  sort: string | string[] | undefined,
+  from: string,
+  to: string | null,
+): string | string[] | undefined {
+  if (!sort) return sort;
+  const fix = (entry: string): string | null => {
+    if (sortField(entry) !== from) return entry;
+    if (to === null) return null;
+    const head = entry.trim().startsWith("-") ? "-" : "";
+    const tail = /\s+(asc|desc)$/i.exec(entry)?.[0] ?? "";
+    return `${head}${to}${tail}`;
+  };
+  if (Array.isArray(sort)) {
+    const next = sort.map(fix).filter((e): e is string => e !== null);
+    return next.length ? next : undefined;
+  }
+  const next = sort
+    .split(",")
+    .map(fix)
+    .filter((e): e is string => e !== null);
+  return next.length ? next.join(",") : undefined;
+}
+
+/**
+ * Views after a field of their table was renamed (`to`) or deleted (`to` null): the field
+ * lists, a board's group, and the sort follow. A filter that names the field is dropped,
+ * since it would no longer be valid and the whole view would fail to load.
+ */
+export function viewsAfterField(
+  defs: TableViewDef[],
+  source: string,
+  from: string,
+  to: string | null,
+): TableViewDef[] {
+  const names = (list: string[] | undefined) =>
+    list
+      ? list.map((n) => (n === from ? to : n)).filter((n): n is string => n !== null)
+      : undefined;
+  return defs.map((view) => {
+    if (view.source !== source) return view;
+    const next: TableViewDef = { ...view };
+    if (view.columns) next.columns = names(view.columns);
+    if (view.show) next.show = names(view.show);
+    if (view.group === from) {
+      if (to === null) delete next.group;
+      else next.group = to;
+    }
+    const sort = sortAfter(view.sort, from, to);
+    if (sort === undefined) delete next.sort;
+    else next.sort = sort;
+    if (view.filter && mentions(view.filter, from)) delete next.filter;
+    return next;
+  });
+}

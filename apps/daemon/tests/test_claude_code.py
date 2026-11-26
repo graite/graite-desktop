@@ -174,7 +174,12 @@ async def test_a_tool_turn_yields_the_agent_loops_events(script: dict[str, Any])
     assert seen[-1] == {"type": "answer", "text": "4 March."}
     assert registry.calls == [("read_page", {"path": "Projects/Atlas"})]
     # Tokens of both requests, cached input included, for the turn's counters.
-    assert model.metrics == {"input_tokens": 112, "output_tokens": 11}
+    # What came from the prompt cache is also kept apart, so the turn can show it as reused.
+    assert model.metrics == {
+        "input_tokens": 112,
+        "output_tokens": 11,
+        "cache_read_input_tokens": 100,
+    }
     assert script["returned"][0] == {
         "content": [{"type": "text", "text": json.dumps({"ok": "read_page"})}]
     }

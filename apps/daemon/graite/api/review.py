@@ -87,6 +87,9 @@ class Proposal(BaseModel):
     rows: RowsChange | None = None
     # A `dashboard` proposal: the HTML file it writes (D72).
     dashboard: DashboardChange | None = None
+    # A `table` proposal: a new database (action create: name, fields, row_count) or changes
+    # to a database's fields (action columns: ops). `new_text` says the same in words.
+    table: dict[str, Any] | None = None
 
 
 class AcceptBody(BaseModel):

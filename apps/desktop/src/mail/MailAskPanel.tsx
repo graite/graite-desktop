@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Orbit, Paperclip, PenLine, X } from "lucide-react";
 import { toast } from "sonner";
-import { ai, type ChatMode, type Conversation } from "@/lib/ai";
+import { ai, type Conversation } from "@/lib/ai";
 import {
   aiReadable,
   aiUploadName,
@@ -59,7 +59,6 @@ export function MailAskPanel({
   const [selected, setSelected] = useState<Conversation | null>(null);
   const [draft, setDraft] = useState("");
   // Ask answers; Act may also propose changes to pages, which wait for review as always.
-  const [mode, setMode] = useState<ChatMode>("ask");
   const [preparing, setPreparing] = useState(true);
   const [skipped, setSkipped] = useState<string[]>([]);
   const [configured, setConfigured] = useState(false);
@@ -69,7 +68,7 @@ export function MailAskPanel({
   const changedPages = useChangedPages();
 
   const ensureConversation = useCallback(async () => {
-    const created = await ai.createConversation({ mode: "ask" });
+    const created = await ai.createConversation({});
     setSelected(created);
     return created;
   }, []);
@@ -88,7 +87,7 @@ export function MailAskPanel({
     let live = true;
     void (async () => {
       try {
-        const conversation = await ai.createConversation({ mode: "ask" });
+        const conversation = await ai.createConversation({});
         const name = `Email - ${(thread.subject || "no subject")
           .replace(/[^\w .-]+/g, " ")
           .trim()
@@ -159,7 +158,6 @@ export function MailAskPanel({
     setDraft("");
     // The pages are searched for the question and what the mail is about together.
     await chat.send(text, {
-      mode,
       attachments: files.take(),
       searchQuery: `${text} ${searchTerms(thread)}`.slice(0, 590),
     });
@@ -197,11 +195,8 @@ export function MailAskPanel({
             </p>
             {!preparing && (
               <p className="text-xs text-muted-foreground">
-                To have a page changed from this email (a task added, a note updated), choose{" "}
-                <button type="button" className="underline" onClick={() => setMode("act")}>
-                  Act
-                </button>{" "}
-                in the menu below. The change is proposed for you to review.
+                You can also ask to have a page changed from this email (a task added, a note
+                updated). The change is proposed for you to review.
               </p>
             )}
             {!preparing &&
@@ -265,8 +260,6 @@ export function MailAskPanel({
           onStop={() => void chat.stop()}
           busy={chat.busy}
           disabled={preparing}
-          mode={mode}
-          onModeChange={setMode}
           attachments={files.attachments}
           onAttach={(list) => void files.attach(list)}
           onRemoveAttachment={(id) => void files.remove(id)}

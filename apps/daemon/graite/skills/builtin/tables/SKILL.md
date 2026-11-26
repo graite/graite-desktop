@@ -1,6 +1,6 @@
 ---
 name: tables
-description: Read, query and change data tables — CSV files in a page's _data folder shown by graite:table blocks — with read_tables, run_query_ro and propose_rows.
+description: Read, query, create and change databases (data tables) — CSV files in a page's _data folder shown by graite:table blocks — with read_tables, run_query_ro, propose_rows, propose_columns and propose_table.
 requires: [read_tables]
 ---
 
@@ -68,7 +68,9 @@ SELECT category, sum(amount) AS total FROM expenses GROUP BY category ORDER BY t
 ]
 ```
 
-- Use column names exactly as `read_tables` lists them; a new column needs the user.
+- Use column names exactly as `read_tables` lists them. A value for a field the table does
+  not have needs that field first: add it with `propose_columns`, then call `propose_rows`.
+  Never squeeze several values into one text field such as `notes`.
 - Formula columns (`"type": "formula"`, `read_only`) are computed from the row; never give
   them a value. They can be read, filtered and charted like any other column.
 - Give values in the column's type: numbers as numbers, dates as `YYYY-MM-DD`, checkboxes as
@@ -76,6 +78,44 @@ SELECT category, sum(amount) AS total FROM expenses GROUP BY category ORDER BY t
 - Get ids from `read_tables` or `run_query_ro` (`SELECT id, … FROM expenses WHERE …`).
 - Put related changes in one call with one summary. The page's AI settings decide whether
   it applies at once or waits for the user's review; say which in your answer.
+
+## Change fields (columns)
+
+`propose_columns(table_path, ops, summary)` with ops such as:
+
+```json
+[
+  {"op": "add", "name": "Status", "type": "status", "options": ["Todo", "Doing", "Done"]},
+  {"op": "add", "name": "Due", "type": "date"},
+  {"op": "rename", "name": "notes", "to": "Description"},
+  {"op": "set", "name": "Priority", "type": "single_select", "options": ["Low", "High"]},
+  {"op": "delete", "name": "old_field"}
+]
+```
+
+Types: text, number, currency, percent, single_select, multi_select, status, date, checkbox,
+url, email. The `id` field cannot be changed. Deleting a field deletes its values; ask
+first unless the user named the field. When the change waits for review, the new fields do
+not exist yet: say so and continue after the user accepts.
+
+## Make a new database
+
+`propose_table(page_path, name, fields, summary, rows)` makes a database on an existing page
+and shows it there. Give every field its type (and options for status and select fields),
+and put the first rows in `rows`:
+
+```json
+{"page_path": "Business/Backlog", "name": "Backlog",
+ "fields": [{"name": "Name"}, {"name": "Status", "type": "status", "options": ["Todo", "Doing", "Done"]},
+            {"name": "Priority", "type": "single_select", "options": ["Low", "Medium", "High"]}],
+ "rows": [{"Name": "Fix login", "Status": "Todo", "Priority": "High"}],
+ "summary": "Backlog database"}
+```
+
+Use a database for many similar records with the same few fields (backlog items, tasks,
+contacts, invoices). Use child pages with properties (the page-views skill) when each item
+needs its own longer text. Check `read_tables` first and reuse a database that already fits.
+For a database on a new page, create the page with `propose_create` first.
 
 ## Show a table on a page
 

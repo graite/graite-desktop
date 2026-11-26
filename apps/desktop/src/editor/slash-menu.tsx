@@ -5,6 +5,7 @@ import {
   LayoutList,
   FileText,
   Link2,
+  Globe,
   AudioLines,
   Mic,
   ScanText,
@@ -34,6 +35,8 @@ export interface SlashMenuDeps {
   createChildPage: () => Promise<PickedPage>;
   /** Opens the page picker; resolves with the chosen page or null when cancelled. */
   pickPage: () => Promise<PickedPage | null>;
+  /** Asks for a web address; resolves with the link to insert or null when cancelled. */
+  pickWebLink?: () => Promise<{ url: string; label: string } | null>;
   /** Called after the tree changed so the sidebar can refresh. */
   onTreeChanged: () => void;
   /** Copies a CSV into this page's `_data/`; resolves with the block `source` for it. */
@@ -114,6 +117,38 @@ export function getSlashMenuItems(
       })();
     },
   };
+
+  const webLinkItem: DefaultReactSuggestionItem | null = deps.pickWebLink
+    ? {
+        title: "Web link",
+        subtext: "Paste a web address as a short link",
+        aliases: ["url", "link", "website", "bookmark", "http"],
+        group: "Other",
+        icon: <Globe className="size-4" />,
+        onItemClick: () => {
+          void (async () => {
+            const link = await deps.pickWebLink!();
+            if (!link) return;
+            editor.focus();
+            try {
+              editor.insertInlineContent([{ type: "link", href: link.url, content: link.label }]);
+            } catch {
+              const block = editor.getTextCursorPosition().block;
+              editor.insertBlocks(
+                [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "link", href: link.url, content: link.label }],
+                  },
+                ],
+                block,
+                "after",
+              );
+            }
+          })();
+        },
+      }
+    : null;
 
   const mediaItems: DefaultReactSuggestionItem[] = [
     {
@@ -331,6 +366,7 @@ export function getSlashMenuItems(
   return [
     pageItem,
     linkItem,
+    ...(webLinkItem ? [webLinkItem] : []),
     ...mediaItems,
     ...layouts,
     ...databaseItems,

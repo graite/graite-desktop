@@ -42,6 +42,7 @@ export function InlineProposalCard({
     proposal.kind !== "delete" &&
     proposal.kind !== "move" &&
     proposal.kind !== "rows" &&
+    proposal.kind !== "table" &&
     proposal.kind !== "dashboard";
   const oldText = proposal.kind === "edit" ? (proposal.old_text ?? "") : "";
   const note = pageLevelNote(proposal);
@@ -81,6 +82,11 @@ export function InlineProposalCard({
         <Suspense fallback={null}>
           <DashboardPreview proposal={proposal} />
         </Suspense>
+      )}
+      {proposal.kind === "table" && proposal.new_text && (
+        <ReviewContent>
+          <TextDiff highlightChanges oldText="" newText={proposal.new_text} />
+        </ReviewContent>
       )}
       {editable && (
         <ReviewContent editing={editing} pagePreview>

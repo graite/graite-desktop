@@ -3,6 +3,8 @@ import { BlockNoteEditor } from "@blocknote/core";
 import { TextSelection } from "prosemirror-state";
 import { looksLikeMarkdownBlocks, markdownPasteHandler } from "../paste";
 import { schema, type GraiteEditor } from "../schema";
+import { bareUrl, linkLabel, normalizeUrl } from "../linkChips";
+import { fromBlocks } from "@graite/md-convert";
 
 it("recognises Markdown blocks in plain text", () => {
   expect(looksLikeMarkdownBlocks("# Shopping")).toBe(true);
@@ -177,4 +179,37 @@ it("puts blocks above a line when pasted at its start", () => {
     "bulletListItem",
     "paragraph",
   ]);
+});
+
+it("turns a pasted web address into a short link to the full address", () => {
+  const editor = BlockNoteEditor.create({
+    schema,
+    initialContent: [{ type: "paragraph", content: "See " }],
+  }) as GraiteEditor;
+  editor.setTextCursorPosition(editor.document[0]!, "end");
+  const url = "https://www.github.com/graite/graite-desktop/pull/57?diff=split";
+  const { handled, defaultPasteHandler } = paste(editor, { "text/plain": ` ${url}\n` });
+  expect(handled).toBe(true);
+  expect(defaultPasteHandler).not.toHaveBeenCalled();
+  const content = editor.document[0]!.content as { type: string; href?: string }[];
+  const link = content.find((c) => c.type === "link") as unknown as {
+    href: string;
+    content: { text: string }[];
+  };
+  expect(link.href).toBe(url);
+  expect(link.content[0]!.text).toBe("github.com › 57");
+  // The page stores an ordinary Markdown link.
+  expect(fromBlocks(editor.document as never)).toContain(`[github.com › 57](${url})`);
+});
+
+it("names a link by its site and the last part of its path", () => {
+  expect(linkLabel("https://example.com")).toBe("example.com");
+  expect(linkLabel("https://example.com/")).toBe("example.com");
+  expect(linkLabel("https://docs.example.com/guides/getting-started.html")).toBe(
+    "docs.example.com › getting started",
+  );
+  expect(bareUrl("https://example.com/a b")).toBeNull();
+  expect(bareUrl("see https://example.com")).toBeNull();
+  expect(normalizeUrl("example.com/pricing")).toBe("https://example.com/pricing");
+  expect(normalizeUrl("not a link")).toBeNull();
 });

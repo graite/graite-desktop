@@ -46,6 +46,7 @@ import { workspace, type PageProperty } from "@/lib/workspace";
 import { media } from "@/lib/media";
 import { MediaContext } from "./media/context";
 import { EditorSurface } from "./EditorSurface";
+import { spreadOptionChanges } from "./views/options";
 import { useViewSchema } from "./views/useViewSchema";
 import { editorExtensions } from "./reviewDecorations";
 import { Arrows } from "./arrows";
@@ -54,12 +55,14 @@ import { useSelectAllStages } from "./useSelectAllStages";
 import { markdownPasteHandler } from "./paste";
 import { Breadcrumbs } from "@/app/Breadcrumbs";
 import { PagePicker } from "./PagePicker";
+import { LinkDialog, type WebLink } from "./LinkDialog";
+import { LinkChips } from "./linkChips";
 import { findNode, linkTarget, resolveTarget, type FlatPage } from "./tree-utils";
 import type { PickedPage } from "./slash-menu";
 import { sourceFor, tables } from "@/lib/tables";
 import { databaseBody } from "./tables/setup";
 
-const PAGE_EXTENSIONS = [...editorExtensions, Arrows()];
+const PAGE_EXTENSIONS = [...editorExtensions, Arrows(), LinkChips()];
 
 export interface PageEditorProps {
   settingsRequested?: boolean;
@@ -339,6 +342,13 @@ export function PageEditor({
   const [hasView, setHasView] = useState(false);
   const [conflict, setConflict] = useState<{ hash: string; body: string } | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const linkResolveRef = useRef<((link: WebLink | null) => void) | null>(null);
+  const finishLink = (link: WebLink | null) => {
+    setLinkOpen(false);
+    linkResolveRef.current?.(link);
+    linkResolveRef.current = null;
+  };
   const pickerResolveRef = useRef<((page: PickedPage | null) => void) | null>(null);
 
   // Never overwrite what the user is typing with a title reloaded from disk.
@@ -472,6 +482,13 @@ export function PageEditor({
           const updated = await pages.patch(oldPath, { title: value.trim() || "Untitled" });
           pathRef.current = updated.path;
           baseHashRef.current = updated.hash;
+          if (updated.body !== diskBodyRef.current) {
+            // The rename changed the page's own text too (a table named like the page
+            // follows it, so its block points at the new file). Show that text now: the
+            // block would otherwise keep asking for a table that no longer exists.
+            if (dirtyRef.current) markDisk(updated.body);
+            else applyBody(updated.body, updated.hash);
+          }
           onSaved(updated.hash);
           if (updated.path !== oldPath) onRenamed(oldPath, updated.path);
           onTreeChanged();
@@ -480,7 +497,7 @@ export function PageEditor({
       titleCommitRef.current = done.catch(() => {});
       return done;
     },
-    [onSaved, onRenamed, onTreeChanged, queued],
+    [onSaved, onRenamed, onTreeChanged, queued, applyBody, markDisk],
   );
 
   useEffect(() => {
@@ -829,6 +846,11 @@ export function PageEditor({
           pickerResolveRef.current = resolve;
           setPickerOpen(true);
         }),
+      pickWebLink: () =>
+        new Promise<WebLink | null>((resolve) => {
+          linkResolveRef.current = resolve;
+          setLinkOpen(true);
+        }),
       onTreeChanged: () => onTreeChangedRef.current(),
       importTable: async (file: File) =>
         sourceFor(pathRef.current, await tables.import(pathRef.current, file)),
@@ -990,7 +1012,7 @@ export function PageEditor({
         className={`min-h-0 flex-1 overflow-auto py-4 ${hasView ? "px-8 lg:px-12" : "px-6"}`}
         onClick={handleClick}
       >
-        <div className={hasView ? "page-wide w-full" : "mx-auto max-w-4xl"}>
+        <div className={hasView ? "page-wide w-full" : "mx-auto max-w-6xl"}>
           <div
             className={`mt-6 flex items-center gap-2 ${page.path.includes("/") ? "mb-0" : "mb-2"}`}
             style={{ paddingLeft: 40 }}
@@ -1082,7 +1104,19 @@ export function PageEditor({
           />
 
           {page.path.includes("/") && (
-            <PageProperties page={page} onSave={saveProperties} schema={viewFields} />
+            <PageProperties
+              page={page}
+              onSave={saveProperties}
+              schema={viewFields}
+              onOptionsChanged={
+                viewParent?.has_view
+                  ? (name, changes) =>
+                      void spreadOptionChanges(viewParent.id, page.id, name, changes).catch(
+                        (e: Error) => toast.error(e.message),
+                      )
+                  : undefined
+              }
+            />
           )}
           {!!reviews.unanchored.length && (
             <div data-review-unanchored className="review-unanchored">
@@ -1114,6 +1148,11 @@ export function PageEditor({
           </MediaContext.Provider>
         </div>
       </div>
+      <LinkDialog
+        open={linkOpen}
+        onAdd={(link) => finishLink(link)}
+        onCancel={() => finishLink(null)}
+      />
       <PagePicker
         open={pickerOpen}
         tree={tree}

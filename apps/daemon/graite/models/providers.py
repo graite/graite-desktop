@@ -165,7 +165,7 @@ class Provider:
         raise ValueError(f"The model server returned HTTP {response.status_code}.")
 
     def anthropic_body(
-        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]
+        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], *, cache: bool = True
     ) -> dict[str, Any]:
         system = "\n".join(m["content"] for m in messages if m["role"] == "system")
         converted: list[dict[str, Any]] = []
@@ -221,9 +221,23 @@ class Provider:
                 converted[-1]["content"].extend(content)
             else:
                 converted.append({"role": role, "content": content})
+        # Prompt caching. A turn with tools sends the same instructions, tool list and a
+        # growing conversation once per round, and a follow-up turn sends most of it again.
+        # Two breakpoints make the provider bill what it has already read at the cached
+        # rate: one after the system prompt (the request renders tools, then system, then
+        # messages, so this covers the tools too) and one on the newest message, which
+        # moves forward each round. A prefix below the model's minimum is simply not cached.
+        ephemeral = {"type": "ephemeral"}
+        if cache and converted and converted[-1]["content"]:
+            last = converted[-1]["content"][-1]
+            converted[-1]["content"][-1] = {**last, "cache_control": ephemeral}
         return {
             "model": self.model,
-            "system": system,
+            "system": (
+                ([{"type": "text", "text": system, "cache_control": ephemeral}] if system else [])
+                if cache
+                else system
+            ),
             "messages": converted,
             "max_tokens": self.max_tokens,
             "stream": True,

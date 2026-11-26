@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FilePlus, Mail, Plus, Search, X } from "lucide-react";
+import { FilePlus, Mail, MessageCircle, Plus, Search, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,8 +10,9 @@ import { PagePicker } from "@/editor/PagePicker";
 import { PageIcon } from "@/components/PageIcon";
 import type { TreeNode } from "@/lib/api";
 import { findNode, lastSegment } from "@/editor/tree-utils";
+import type { ChatTab } from "./tabs";
 
-/** The open pages, across the top of the page area. Click to switch, × or middle-click to close.
+/** The open pages (and open Studio chats), across the top of the page area. Click to switch, × or middle-click to close.
  * The + makes a new page or opens an existing one in a new tab. */
 export function TabBar({
   tabs,
@@ -22,6 +23,7 @@ export function TabBar({
   onNew,
   onOpen,
   mail,
+  chats,
 }: {
   tabs: string[];
   active: string | null;
@@ -33,6 +35,13 @@ export function TabBar({
   onOpen: (path: string) => void;
   /** The Mail tab, while it is open: it sits before the pages and switches like one. */
   mail?: { title: string; active: boolean; onSelect: () => void; onClose: () => void };
+  /** Conversations open in Studio: they sit after the pages and switch like one. */
+  chats?: {
+    tabs: ChatTab[];
+    active: string | null;
+    onSelect: (id: string) => void;
+    onClose: (id: string) => void;
+  };
 }) {
   const [picking, setPicking] = useState(false);
   return (
@@ -98,6 +107,44 @@ export function TabBar({
               aria-label={`Close ${title}`}
               title="Close tab"
               onClick={() => onClose(path)}
+            >
+              <X size={12} />
+            </button>
+          </div>
+        );
+      })}
+      {chats?.tabs.map((chat) => {
+        const selected = chat.id === chats.active;
+        const title = chat.title.trim() || "New chat";
+        return (
+          <div
+            key={`chat:${chat.id}`}
+            className="page-tab"
+            data-kind="chat"
+            data-active={selected || undefined}
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              title={title}
+              className="page-tab-open"
+              onClick={() => chats.onSelect(chat.id)}
+              onAuxClick={(e) => {
+                if (e.button !== 1) return;
+                e.preventDefault();
+                chats.onClose(chat.id);
+              }}
+            >
+              <MessageCircle className="size-3.5 shrink-0" />
+              <span>{title}</span>
+            </button>
+            <button
+              type="button"
+              className="page-tab-close"
+              aria-label={`Close ${title}`}
+              title="Close tab"
+              onClick={() => chats.onClose(chat.id)}
             >
               <X size={12} />
             </button>

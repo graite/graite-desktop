@@ -280,6 +280,11 @@
   color: var(--muted-foreground);
   font-size: 13px;
 }
+/* A chat's tab is shorter than a page's: its title is a sentence, cut off early. */
+.page-tab[data-kind="chat"] {
+  flex-basis: 150px;
+  max-width: 150px;
+}
 .page-tab:hover {
   background: var(--accent);
   color: var(--foreground);

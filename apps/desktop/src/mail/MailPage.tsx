@@ -175,7 +175,7 @@ export function MailPage({
           ? await mail.threads(current, { folder: shownFolder })
           : { threads: [], more: false };
       if (ticket !== listRequest.current) return;
-      setThreads(page.threads);
+      setThreads(page.threads.filter((t) => !leaving.current.has(t.thread_id)));
       setMore(page.more);
     } catch (e) {
       if (ticket === listRequest.current) toast.error((e as Error).message);
@@ -340,7 +340,6 @@ export function MailPage({
   useEffect(() => {
     if (microsoft.error) toast.error(microsoft.error);
   }, [microsoft.error]);
-  const [moving, setMoving] = useState(false);
   // Conversations ticked in the list, to archive or delete together.
   const [picked, setPicked] = useState<Set<string>>(new Set());
   useEffect(() => setPicked(new Set()), [current, shownFolder, query]);
@@ -350,41 +349,65 @@ export function MailPage({
       if (!next.delete(id)) next.add(id);
       return next;
     });
+  // Archive and delete show at once: the mailbox itself takes a moment (a round trip to the
+  // mail server), so the conversation leaves the list first and comes back only when the
+  // server refuses. `leaving` keeps a list fetched meanwhile from showing it again.
+  const leaving = useRef(new Set<string>());
+  const moveAway = async (
+    ids: string[],
+    where: "archive" | "trash",
+    work: () => Promise<unknown>,
+  ) => {
+    const before = threads;
+    const wasOpen = openId;
+    // Archiving from a search keeps the result in the list: it still matches the search.
+    const hide = where === "trash" || !query;
+    if (hide) {
+      for (const id of ids) leaving.current.add(id);
+      setThreads((old) => old.filter((t) => !ids.includes(t.thread_id)));
+    }
+    if (openId && ids.includes(openId)) setOpenId(null);
+    try {
+      await work();
+      const many = ids.length === 1 ? "1 conversation" : `${ids.length} conversations`;
+      toast.success(
+        ids.length === 1 && wasOpen === ids[0]
+          ? where === "archive"
+            ? "Archived"
+            : "Moved to Trash"
+          : where === "archive"
+            ? `Archived ${many}`
+            : `Moved ${many} to Trash`,
+      );
+      for (const id of ids) leaving.current.delete(id);
+      void loadAccounts();
+    } catch (e) {
+      for (const id of ids) leaving.current.delete(id);
+      // Put back what was taken out, where it was; anything that arrived meanwhile stays.
+      setThreads((old) => {
+        const have = new Set(old.map((t) => t.thread_id));
+        const missing = before.filter((t) => ids.includes(t.thread_id) && !have.has(t.thread_id));
+        if (!missing.length) return old;
+        const order = new Map(before.map((t, n) => [t.thread_id, n]));
+        return [...old, ...missing].sort(
+          (a, b) => (order.get(a.thread_id) ?? -1) - (order.get(b.thread_id) ?? -1),
+        );
+      });
+      if (wasOpen && ids.includes(wasOpen)) setOpenId(wasOpen);
+      toast.error((e as Error).message);
+    }
+  };
   const movePicked = async (where: "archive" | "trash") => {
     if (!current || !picked.size) return;
     const ids = [...picked];
-    setMoving(true);
-    try {
-      await mail.move(current, ids, where);
-      const many = ids.length === 1 ? "1 conversation" : `${ids.length} conversations`;
-      toast.success(where === "archive" ? `Archived ${many}` : `Moved ${many} to Trash`);
-      setThreads((old) => old.filter((t) => !picked.has(t.thread_id)));
-      if (openId && picked.has(openId)) setOpenId(null);
-      setPicked(new Set());
-      void loadAccounts();
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setMoving(false);
-    }
+    setPicked(new Set());
+    await moveAway(ids, where, () => mail.move(current, ids, where));
   };
   /** Archive or delete the open conversation, in the mailbox itself. */
   const move = async (where: "archive" | "trash") => {
     if (!current || !thread) return;
-    setMoving(true);
-    try {
-      await mail[where](current, thread.thread_id);
-      toast.success(where === "archive" ? "Archived" : "Moved to Trash");
-      setThreads((old) =>
-        where === "trash" || !query ? old.filter((t) => t.thread_id !== thread.thread_id) : old,
-      );
-      setOpenId(null);
-      void loadAccounts();
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setMoving(false);
-    }
+    const id = thread.thread_id;
+    await moveAway([id], where, () => mail[where](current, id));
   };
 
   const remove = async () => {
@@ -582,7 +605,6 @@ export function MailPage({
                 variant="ghost"
                 size="sm"
                 className="h-7 px-2 text-xs"
-                disabled={moving}
                 onClick={() => void movePicked("archive")}
               >
                 <Archive className="size-3.5" /> Archive
@@ -592,7 +614,6 @@ export function MailPage({
               variant="ghost"
               size="sm"
               className="h-7 px-2 text-xs"
-              disabled={moving}
               onClick={() => void movePicked("trash")}
             >
               <Trash2 className="size-3.5" /> Delete
@@ -764,7 +785,6 @@ export function MailPage({
                   className="size-7 text-muted-foreground hover:text-foreground"
                   title="Archive: take it out of the inbox"
                   aria-label="Archive"
-                  disabled={moving}
                   onClick={() => void move("archive")}
                 >
                   <Archive className="size-3.5" />
@@ -776,7 +796,6 @@ export function MailPage({
                 className="size-7 text-muted-foreground hover:text-foreground"
                 title="Delete: move it to the mailbox's Trash"
                 aria-label="Delete"
-                disabled={moving}
                 onClick={() => void move("trash")}
               >
                 <Trash2 className="size-3.5" />

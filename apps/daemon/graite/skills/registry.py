@@ -44,21 +44,23 @@ ASK_TOOLS = frozenset(
         "propose_dashboard",
     }
 )
-# Chat modes whose propose group is narrowed to a subset; Act is not narrowed.
+# Chat modes whose propose group is narrowed to a subset; Auto and Act are not narrowed.
+# Chat itself runs in Auto (D103): the model tells a question from a request to change
+# something. Ask and Draft remain for callers that pin them (mail, older clients).
 MODE_TOOLS: dict[str, frozenset[str]] = {"ask": ASK_TOOLS, "draft": DRAFT_TOOLS}
 # Tools for MCP clients, which see no page tree or page-name hints in a prompt of ours.
 # In-app turns get both already, and a small local model pays for every extra schema.
-MCP_TOOLS = frozenset({"navigate", "find_pages", "propose_view"})
+MCP_TOOLS = frozenset({"navigate", "find_pages"})
 
 
 def groups_for(mode: str) -> frozenset[str]:
     """Agents and the assistant: an Ask-mode definition is report-only and never proposes."""
-    return PROPOSE_GROUPS if mode in ("act", "draft") else DEFAULT_GROUPS
+    return PROPOSE_GROUPS if mode in ("act", "draft", "auto") else DEFAULT_GROUPS
 
 
 def chat_groups_for(mode: str) -> frozenset[str]:
     """Interactive chat: every mode can propose; `MODE_TOOLS` narrows which tools."""
-    return PROPOSE_GROUPS if mode in ("ask", "act", "draft") else DEFAULT_GROUPS
+    return PROPOSE_GROUPS if mode in ("ask", "act", "draft", "auto") else DEFAULT_GROUPS
 
 
 def chat_tools(mode: str) -> set[str]:
@@ -69,6 +71,49 @@ def chat_tools(mode: str) -> set[str]:
     if narrow is not None:
         names = {n for n in names if tool_module.TOOLS[n].group != "propose" or n in narrow}
     return names
+
+
+def fit_arguments(name: str, parameters: dict[str, Any], args: dict[str, Any]) -> dict[str, Any]:
+    """Arguments as the tool's schema means them, or an error the model can act on.
+
+    Models, small local ones most of all, send numbers and booleans as text, a list as JSON
+    text, or a parameter the tool does not have. The first two are read as meant; the rest
+    is refused in words that name the tool's real parameters."""
+    if "properties" not in parameters:
+        return args
+    properties: dict[str, Any] = parameters["properties"]
+    unknown = [key for key in args if key not in properties]
+    if unknown:
+        raise ValueError(
+            f"{name} has no parameter {', '.join(repr(k) for k in unknown)}. "
+            f"Its parameters are: {', '.join(properties)}."
+        )
+    missing = [key for key in parameters.get("required") or [] if key not in args]
+    if missing:
+        raise ValueError(f"{name} needs {', '.join(f'`{k}`' for k in missing)}.")
+    out: dict[str, Any] = {}
+    for key, value in args.items():
+        kinds = properties[key].get("type")
+        kinds = [kinds] if isinstance(kinds, str) else list(kinds or [])
+        if isinstance(value, str) and kinds and "string" not in kinds:
+            text = value.strip()
+            if "null" in kinds and text.lower() in ("", "null", "none"):
+                value = None
+            elif "integer" in kinds and re.fullmatch(r"-?\d+", text):
+                value = int(text)
+            elif "number" in kinds and re.fullmatch(r"-?\d+(\.\d+)?", text):
+                value = float(text)
+            elif "boolean" in kinds and text.lower() in ("true", "false"):
+                value = text.lower() == "true"
+            elif {"array", "object"} & set(kinds) and text[:1] in "[{":
+                try:
+                    value = json.loads(text)
+                except json.JSONDecodeError:
+                    pass
+        if value is None and "null" not in kinds and key not in (parameters.get("required") or []):
+            continue  # an optional parameter sent as null: use its default
+        out[key] = value
+    return out
 
 
 class Registry:
@@ -258,6 +303,7 @@ class Registry:
             args = json.loads(arguments) if arguments.strip() else {}
             if not isinstance(args, dict):
                 raise ValueError("Tool arguments must be an object.")
+            args = fit_arguments(name, tool.schema["function"].get("parameters") or {}, args)
             self.corrections = {}
             result = await tool.fn(self, **args)
             if self.corrections:

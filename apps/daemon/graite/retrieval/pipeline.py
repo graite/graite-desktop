@@ -331,7 +331,8 @@ def databases_section(catalog: list[Any], read: set[int], limit: int) -> str:
     head = (
         "\n## Your databases\nRecords (companies, contacts, tasks, invoices…) live in these "
         "databases, not in page text. Read them with read_rows (table, or a page and one of "
-        "its views) or run_query_ro; change rows with propose_rows when this mode allows it. "
+        "its views) or run_query_ro. When the tools are available, change rows with propose_rows, "
+        "fields with propose_columns, and make a new database with propose_table. "
         + (
             "The rows of the database this question is about are already in the sources. "
             if read
@@ -440,9 +441,11 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
         lean = (
             ctx.depth
             if chat
-            and ctx.mode == "ask"
+            and ctx.mode in ("ask", "auto")
             and ctx.retrieve == "auto"
             and not lean_mode.wants_change(ctx.question)
+            # The reply to a question the model asked continues that work, with its tools.
+            and not (ctx.mode == "auto" and lean_mode.answers_clarification(ctx.history))
             else None
         )
         # One budget for retrieved context, in tokens (D102); Deep research gets twice it.
@@ -784,6 +787,8 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
         )
         yield {"type": "status", "text": "Preparing your model…"}
         answer_text = ""
+        clarify_options: list[str] = []
+        awaiting = ""
         unkept: Callable[[str], str | None] | None = None
         if (
             ctx.retrieve == "on_demand"
@@ -945,6 +950,10 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
                             "failed" if failed else "succeeded",
                             **_tool_output(tool_args, result),
                         )
+                    if item.get("name") == "request_clarification" and isinstance(result, dict):
+                        clarify_options = list(result.get("options") or [])
+                    if item.get("name") == "continue_after_review" and isinstance(result, dict):
+                        awaiting = str(result.get("next_steps") or "")
                     activity_step = next(s for s in activity if s["id"] == item["id"])
                     activity_step["status"] = "failed" if failed else "succeeded"
                     activity_step["ms"] = took
@@ -966,6 +975,8 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
         raw_rounds.append(raw)
         thinking = "\n".join(t for t in [reasoning.strip(), thoughts("\n".join(raw_rounds))] if t)
         clarify, text = answering.clarification(visible(answer_text))
+        if not clarify:
+            clarify_options = []
         if clarify:
             # Persist the question itself. An empty assistant message loses the decision
             # on reload and leaves the next model unable to interpret the user's reply.
@@ -996,7 +1007,11 @@ async def answer_turn(ctx: TurnContext) -> AsyncIterator[dict[str, Any]]:
         measured = timer.finish().to_dict()
         yield {"type": "metrics", "metrics": measured}
         if clarify:
-            yield {"type": "clarify", "question": clarify}
+            yield {"type": "clarify", "question": clarify, "options": clarify_options}
+        elif awaiting and proposals_made:
+            # The model has more to do once these proposals are decided: the client sends
+            # it the outcome then, so the user does not have to say "continue".
+            yield {"type": "await_review", "next_steps": awaiting, "proposals": proposals_made}
         status = "needs_input" if clarify else "succeeded"
         yield {
             "type": "limits",

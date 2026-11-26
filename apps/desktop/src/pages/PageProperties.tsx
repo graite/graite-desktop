@@ -1,3 +1,4 @@
+import { optionChanges, type OptionChange } from "@/editor/views/options";
 import { useEffect, useState } from "react";
 import {
   Plus,
@@ -322,11 +323,15 @@ export function PageProperties({
   page,
   onSave,
   schema = [],
+  onOptionsChanged,
 }: {
   page: PageDoc;
   onSave: (fields: PageProperty[]) => Promise<PageDoc>;
   /** Properties the other pages of the same view use; shown here as empty rows to fill in. */
   schema?: PageProperty[];
+  /** The page is an entry of a view: options renamed or removed here change on its other
+   *  pages too (a board would otherwise keep the column). */
+  onOptionsChanged?: (name: string, changes: OptionChange[]) => void;
 }) {
   const [stored, setStored] = useState(page);
   const [editing, setEditing] = useState<string | null>(null);
@@ -368,6 +373,13 @@ export function PageProperties({
       setBusy(false);
     }
   };
+  /** Save a changed definition; its renamed or removed options follow on the view's pages. */
+  const changeField = async (next: PageProperty) => {
+    const previous = fields.find((f) => f.id === next.id);
+    await persist(fields.map((f) => (f.id === next.id ? next : f)));
+    const changes = previous ? optionChanges(previous, next) : [];
+    if (changes.length) onOptionsChanged?.(next.name, changes);
+  };
   return (
     <section className="page-properties" aria-label="Page properties">
       {fields.map((field) => (
@@ -383,7 +395,7 @@ export function PageProperties({
             <PopoverContent align="start">
               <PropertyForm
                 initial={field}
-                onSave={(next) => persist(fields.map((f) => (f.id === next.id ? next : f)))}
+                onSave={(next) => changeField(next)}
                 onDelete={() => persist(fields.filter((f) => f.id !== field.id))}
               />
             </PopoverContent>
@@ -393,9 +405,7 @@ export function PageProperties({
             field={field}
             disabled={busy}
             onFieldChange={(next) =>
-              void persist(fields.map((f) => (f.id === next.id ? next : f))).catch((e) =>
-                toast.error((e as Error).message),
-              )
+              void changeField(next).catch((e) => toast.error((e as Error).message))
             }
             onChange={(value) =>
               void persist(fields.map((f) => (f.id === field.id ? { ...f, value } : f))).catch(

@@ -4,6 +4,7 @@ import { ConflictError, isOwnRequest, onDaemonEvent, pages, trash, type PageDoc 
 import { pageProperties, workspace, type PageProperty } from "@/lib/workspace";
 import { MediaContext } from "../media/context";
 import { emptyValue, findField, mergeFields, sameName } from "./collection";
+import { optionChanges, withOptionChanges } from "./options";
 
 const isDirectChild = (path: string, parent: string | undefined) =>
   !parent || (path.startsWith(parent + "/") && !path.slice(parent.length + 1).includes("/"));
@@ -62,6 +63,8 @@ export function useCollection(defaultFields: PageProperty[] = NO_FIELDS) {
       ...defaultFields.filter((f) => !existing.some((e) => sameName(e.name, f.name))),
     ];
   }, [rows, defaultFields]);
+  const fieldsRef = useRef(fields);
+  fieldsRef.current = fields;
   const latest = (row: PageDoc) => rowsRef.current.find((r) => r.id === row.id) ?? row;
   const patch = (doc: PageDoc) =>
     setRows((rs) =>
@@ -114,10 +117,29 @@ export function useCollection(defaultFields: PageProperty[] = NO_FIELDS) {
     [write],
   );
 
-  /** Replace one property definition (rename, options, colors) on a page. */
+  /** Replace one property definition (rename, options, colors) on a page. An option that
+   *  was renamed or removed changes on every page of the view, so a board loses its column. */
   const setField = useCallback(
-    (row: PageDoc, next: PageProperty) =>
-      write(row, (current) => pageProperties(current).map((p) => (p.id === next.id ? next : p))),
+    async (row: PageDoc, next: PageProperty) => {
+      const shared = fieldsRef.current.find((f) => sameName(f.name, next.name));
+      const own = pageProperties(latest(row)).find((p) => p.id === next.id);
+      const previous = shared ?? own;
+      const changes = previous ? optionChanges(previous, next) : [];
+      const doc = await write(row, (current) =>
+        pageProperties(current).map((p) => (p.id === next.id ? next : p)),
+      );
+      for (const other of rowsRef.current) {
+        if (other.id === row.id) continue;
+        if (!withOptionChanges(pageProperties(other), next.name, changes)) continue;
+        await write(
+          other,
+          (current) =>
+            withOptionChanges(pageProperties(current), next.name, changes) ??
+            pageProperties(current),
+        );
+      }
+      return doc;
+    },
     [write],
   );
 

@@ -31,11 +31,23 @@ import type { Section } from "@/ai/ConversationList";
 import { scopedKey } from "@/lib/storage";
 import { takeNewTabIntent, watchNewTabIntent } from "@/lib/newTabIntent";
 import { TabBar } from "./TabBar";
-import { closeTab, cycleTab, dropTabs, parseTabs, renameTabs, showInTab } from "./tabs";
+import {
+  closeChatTab,
+  closeTab,
+  cycleTab,
+  dropTabs,
+  parseChatTabs,
+  parseTabs,
+  renameTabs,
+  showChatTab,
+  showInTab,
+  type ChatTab,
+} from "./tabs";
 
 const SELECTED_KEY = "graite.selectedPath";
 const WELCOME_KEY = "graite.welcomeSeen";
 const TABS_KEY = "graite.tabs";
+const CHAT_TABS_KEY = "graite.chat-tabs";
 /** Section names `openSettings` accepts; "chat" is the section of the model in use. */
 const SETTINGS_TABS: SettingsTab[] = [...SECTIONS, "chat", "vault"];
 
@@ -223,14 +235,19 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
     }
   }, []);
 
+  // Loads can overlap (typing a title renames the page several times in a row); only the
+  // newest one may decide what is shown, or an older answer puts a stale path back.
+  const pageLoad = useRef(0);
   const loadPage = useCallback(async (path: string): Promise<PageDoc | null> => {
+    const ticket = ++pageLoad.current;
     try {
       const page = await pages.get(path);
+      if (ticket !== pageLoad.current) return page;
       setActivePage(page);
       lastSavedHashRef.current = page.hash;
       return page;
     } catch {
-      setActivePage(null);
+      if (ticket === pageLoad.current) setActivePage(null);
       return null;
     }
   }, []);
@@ -327,6 +344,40 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
         toast.error((e as Error).message);
       }
     })();
+  };
+
+  // Chats open in Studio keep a tab beside the page tabs, so a chat is one click away from
+  // a page and back.
+  const [chatTabs, setChatTabs] = useState<ChatTab[]>(() =>
+    parseChatTabs(localStorage.getItem(scopedKey(CHAT_TABS_KEY))),
+  );
+  const [shownChat, setShownChat] = useState<string | null>(null);
+  const [chatRequest, setChatRequest] = useState<{ id: string; n: number } | null>(null);
+  useEffect(() => {
+    try {
+      localStorage.setItem(scopedKey(CHAT_TABS_KEY), JSON.stringify(chatTabs));
+    } catch {
+      /* storage unavailable: tabs last for this session */
+    }
+  }, [chatTabs]);
+  const openChatTab = (id: string) => {
+    setChatRequest((old) => ({ id, n: (old?.n ?? 0) + 1 }));
+    if (aiOpen) return;
+    openFullScreen(() => {
+      setTrashOpen(false);
+      setMailOpen(false);
+      setRowPages([]);
+      setTemplatesOpen(false);
+      setWelcomeOpen(false);
+      setAiOpen(true);
+    });
+  };
+  const closeChat = (id: string) => {
+    const { tabs: left, next } = closeChatTab(chatTabs, id);
+    setChatTabs(left);
+    // Closing the chat on screen moves to its neighbour, as closing a page tab does.
+    if (aiOpen && shownChat === id && next)
+      setChatRequest((old) => ({ id: next.id, n: (old?.n ?? 0) + 1 }));
   };
 
   const showMail = () =>
@@ -614,7 +665,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
         </div>
       </div>
       <div className="relative flex min-w-0 flex-1 flex-col">
-        {!aiOpen && !showOnboarding && (shownTabs.length > 0 || mailTab) && (
+        {!showOnboarding && (shownTabs.length > 0 || mailTab || chatTabs.length > 0) && (
           <TabBar
             tabs={shownTabs}
             active={fullScreen ? null : selectedPath}
@@ -628,6 +679,12 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
                 ? { title: mailTitle, active: mailOpen, onSelect: showMail, onClose: closeMail }
                 : undefined
             }
+            chats={{
+              tabs: chatTabs,
+              active: aiOpen ? shownChat : null,
+              onSelect: openChatTab,
+              onClose: closeChat,
+            }}
           />
         )}
         <div className="relative min-h-0 flex-1">
@@ -636,6 +693,12 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
               assistantState={assistantState}
               assistantPage={assistantPage}
               openSection={studioSection}
+              openChat={chatRequest}
+              onChatShown={(chat) => {
+                setShownChat(chat?.id ?? null);
+                if (chat) setChatTabs((old) => showChatTab(old, chat));
+              }}
+              onChatRemoved={(id) => setChatTabs((old) => old.filter((t) => t.id !== id))}
               sidebarHost={askHost}
               active={aiOpen}
               tree={tree}
@@ -782,7 +845,7 @@ export function Workspace({ vault }: { vault?: DaemonInfo }) {
           activePage
             ? (question) => {
                 setChatOpen(true);
-                setAiRequest({ id: ++aiRequestId.current, prompt: question, mode: "ask" });
+                setAiRequest({ id: ++aiRequestId.current, prompt: question });
               }
             : undefined
         }

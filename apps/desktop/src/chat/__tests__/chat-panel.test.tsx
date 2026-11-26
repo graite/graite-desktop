@@ -160,7 +160,7 @@ it("keeps earlier conversations behind a history button, newest first", async ()
   await waitFor(() => scopeShown(/: This page & subpages$/));
 });
 
-it("opens a handed-off HTML request in Act mode without sending when asked to draft it", async () => {
+it("opens a handed-off HTML request without sending when asked to draft it", async () => {
   render(
     <ChatPanel
       {...props}
@@ -176,9 +176,9 @@ it("opens a handed-off HTML request in Act mode without sending when asked to dr
   await waitFor(() =>
     expect((composer as HTMLTextAreaElement).value).toBe("Revise the existing HTML dashboard: "),
   );
-  // Beside a page the composer is narrow: mode, depth and model live in one settings menu,
-  // whose tooltip says what is chosen.
+  // Beside a page the composer is narrow: depth and model live in one settings menu. There
+  // is no mode to pick anywhere.
   expect(screen.queryByRole("button", { name: "Answer mode" })).toBeNull();
-  expect(screen.getByRole("button", { name: "Chat settings" }).title).toMatch(/^Act/);
+  expect(screen.getByRole("button", { name: "Chat settings" })).toBeTruthy();
   expect(sendMessage).not.toHaveBeenCalled();
 });

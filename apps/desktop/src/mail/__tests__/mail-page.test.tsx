@@ -486,8 +486,9 @@ it("archives and deletes the open conversation in the mailbox", async () => {
   api.trash.mockRejectedValueOnce(new Error("This mailbox has no Trash folder."));
   fireEvent.click(screen.getByRole("button", { name: "Delete" }));
   await waitFor(() => expect(api.trash).toHaveBeenCalledWith("work", "t1"));
-  // A refusal leaves the conversation where it was.
-  expect(screen.getByText("We can start in May.")).toBeTruthy();
+  // It left at once; the refusal puts the conversation back where it was, still open.
+  await waitFor(() => expect(screen.getByText("We can start in May.")).toBeTruthy());
+  expect(screen.getAllByText("Quote for the roof").length).toBeGreaterThan(0);
 });
 
 it("folds the quoted mail of a reply away and keeps linked pictures out", () => {

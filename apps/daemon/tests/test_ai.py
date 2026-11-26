@@ -217,9 +217,14 @@ def test_anthropic_tool_transcript() -> None:
         ],
         [],
     )
-    assert body["system"] == "Instructions"
+    # The instructions and the newest message are cache breakpoints (and nothing else is).
+    cached = {"type": "ephemeral"}
+    assert body["system"] == [{"type": "text", "text": "Instructions", "cache_control": cached}]
     assert body["messages"][1]["content"][0]["input"] == {"path": "A"}
     assert body["messages"][2]["content"][0]["tool_use_id"] == "one"
+    assert body["messages"][2]["content"][-1]["cache_control"] == cached
+    assert "cache_control" not in body["messages"][0]["content"][0]
+    assert "cache_control" not in body["messages"][1]["content"][0]
 
 
 async def test_anthropic_stream_adapter(monkeypatch: pytest.MonkeyPatch) -> None:

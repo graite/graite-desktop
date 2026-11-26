@@ -62,6 +62,10 @@ export function useTableRows(path: string | null, query: Omit<RowsQuery, "offset
     reload();
   }, [reload]);
 
+  const failedRef = useRef(false);
+  useEffect(() => {
+    failedRef.current = !!error;
+  }, [error]);
   const related = useRef(new Set<string>());
   // When this block last wrote its own table: only those echoes are skipped. A write from
   // another block, the row panel or a reverse edit in another table is this webview's too,
@@ -80,6 +84,15 @@ export function useTableRows(path: string | null, query: Omit<RowsQuery, "offset
     if (!path) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const stop = onDaemonEvent((e) => {
+      if (e.type === "table_renamed" || e.type === "tables_changed") {
+        // The table may have been renamed or just created under this path: a block that
+        // failed to load it tries again instead of keeping the error until the page reopens.
+        if (failedRef.current) {
+          clearTimeout(timer);
+          timer = setTimeout(reload, 150);
+        }
+        return;
+      }
       if (e.type !== "table_changed") return;
       const data = e.data as { path?: string; request_id?: string | null };
       // A linked table's change is never "ours" for this block: its labels or reverse

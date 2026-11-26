@@ -74,6 +74,51 @@ class RowOpInput(typing.TypedDict, total=False):
     after: Annotated[str, "Insert only: the id of the row to insert after; default the end."]
 
 
+class FieldInput(typing.TypedDict, total=False):
+    """One field (column) of a database."""
+
+    name: Required[Annotated[str, "Field name, for example Status, Priority or Due."]]
+    type: Annotated[
+        str,
+        "text (default), number, currency, percent, single_select, multi_select, status, "
+        "date, checkbox, url, email, or relation (a link to rows of another database).",
+    ]
+    options: Annotated[list[str], "For status and select fields: the allowed options."]
+    table: Annotated[str, "Relation only: the path of the database it links to (from read_tables)."]
+    cardinality: Annotated[str, "Relation only: one (default) or many linked rows per cell."]
+    reverse: Annotated[
+        str,
+        "Relation only, optional: name of a field on the other database that lists the rows "
+        "linking back (Contacts on a company).",
+    ]
+
+
+class ColumnOpInput(typing.TypedDict, total=False):
+    """One change to a database's fields."""
+
+    op: Required[
+        Annotated[
+            str,
+            "add (a new field), rename (`to`), delete (the field and its values), set (change "
+            "`type` and/or `options` of an existing field) or move (`index`).",
+        ]
+    ]
+    name: Required[Annotated[str, "The field's name; for add, the new field's name."]]
+    to: Annotated[str, "Rename only: the new name."]
+    type: Annotated[
+        str,
+        "add and set: text, number, currency, percent, single_select, multi_select, status, "
+        "date, checkbox, url, email, or relation (a link to rows of another database).",
+    ]
+    options: Annotated[list[str], "add and set, for status and select fields: every option."]
+    table: Annotated[str, "Relation only: the path of the database it links to."]
+    cardinality: Annotated[str, "Relation only: one (default) or many linked rows per cell."]
+    reverse: Annotated[
+        str, "Relation only, optional: a field on the other database for the way back."
+    ]
+    index: Annotated[int, "Move only: the new position, counted from 0."]
+
+
 class ChartInput(typing.TypedDict, total=False):
     """A chart over a page's tables (a graite:chart fence)."""
 
@@ -761,7 +806,13 @@ TABLE_HELP = (
     "Multi-select cells are text like 'a; b'. Relation cells link rows of another table: in "
     "SQL they are text like '[[<row id>|<label>]]'; in propose_rows give a list of the target "
     "rows' ids. Columns marked reverse are derived from the other table and are not in SQL. "
-    "Change rows with propose_rows, using ids from read_rows or run_query_ro."
+    "Change rows with propose_rows, using ids from read_rows or run_query_ro; a value for a "
+    "field the table lacks needs that field first (propose_columns: add, rename, set type or "
+    "options, delete); the rows can be proposed right after it, in the same turn. "
+    "propose_table makes a new database on a page. When rows of one database refer to rows "
+    "of another (a contact's company, an invoice's customer), make that field a relation "
+    "(type relation, `table` = the other database) and fill it with row ids, never with "
+    "pasted names."
 )
 ROWS_PAGE = 50
 
@@ -1186,15 +1237,112 @@ async def propose_rows(
     from graite.tables import paths as table_paths
 
     table = table_paths.parse(str(table_path))
-    if not ops:
+    changes = _objects(ops, "ops")
+    if not changes:
         raise ValueError("Give at least one row change.")
-    return await _propose(
-        registry,
-        "rows",
-        table.page,
-        str(summary),
-        rows={"table": table.rel, "ops": [dict(o) for o in ops]},
-    )
+    try:
+        result = await _propose(
+            registry, "rows", table.page, str(summary), rows={"table": table.rel, "ops": changes}
+        )
+        filed = registry.proposals.get(result["proposal_id"])
+        if filed and filed.get("parent_proposal_id") and filed["status"] == "pending":
+            result["message"] = (
+                f"Proposal {filed['id']} created. It uses fields from proposal "
+                f"{filed['parent_proposal_id']}, which the user has not accepted yet: both "
+                "are reviewed together and the rows apply right after the fields."
+            )
+        return result
+    except ValueError as exc:
+        if "no column" in str(exc).lower():
+            # The usual cause: values for a field the table lacks. Say what to do about it
+            # so they are not squeezed into a notes field.
+            raise ValueError(
+                f"{exc} Add the missing field with propose_columns first, then repeat "
+                "this call. Do not put the value into another field."
+            ) from exc
+        raise
+
+
+@tool(
+    "propose",
+    "Propose a new database (a table of records with typed fields, stored as a CSV in the "
+    "page's _data folder) on an existing page, optionally with its first rows. Use it when "
+    "the user asks for a database, table, tracker, backlog or list of records and no fitting "
+    "one exists yet (read_tables lists them). Returns the table's path once it is applied; "
+    "add rows later with propose_rows.",
+)
+async def propose_table(
+    registry: Any,
+    page_path: Annotated[str, "The page the database lives on and is shown on."],
+    name: Annotated[str, "The database's name, for example Backlog."],
+    fields: Annotated[
+        list[FieldInput],
+        "Its fields in order; the first is each row's name. An id field is added for you.",
+    ],
+    summary: Annotated[str, "One line saying what the database is for."],
+    rows: Annotated[
+        list[Any] | None,
+        'First rows, each an object of field name -> value, e.g. {"Name": "Fix login", '
+        '"Status": "Todo"}. Only fields listed in `fields`.',
+    ] = None,
+) -> Any:
+    change = {
+        "action": "create",
+        "name": str(name),
+        "fields": _objects(fields, "fields"),
+        "rows": _objects(rows or [], "rows"),
+    }
+    result = await _propose(registry, "table", str(page_path), str(summary), fields_change=change)
+    if result.get("status") != "auto_applied":
+        result["message"] += (
+            " The database exists once the user accepts; do not add rows to it before then "
+            "(put the first rows in `rows` of this call instead)."
+        )
+    return result
+
+
+@tool(
+    "propose",
+    "Propose changes to the fields (columns) of a database: add a field, rename it, change "
+    "its type or options, move it or delete it. Use this before propose_rows when the rows "
+    "need a field the table does not have yet; propose_rows can follow in the same turn, "
+    "also while the fields still wait for review. A field that refers to rows of another "
+    "database (a contact's company) is a relation: type relation with `table`.",
+)
+async def propose_columns(
+    registry: Any,
+    table_path: Annotated[str, "The table's path from read_tables, e.g. Atlas/_data/Backlog.csv."],
+    ops: Annotated[list[ColumnOpInput], "The field changes, applied in order."],
+    summary: Annotated[str, "One line saying what changes and why."],
+) -> Any:
+    from graite.tables import paths as table_paths
+
+    table = table_paths.parse(str(table_path))
+    change = {"action": "columns", "table": table.rel, "ops": _objects(ops, "ops")}
+    return await _propose(registry, "table", table.page, str(summary), fields_change=change)
+
+
+def _objects(items: Any, what: str) -> list[dict[str, Any]]:
+    """A list of objects from a model: some send the list, or each item, as JSON text."""
+    if isinstance(items, str):
+        try:
+            items = json.loads(items)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"`{what}` must be a list of objects.") from exc
+    if isinstance(items, dict):
+        items = [items]
+    out: list[dict[str, Any]] = []
+    for item in items or []:
+        if isinstance(item, str):
+            try:
+                parsed = json.loads(item)
+            except json.JSONDecodeError:
+                parsed = {"name": item}
+            item = parsed if isinstance(parsed, dict) else {"name": item}
+        if not isinstance(item, dict):
+            raise ValueError(f"Each item of `{what}` must be an object.")
+        out.append(dict(item))
+    return out
 
 
 # ----------------------------------------------------------------------------- proposals
@@ -1250,15 +1398,49 @@ async def _propose(registry: Any, kind: str, path: str, summary: str, **fields: 
     return result
 
 
+@tool(
+    "meta",
+    "Say that the rest of the request has to wait until the user has decided on changes you "
+    "proposed in this turn (for example: content for a page that only exists once its "
+    "proposal is accepted). You are called again automatically after they decide, with "
+    "`next_steps` as your reminder. Do not use it when nothing is waiting for review, and "
+    "not for rows that need new fields: propose_rows may follow propose_columns directly.",
+)
+async def continue_after_review(
+    registry: Any,
+    next_steps: Annotated[str, "What you will do once the changes are accepted, in a line or two."],
+) -> Any:
+    next_steps = str(next_steps).strip()
+    if not next_steps:
+        raise ValueError("Say what remains to be done.")
+    return {
+        "status": "waiting",
+        "next_steps": next_steps[:600],
+        "message": "Noted. Finish this reply by telling the user what awaits their review "
+        "and that you continue by yourself once they have decided.",
+    }
+
+
 @tool("meta", "Ask one clarification needed to continue. Pauses this turn for the user's reply.")
 async def request_clarification(
     registry: Any,
     question: Annotated[str, "A short, specific question about the missing decision."],
+    options: Annotated[
+        list[str] | None,
+        "Two to four short answers the user can pick with one click, when the choice is "
+        "between known alternatives.",
+    ] = None,
 ) -> Any:
     question = str(question).strip()
     if not question:
         raise ValueError("Ask a nonempty question.")
-    return {"question": question[:1000], "status": "needs_input"}
+    result: dict[str, Any] = {"question": question[:1000], "status": "needs_input"}
+    if isinstance(options, str):
+        options = [options]
+    choices = [str(o).strip()[:80] for o in options or [] if str(o).strip()][:4]
+    if len(choices) > 1:
+        result["options"] = choices
+    return result
 
 
 @tool(

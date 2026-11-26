@@ -31,8 +31,6 @@ const base = {
   onSend: vi.fn(),
   onStop: vi.fn(),
   busy: false,
-  mode: "ask" as const,
-  onModeChange: vi.fn(),
   attachments: [],
   onAttach: vi.fn(),
   onRemoveAttachment: vi.fn(),
@@ -85,7 +83,7 @@ it("switches between a quick answer and deep research, and remembers it", () => 
   expect(toggle.textContent).toContain("Deep");
   expect(chatDepth()).toBe("deep");
   cleanup();
-  // Draft and Act always work with tools: no toggle there.
+  // A pinned Act mode always works with tools: no toggle there.
   render(<Composer {...base} mode="act" />);
   expect(screen.queryByRole("button", { name: "Deep research" })).toBeNull();
 });

@@ -174,7 +174,7 @@ it("answers from the whole vault and shows its sources and limits", async () => 
   fireEvent.change(screen.getByLabelText("Ask about your pages…"), { target: { value: "Price?" } });
   fireEvent.click(screen.getByRole("button", { name: "Send message" }));
   await screen.findByText("1 new source");
-  expect(sendMessage.mock.calls[0][1]).toMatchObject({ message: "Price?", mode: "ask" });
+  expect(sendMessage.mock.calls[0][1]).toMatchObject({ message: "Price?", mode: "auto" });
   await screen.findByText(/Searched 1 page in your vault/);
   fireEvent.click((await screen.findAllByRole("button", { name: /Open Pricing/ }))[0]);
   expect(props.onNavigate).toHaveBeenCalledWith("Pricing");

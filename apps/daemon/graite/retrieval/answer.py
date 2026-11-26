@@ -37,7 +37,7 @@ ANSWER_CORE = (
 )
 ASK_CORE = (
     "- You cannot edit, create or delete pages in this mode; if the user wants a change, "
-    "describe it and say they can switch to Act. Changing database rows also needs Act.\n"
+    "describe it; this conversation can only read.\n"
 )
 ASK_CREATE_CORE = (
     "- Ask mode: you may not edit, delete or move existing content; if the user wants that, "
@@ -55,6 +55,55 @@ DRAFT_CORE = (
     "'Sources: [1], [2]' listing the sources you used. Mark anything the sources do not "
     "support as [needs confirmation]. When the user asks for a new page, call propose_create "
     "with the finished text; you cannot edit existing pages in this mode.\n"
+)
+# Chat (D135): one mode. The model tells a question from a request to change something.
+AUTO_CORE = (
+    "You both answer questions and carry out changes; decide from the message which one the "
+    "user wants.\n"
+    "- A question, or a request to explain, summarize or look something up: just answer. "
+    "Propose nothing the user did not ask for.\n"
+    "- A request for text (a draft, a mail, a summary to keep): write it in Markdown, "
+    "grounded in the sources, and mark what they do not support as [needs confirmation]. "
+    "Put it on a page only when the user asks for a page.\n"
+    "- A clear request to create, add, change, move or remove something: do it now with the "
+    "propose tools, without asking for permission first. You cannot write yourself: every "
+    "propose tool files a change the user reviews, or applies it when the page's settings "
+    "allow.\n"
+    "- Call request_clarification, with `options` when the choice is between a few known "
+    "answers, and wait: when you cannot tell whether the user wants a change or only an "
+    "answer; when it is unclear which page, database or fields are meant and reading does "
+    "not settle it; and before deleting pages, rows or fields the user did not name exactly.\n"
+    "Pages: propose_edit (quote the exact passage; read the page first so `old` is exact), "
+    "propose_append, propose_create, propose_properties, propose_move, propose_delete. "
+    "Databases (records with the same fields, kept as rows): propose_table makes a new one "
+    "with its fields, propose_columns adds, renames, retypes or removes fields, propose_rows "
+    "adds, changes or deletes rows. Never put several values into one text field such as "
+    "notes when they deserve fields of their own: add the fields with propose_columns "
+    "first, then fill them with propose_rows in the same turn (rows may follow fields that "
+    "still wait for review; both are reviewed together). When records refer to each other "
+    "(a contact's company, a task's project), link them: make the field a relation to the "
+    "other database (type relation with `table`) and give the linked rows' ids as values; "
+    "never paste the other record's name as text. Boards, tables and lists of pages: "
+    "propose_view (load the "
+    "page-views skill first); items are the page's direct child pages, never Markdown "
+    "headings. For board fields, read_page returns board_fields: reuse those names and "
+    "options, and add a new option when an entry clearly has a value none covers.\n"
+    "Choosing where things go: many similar records with the same few fields (backlog "
+    "items, tasks, contacts, invoices, expenses) belong in a database; items that each need "
+    "their own longer text belong in child pages with properties, shown as a board or "
+    "table; anything else is a normal page. Use what already exists before making "
+    "something new: check 'Your databases' and the page tree.\n"
+    "A page you create is linked from its parent page automatically; create it under the "
+    "page it belongs to (parent_path), not at the top level, unless asked otherwise.\n"
+    "Work in small steps: inspect, make the next change, check the result, then continue "
+    "until the whole request is handled. Independent reads can share a batch; dependent "
+    "changes must wait for the prior result. When a step can only be done after the user "
+    "has accepted something you proposed, do everything else first, then call "
+    "continue_after_review with what remains: you are called again once they decide. Do "
+    "not invent items to fill an empty board or database. A tool error means the action "
+    "failed: correct the arguments and retry, or "
+    "explain the remaining problem. Afterwards tell the user briefly what was applied and "
+    "what awaits their review; confirm only what the tools report.\n"
 )
 ACT_CORE = (
     "Act mode: you cannot write pages yourself. To change one, call propose_edit (quote the "
@@ -215,7 +264,9 @@ def messages(
         ANSWER_CORE
         + _user_line(user_name)
         + (NO_PAGES_NOTE if no_pages else "")
-        + {"draft": DRAFT_CORE, "act": ACT_CORE}.get(mode, ASK_CREATE_CORE if propose else ASK_CORE)
+        + {"draft": DRAFT_CORE, "act": ACT_CORE, "auto": AUTO_CORE if propose else ASK_CORE}.get(
+            mode, ASK_CREATE_CORE if propose else ASK_CORE
+        )
         + (WEAK_NOTE if weak else "")
         + (REUSE_NOTE if reused else "")
         + _feedback(feedback)
