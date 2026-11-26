@@ -485,6 +485,11 @@ async def _session(
                     )
                     metrics = provider.metrics
                     metrics["input_tokens"] = metrics.get("input_tokens", 0) + read
+                    # What was served from the prompt cache, so a turn's total can say how
+                    # much of it was reused (billed at a fraction) and how much was new.
+                    metrics["cache_read_input_tokens"] = metrics.get(
+                        "cache_read_input_tokens", 0
+                    ) + int(usage.get("cache_read_input_tokens") or 0)
                     metrics["output_tokens"] = metrics.get("output_tokens", 0) + int(
                         usage.get("output_tokens") or 0
                     )
